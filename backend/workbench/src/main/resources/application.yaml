@@ -25,7 +25,7 @@ spring:
       # tests), and that one retries 429s by itself.
       imperative:
         factory: jdk
-      # For every RestClient, today only WikipediaClient: a slow article must not hold up enrichment.
+      # For every RestClient but WikimediaClient's, which set their own: a slow article must not hold up enrichment.
       connect-timeout: 5s
       read-timeout: 5s
 
@@ -54,9 +54,15 @@ app:
     wikidata-sparql: https://query.wikidata.org/sparql
     # The query service stops a query after 60 seconds: a little longer, for its answer to arrive.
     sparql-timeout: 75s
+    # Wikidata took 6 s to send 50 people's entities (2 MB) on 2026-10-10, past the 5 s other clients are given.
+    read-timeout: 60s
     user-agent: ${app.wikipedia.user-agent}
     # Wikimedia's advice for bots: let the servers say no when they are more than 5 seconds behind.
     maxlag: 5
+    # Wikidata's lag also counts its query service catching up with edits, there to slow down bots that edit. It stayed
+    # from 10 to 19 s for over 20 minutes on 2026-10-10, refusing every read at 5. Still a wait when far behind.
+    wikidata-maxlag: 60
+    # When Wikimedia gives no Retry-After, as on a 502: 5 s, then 10, 20, 40, 80 (resilience4j.retry, max-attempts).
     default-retry-wait: 5s
     max-retry-wait: 2m
   wikidata:
@@ -77,6 +83,7 @@ app:
       - until: 1900
         years: 10
     languages: [en, fr, ja, mul]
+    # The Wikipedia articles kept, and fetched last: their intros, page images and URLs.
     sites: [enwiki, frwiki]
     # Places of birth, death, work and residence, and occupations.
     linked-properties: [P19, P20, P937, P551, P106]
@@ -120,6 +127,6 @@ resilience4j:
   retry:
     instances:
       wikimedia:
-        # The waits come from Retry-After (WikimediaRetry).
+        # The waits come from Retry-After, else grow from app.wikimedia.default-retry-wait (WikimediaRetry).
         max-attempts: 6
         retry-exceptions: dev.wholivedwhen.wikimedia.WikimediaBusyException

@@ -24,7 +24,8 @@ class DatasetStore(dataSource: DataSource) {
         jdbc.execute(
             """
             truncate dataset.person, dataset.person_occupation, dataset.person_place, dataset.person_flag,
-                dataset.occupation, dataset.occupation_parent, dataset.place, dataset.place_country, dataset.place_flag
+                dataset.person_article, dataset.occupation, dataset.occupation_parent, dataset.place,
+                dataset.place_country, dataset.place_flag
             """.trimIndent(),
         )
     }
@@ -63,6 +64,22 @@ class DatasetStore(dataSource: DataSource) {
             people.flatMap { person -> person.flags.map { arrayOf<Any?>(person.qid, it.name, it.flag) } },
         )
     }
+
+    /**
+     * Saves the articles the people saved so far link to (`enwiki`, `frwiki`) from those stored in `raw.page`, as
+     * Wikipedia gave them. Returns how many.
+     */
+    fun saveArticles(): Int =
+        jdbc.update(
+            """
+            insert into dataset.person_article (person, language, title, url, extract, thumbnail_url, image)
+            select p.qid, a.language, page.json ->> 'title', page.json ->> 'fullurl', page.json ->> 'extract',
+                page.json -> 'thumbnail' ->> 'source', page.json ->> 'pageimage'
+            from dataset.person p
+            cross join lateral (values ('en', p.enwiki), ('fr', p.frwiki)) as a(language, title)
+            join raw.page page on page.language = a.language and page.title = a.title
+            """.trimIndent(),
+        )
 
     fun savePlaces(places: List<PlaceRow>) {
         jdbc.batchUpdate(

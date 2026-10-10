@@ -8,6 +8,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.and
 import com.github.tomakehurst.wiremock.client.WireMock.containing
 import com.github.tomakehurst.wiremock.client.WireMock.equalTo
 import com.github.tomakehurst.wiremock.client.WireMock.get
+import com.github.tomakehurst.wiremock.client.WireMock.matching
 import com.github.tomakehurst.wiremock.client.WireMock.okJson
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
 import com.github.tomakehurst.wiremock.stubbing.Scenario
@@ -37,13 +38,14 @@ import kotlin.test.assertTrue
  * The import against a fake Wikimedia (WireMock), answering with responses recorded from the real one on 2026-10-09:
  * the 28 people born from 2000 to 1901 BCE with at least 10 sitelinks, their entities, the 11 places and
  * occupations they link to (Egypt's statements cut down to three, to keep the file small), and the 25 classes above
- * those occupations, three levels up.
+ * those occupations, three levels up; and on 2026-10-10, their 28 English and 22 French Wikipedia articles.
  */
 @SpringBootTest(
     properties = [
         "app.wikipedia.enrich=false",
         "app.wikimedia.wikidata-api=\${wikimedia.base-url}/w/api.php",
         "app.wikimedia.wikidata-sparql=\${wikimedia.base-url}/sparql",
+        "app.wikimedia.wikipedia-api=\${wikimedia.base-url}/{language}/w/api.php",
         // One slice, the 20th century BCE, as the default plan asks for it.
         "app.wikidata.born-from=-1999",
         "app.wikidata.born-until=-1899",
@@ -72,8 +74,8 @@ class WikidataImportTests(
     private val sparql = urlPathEqualTo("/sparql")
     private val wikidata = urlPathEqualTo("/w/api.php")
 
-    private fun json(file: String): ResponseDefinitionBuilder =
-        aResponse().withHeader("Content-Type", "application/json").withBodyFile("wikidata/$file")
+    private fun json(file: String, folder: String = "wikidata"): ResponseDefinitionBuilder =
+        aResponse().withHeader("Content-Type", "application/json").withBodyFile("$folder/$file")
 
     private fun entities(props: String): MappingBuilder =
         get(wikidata).withQueryParam("action", equalTo("wbgetentities")).withQueryParam("props", equalTo(props))
@@ -85,11 +87,23 @@ class WikidataImportTests(
     private fun classes(level: Int, props: String = "info|labels|claims"): MappingBuilder =
         entities(props).withQueryParam("ids", equalTo(CLASSES[level - 1]))
 
+    /** Wikipedia's [language] edition, asked for [prop] of the pages whose titles start with [titles]. */
+    private fun pages(language: String, prop: String, titles: String = ""): MappingBuilder =
+        get(urlPathEqualTo("/$language/w/api.php")).withQueryParam("prop", equalTo(prop))
+            .withQueryParam("titles", matching("${Regex.escape(titles)}.*"))
+
     private fun stubFirstImport() {
         server.stubFor(get(sparql).willReturn(json("sparql-born-2000-to-1901-bce.json").withHeader("Content-Type", "application/sparql-results+json")))
         server.stubFor(entities("info|labels|aliases|claims|sitelinks").willReturn(json("wbgetentities-born-2000-to-1901-bce.json")))
         server.stubFor(linked().willReturn(json("wbgetentities-linked-to-born-2000-to-1901-bce.json")))
         (1..3).forEach { server.stubFor(classes(it).willReturn(json("wbgetentities-classes-$it-of-born-2000-to-1901-bce.json"))) }
+        // Their articles, 20 a request, in the order of their titles.
+        PAGES.forEach { (language, firstTitles) ->
+            firstTitles.forEachIndexed { i, title ->
+                server.stubFor(pages(language, FULL, title).willReturn(json("$language-born-2000-to-1901-bce-${i + 1}.json", "wikipedia")))
+            }
+            server.stubFor(pages(language, "info").willReturn(json("$language-born-2000-to-1901-bce-info.json", "wikipedia")))
+        }
     }
 
     private fun count(table: String) = jdbc.queryForObject("select count(*) from raw.$table", Int::class.java)!!
@@ -100,11 +114,13 @@ class WikidataImportTests(
 
     @BeforeEach
     fun emptyCache() {
-        jdbc.execute("truncate raw.discovered, raw.entity, raw.import_item, raw.discovery_slice, raw.import_run restart identity")
+        jdbc.execute(
+            "truncate raw.discovered, raw.entity, raw.import_item, raw.discovery_slice, raw.page, raw.page_item, raw.import_run restart identity",
+        )
     }
 
     @Test
-    fun `discovers people, fetches their entities, then the places and occupations they link to, then the classes above`() {
+    fun `discovers people, fetches their entities, the places and occupations they link to, the classes above, then their articles`() {
         stubFirstImport()
 
         val run = wikidataImport.run()
@@ -119,7 +135,7 @@ class WikidataImportTests(
                 .single().values.toList(),
         )
         assertEquals("Egypt", jdbc.queryForObject("select json -> 'labels' -> 'en' ->> 'value' from raw.entity where qid = 'Q79'", String::class.java))
-        assertEquals(mapOf<String, Any?>("requests" to 6, "busy" to 0, "fetched" to 64, "unchanged" to 0, "missing" to 0), store.counts(run))
+        assertEquals(counts(requests = 6 + 4, fetched = 64, pagesFetched = 28 + 22), store.counts(run))
 
         val query = requests("/sparql").single().queryParams["query"]!!.firstValue()
         assertTrue("?sitelinks >= 10" in query, query)
@@ -135,6 +151,16 @@ class WikidataImportTests(
         assertEquals(null, linked.queryParams["sitefilter"])
         // Each class once: "monarch", the parent of "pharaoh", is fetched as an occupation already.
         assertEquals(CLASSES, requests("/w/api.php").drop(2).map { it.queryParams["ids"]!!.firstValue() })
+
+        // Every person's articles, by the title of their sitelink, 20 a request.
+        assertEquals(listOf(20, 8), requests("/en/w/api.php").map { it.queryParams["titles"]!!.firstValue().split("|").size })
+        assertEquals(listOf(20, 2), requests("/fr/w/api.php").map { it.queryParams["titles"]!!.firstValue().split("|").size })
+        val (revision, extract) = jdbc.queryForList(
+            "select revision::text, json ->> 'extract' from raw.page where language = 'fr' and title = 'Néférousobek'",
+        ).single().values.map { it as String }
+        assertEquals("229952391", revision)
+        assertTrue(extract.startsWith("Néférousobek est la dernière souveraine de la XIIe dynastie"), extract)
+        assertEquals(28, jdbc.queryForObject("select count(*) from raw.page where language = 'en'", Int::class.java))
     }
 
     @Test
@@ -161,14 +187,31 @@ class WikidataImportTests(
         server.stubFor(entities("info").withQueryParam("ids", containing("Q19244")).willReturn(okJson(people.toString())))
         server.stubFor(entities("info").withQueryParam("ids", containing("Q79")).willReturn(okJson(linked.toString())))
         (1..3).forEach { server.stubFor(classes(it, "info").willReturn(json("wbgetentities-classes-$it-of-born-2000-to-1901-bce-info.json"))) }
+        // Sobekneferu's English article was edited too, and Âat's French one deleted.
+        val english = recorded("en-born-2000-to-1901-bce-info.json", "wikipedia")
+        (english.path("query").path("pages").values().single { it.path("title").asString() == "Sobekneferu" } as ObjectNode)
+            .put("lastrevid", 1378630327 + 1)
+        val french = recorded("fr-born-2000-to-1901-bce-info.json", "wikipedia")
+        (french.path("query").path("pages").values().single { it.path("title").asString() == "Âat" } as ObjectNode)
+            .removeAll().put("ns", 0).put("title", "Âat").put("missing", true)
+        server.stubFor(pages("en", "info").willReturn(okJson(english.toString())))
+        server.stubFor(pages("fr", "info").willReturn(okJson(french.toString())))
+        server.stubFor(pages("en", FULL, "Sobekneferu").willReturn(json("en-born-2000-to-1901-bce-2.json", "wikipedia")))
 
         val run = wikidataImport.run()
 
-        // The query, the people's revisions, Amenemhat III, the linked entities' revisions, each level of classes'.
-        assertEquals(mapOf<String, Any?>("requests" to 7, "busy" to 0, "fetched" to 1, "unchanged" to 62, "missing" to 1), store.counts(run))
+        // The query, the people's revisions, Amenemhat III, the linked entities' revisions, each level of classes',
+        // the English articles' revisions, Sobekneferu's, the French articles' revisions.
+        assertEquals(
+            counts(requests = 7 + 3, fetched = 1, unchanged = 62, missing = 1, pagesFetched = 1, pagesUnchanged = 48, pagesMissing = 1),
+            store.counts(run),
+        )
         val fetchedAgain = requests("/w/api.php").filter { it.queryParams["props"]!!.firstValue() != "info" }
         assertEquals(listOf("Q19244"), fetchedAgain.map { it.queryParams["ids"]!!.firstValue() })
         assertEquals(28 + 10 + 25, count("entity"))
+        val pagesFetchedAgain = requests("/").filter { it.queryParams["prop"]?.firstValue() == FULL }
+        assertEquals(listOf("Sobekneferu"), pagesFetchedAgain.map { it.queryParams["titles"]!!.firstValue() })
+        assertEquals(28 + 21, count("page"))
     }
 
     @Test
@@ -176,7 +219,9 @@ class WikidataImportTests(
         stubFirstImport()
         val wholeSlice = and(containing(FROM_2000_BCE), containing(UNTIL_1900_BCE))
         server.stubFor(get(sparql).atPriority(1).withQueryParam("query", wholeSlice).willReturn(aResponse().withStatus(500).withBody(TIMEOUT)))
-        server.stubFor(get(sparql).atPriority(2).withQueryParam("query", containing(UNTIL_1900_BCE)).willReturn(aResponse().withStatus(502)))
+        server.stubFor(
+            get(sparql).atPriority(2).withQueryParam("query", containing(UNTIL_1900_BCE)).willReturn(aResponse().withStatus(500).withBody(BROKEN)),
+        )
 
         assertThrows<WikimediaException> { wikidataImport.run() }
         assertEquals(3, requests("/sparql").size)
@@ -197,7 +242,7 @@ class WikidataImportTests(
     @Test
     fun `a run that stopped half way resumes at the next batch`() {
         stubFirstImport()
-        server.stubFor(linked().atPriority(1).willReturn(aResponse().withStatus(503)))
+        server.stubFor(linked().atPriority(1).willReturn(aResponse().withStatus(500)))
         assertThrows<HttpServerErrorException> { wikidataImport.run() }
 
         server.resetRequests()
@@ -206,7 +251,7 @@ class WikidataImportTests(
 
         assertEquals(1L, run.id)
         assertEquals(ImportPhase.DONE, run.phase)
-        assertEquals(List(4) { "info|labels|claims" }, requests("/").map { it.queryParams["props"]!!.firstValue() })
+        assertEquals(List(4) { "info|labels|claims" }, requests("/w/api.php").map { it.queryParams["props"]!!.firstValue() })
         assertEquals(28 + 11 + 25, count("entity"))
     }
 
@@ -218,7 +263,7 @@ class WikidataImportTests(
                 .willReturn(aResponse().withStatus(429).withHeader("Retry-After", "1")).willSetStateTo("waited"),
         )
         val run = wikidataImport.run()
-        assertEquals(mapOf<String, Any?>("requests" to 7, "busy" to 1, "fetched" to 64, "unchanged" to 0, "missing" to 0), store.counts(run))
+        assertEquals(counts(requests = 7 + 4, busy = 1, fetched = 64, pagesFetched = 50), store.counts(run))
         assertTrue(run.notBefore != null)
 
         // A run that stopped while asked to wait 2 more seconds.
@@ -265,15 +310,28 @@ class WikidataImportTests(
         }
     }
 
-    private fun recorded(file: String) =
-        jsonMapper.readTree(ClassPathResource("wiremock/__files/wikidata/$file").inputStream) as ObjectNode
+    private fun recorded(file: String, folder: String = "wikidata") =
+        jsonMapper.readTree(ClassPathResource("wiremock/__files/$folder/$file").inputStream) as ObjectNode
+
+    /** What [RawStore.counts] returns. */
+    private fun counts(
+        requests: Int, busy: Int = 0, fetched: Int, unchanged: Int = 0, missing: Int = 0,
+        pagesFetched: Int, pagesUnchanged: Int = 0, pagesMissing: Int = 0,
+    ) = mapOf<String, Any?>(
+        "requests" to requests, "busy" to busy, "fetched" to fetched, "unchanged" to unchanged, "missing" to missing,
+        "pages_fetched" to pagesFetched, "pages_unchanged" to pagesUnchanged, "pages_missing" to pagesMissing,
+    )
 
     private companion object {
         const val FROM_2000_BCE = "\"-1999-01-01T00:00:00Z\"^^xsd:dateTime <= ?born"
         const val UNTIL_1900_BCE = "?born < \"-1899-01-01T00:00:00Z\"^^xsd:dateTime"
         // What the query service answers when it stops a query after 60 seconds.
         const val TIMEOUT = "java.util.concurrent.ExecutionException: java.util.concurrent.TimeoutException"
+        const val BROKEN = "java.lang.IllegalStateException"
         const val NO_ONE = """{"head":{"vars":["person","sitelinks"]},"results":{"bindings":[]}}"""
+        const val FULL = "extracts|pageimages|info"
+        // The first title of each request for articles, by language: 20 titles a request, in code point order.
+        val PAGES = mapOf("en" to listOf("Aat (queen)", "Sargon I"), "fr" to listOf("Amenemhat III", "Yahdun-Lim"))
         // The classes above the occupations, a level a request, as the import asks for them.
         val CLASSES = listOf(
             "Q1097498|Q16511993|Q2478141|Q467|Q48352|Q702269",

@@ -25,7 +25,7 @@ data class WikidataProperties(
     val sliceYears: List<SliceYears>,
     /** The languages of labels and aliases to keep. `mul` is the label shared by all languages, when no other is set. */
     val languages: List<String>,
-    /** The Wikipedia editions whose sitelinks to keep. */
+    /** The Wikipedia editions (`enwiki`) whose sitelinks to keep, and whose articles' intros to fetch. */
     val sites: List<String>,
     /** The properties whose values are fetched too: places of birth, death, work and residence, and occupations. */
     val linkedProperties: List<String>,

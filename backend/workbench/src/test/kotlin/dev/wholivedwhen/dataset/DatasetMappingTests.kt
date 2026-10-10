@@ -12,13 +12,15 @@ import tools.jackson.databind.json.JsonMapper
 import dev.wholivedwhen.testing.PostgresTestConfiguration
 import dev.wholivedwhen.wikidata.BirthSlice
 import dev.wholivedwhen.wikidata.EntityBatch
+import dev.wholivedwhen.wikidata.PageBatch
 import dev.wholivedwhen.wikidata.RawStore
 import java.time.LocalDate
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * The mapping from `raw` to `dataset`, on what an import of the 28 people born from 2000 to 1901 BCE stored: the
- * responses recorded from Wikidata on 2026-10-09, put in `raw` as the import puts them. Natural Earth's borders are
+ * responses recorded from Wikidata on 2026-10-09 and from Wikipedia on 2026-10-10, put in `raw` as the import puts them. Natural Earth's borders are
  * the fixtures', already where the mapping keeps them.
  */
 @SpringBootTest(
@@ -39,12 +41,15 @@ class DatasetMappingTests(
 
     @BeforeEach
     fun emptyCache() {
-        jdbc.execute("truncate raw.discovered, raw.entity, raw.import_item, raw.discovery_slice, raw.import_run restart identity")
+        jdbc.execute(
+            "truncate raw.discovered, raw.entity, raw.import_item, raw.discovery_slice, raw.page, raw.page_item, raw.import_run restart identity",
+        )
     }
 
-    private fun recorded(file: String) = jsonMapper.readTree(ClassPathResource("wiremock/__files/wikidata/$file").inputStream)
+    private fun recorded(file: String, folder: String = "wikidata") =
+        jsonMapper.readTree(ClassPathResource("wiremock/__files/$folder/$file").inputStream)
 
-    /** Stores the recorded people, places, occupations and classes, as a finished import would. */
+    /** Stores the recorded people, places, occupations, classes and articles, as a finished import would. */
     private fun importRecorded() {
         val run = raw.currentRun()
         val people = recorded("sparql-born-2000-to-1901-bce.json").path("results").path("bindings").associate {
@@ -55,6 +60,13 @@ class DatasetMappingTests(
         files.map { "wbgetentities-$it-2000-to-1901-bce.json" }.forEach { file ->
             val entities = recorded(file).path("entities").values().toList()
             raw.saveBatch(run, EntityBatch(entities.map { it.path("id").asString() }, 1, entities, emptyList(), emptyList()))
+        }
+        listOf("en", "fr").forEach { language ->
+            (1..2).forEach { i ->
+                val pages = recorded("$language-born-2000-to-1901-bce-$i.json", "wikipedia").path("query").path("pages").values()
+                val byTitle = pages.associateBy { it.path("title").asString() }
+                raw.savePages(run, PageBatch(language, byTitle.keys.toList(), 1, byTitle, emptyList(), emptyList()))
+            }
         }
         raw.finish(run)
     }
@@ -68,7 +80,7 @@ class DatasetMappingTests(
         val counts = mapping.map()
 
         // The 9 occupations and the classes above them, but for 2 of the 25 fetched, only reached through deprecated statements.
-        assertEquals(DatasetCounts(people = 28, leftOut = emptyMap(), places = 2, occupations = 9 + 23), counts)
+        assertEquals(DatasetCounts(people = 28, leftOut = emptyMap(), articles = 28 + 22, places = 2, occupations = 9 + 23), counts)
         assertEquals(
             listOf<Any?>("Sobekneferu", "Néférousobek", 47, -1900, 7, -1793, 9, false, true, "Q6581072", "Sobekneferu", "Néférousobek"),
             rows(
@@ -78,6 +90,28 @@ class DatasetMappingTests(
                 from dataset.person where qid = 'Q228951'
                 """,
             ).single(),
+        )
+        val (url, extract, thumbnail, image) = jdbc.queryForList(
+            "select url, extract, thumbnail_url, image from dataset.person_article where person = 'Q228951' and language = 'en'",
+        ).single().values.map { it as String }
+        assertEquals("https://en.wikipedia.org/wiki/Sobekneferu", url)
+        assertTrue(extract.startsWith("Sobekneferu or Neferusobek (Egyptian: "), extract)
+        // Smaller than 400 pixels: the image itself, not a thumbnail.
+        assertEquals(
+            "https://upload.wikimedia.org/wikipedia/commons/8/89/Statue_of_Sobekneferu_%28Berlin_Egyptian_Museum_14475%29.jpg" +
+                "?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+            thumbnail,
+        )
+        assertEquals("Statue_of_Sobekneferu_(Berlin_Egyptian_Museum_14475).jpg", image)
+        assertEquals(
+            listOf<Any?>("fr", "Néférousobek", "https://fr.wikipedia.org/wiki/N%C3%A9f%C3%A9rousobek"),
+            rows("select language, title, url from dataset.person_article where person = 'Q228951' and language = 'fr'").single(),
+        )
+        // Naram-Sin of Eshnunna has no French article; Da Ding's English one has no page image.
+        assertEquals(listOf("en"), jdbc.queryForList("select language from dataset.person_article where person = 'Q327523'", String::class.java))
+        assertEquals(
+            listOf<Any?>(null, null),
+            rows("select thumbnail_url, image from dataset.person_article where person = 'Q888231'").single(),
         )
         // Amenemhat III's preferred occupation, pharaoh of the 12th dynasty, comes first, though Wikidata lists it second.
         assertEquals(

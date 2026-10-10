@@ -15,6 +15,9 @@ services:
       - "127.0.0.1::5432"
     volumes: !override
       - workbench-db-data:/var/lib/postgresql
+    # The site's 256 MB suit a database of a few megabytes. This one holds gigabytes: mapping them took Postgres to
+    # about 225 MB, and over 256 MB at times, where the kernel killed it mid-run.
+    mem_limit: 2g
 
 volumes:
   workbench-db-data:

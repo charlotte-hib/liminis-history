@@ -14,7 +14,7 @@ import java.time.ZoneOffset
 import javax.sql.DataSource
 
 /** The steps of an import, in order. */
-enum class ImportPhase { DISCOVER, PEOPLE, LINKED, CLASSES, DONE }
+enum class ImportPhase { DISCOVER, PEOPLE, LINKED, CLASSES, PAGES, DONE }
 
 /**
  * The entities an import fetches: people first, then what their claims link to, then the classes their occupations
@@ -31,6 +31,16 @@ data class EntityBatch(
     val ids: List<String>,
     val requests: Int,
     val fetched: List<JsonNode>,
+    val unchanged: List<String>,
+    val missing: List<String>,
+)
+
+/** What one batch of Wikipedia pages in one [language] came to, the pages fetched by the title asked for. */
+data class PageBatch(
+    val language: String,
+    val titles: List<String>,
+    val requests: Int,
+    val fetched: Map<String, JsonNode>,
     val unchanged: List<String>,
     val missing: List<String>,
 )
@@ -99,7 +109,13 @@ class RawStore(dataSource: DataSource, private val transactions: TransactionTemp
     fun findRun(id: Long): ImportRun = jdbc.queryForObject("select * from raw.import_run where id = ?", ::toRun, id)!!
 
     fun counts(run: ImportRun): Map<String, Any?> =
-        jdbc.queryForMap("select requests, busy, fetched, unchanged, missing from raw.import_run where id = ?", run.id)
+        jdbc.queryForMap(
+            """
+            select requests, busy, fetched, unchanged, missing, pages_fetched, pages_unchanged, pages_missing
+            from raw.import_run where id = ?
+            """.trimIndent(),
+            run.id,
+        )
 
     fun countRequest(run: ImportRun) {
         jdbc.update("update raw.import_run set requests = requests + 1 where id = ?", run.id)
@@ -216,6 +232,26 @@ class RawStore(dataSource: DataSource, private val transactions: TransactionTemp
         )
     }
 
+    /**
+     * The entities are done: the Wikipedia articles the people's sitelinks to [sites] name are next, each in its
+     * [languages] edition (the same position in both lists).
+     */
+    fun queuePages(run: ImportRun, sites: List<String>, languages: List<String>) = transactions.executeWithoutResult {
+        jdbc.update(
+            """
+            insert into raw.page_item (run_id, language, title)
+            select distinct i.run_id, s.language, e.json -> 'sitelinks' -> s.site ->> 'title'
+            from raw.import_item i
+            join raw.entity e on e.qid = i.qid
+            cross join unnest(?::text[], ?::text[]) as s(site, language)
+            where i.run_id = ? and i.kind = ? and e.json -> 'sitelinks' -> s.site is not null
+            on conflict do nothing
+            """.trimIndent(),
+            sites.toTypedArray(), languages.toTypedArray(), run.id, EntityKind.PEOPLE.name,
+        )
+        phase(run, ImportPhase.PAGES)
+    }
+
     fun finish(run: ImportRun) {
         jdbc.update("update raw.import_run set phase = ?, finished_at = now() where id = ?", ImportPhase.DONE.name, run.id)
     }
@@ -233,6 +269,45 @@ class RawStore(dataSource: DataSource, private val transactions: TransactionTemp
             "select qid, revision from raw.entity where qid = any (?)",
             { rs, _ -> rs.getString(1) to rs.getLong(2) }, ids.toTypedArray(),
         ).toMap()
+
+    /** The next [size] pages in [language] this run has not done yet, in a fixed order. */
+    fun nextPages(run: ImportRun, language: String, size: Int): List<String> =
+        jdbc.query(
+            "select title from raw.page_item where run_id = ? and language = ? and done_at is null order by title limit ?",
+            { rs, _ -> rs.getString(1) }, run.id, language, size,
+        )
+
+    /** The revisions stored for those of [titles] in [language] already fetched once. */
+    fun pageRevisions(language: String, titles: List<String>): Map<String, Long> =
+        jdbc.query(
+            "select title, revision from raw.page where language = ? and title = any (?)",
+            { rs, _ -> rs.getString(1) to rs.getLong(2) }, language, titles.toTypedArray(),
+        ).toMap()
+
+    /** Stores a batch of pages and marks them done, in one transaction, as [saveBatch] does entities. */
+    fun savePages(run: ImportRun, batch: PageBatch) = transactions.executeWithoutResult {
+        jdbc.batchUpdate(
+            """
+            insert into raw.page (language, title, revision, fetched_at, json) values (?, ?, ?, now(), ?::jsonb)
+            on conflict (language, title) do update set revision = excluded.revision, fetched_at = excluded.fetched_at,
+                json = excluded.json
+            """.trimIndent(),
+            batch.fetched.map { (title, page) -> arrayOf<Any>(batch.language, title, page.path("lastrevid").asLong(), page.toString()) },
+        )
+        jdbc.batchUpdate("delete from raw.page where language = ? and title = ?", batch.missing.map { arrayOf<Any>(batch.language, it) })
+        jdbc.batchUpdate(
+            "update raw.page_item set done_at = now() where run_id = ? and language = ? and title = ?",
+            batch.titles.map { arrayOf<Any>(run.id, batch.language, it) },
+        )
+        jdbc.update(
+            """
+            update raw.import_run set requests = requests + ?, pages_fetched = pages_fetched + ?,
+                pages_unchanged = pages_unchanged + ?, pages_missing = pages_missing + ?
+            where id = ?
+            """.trimIndent(),
+            batch.requests, batch.fetched.size, batch.unchanged.size, batch.missing.size, run.id,
+        )
+    }
 
     /** Stores a batch and marks its entities done, in one transaction: a crash never leaves half a batch. */
     fun saveBatch(run: ImportRun, batch: EntityBatch) = transactions.executeWithoutResult {

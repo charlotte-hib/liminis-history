@@ -5,20 +5,23 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import dev.wholivedwhen.wikimedia.WikimediaBusyException
 import dev.wholivedwhen.wikimedia.WikimediaClient
+import tools.jackson.databind.JsonNode
 import java.time.Duration
 import java.time.Instant
 
 /**
  * Fetches Wikidata's people into the workbench's `raw` schema: discovery (who is above the cut-off), then each
  * person's entity, then the places and occupations their claims point to, then the classes above those occupations,
- * through which they map to the site's domains. Entities already stored are only fetched again when their revision
- * has changed, so running it again a month later refreshes the cache cheaply.
+ * through which they map to the site's domains, then the intros of their Wikipedia articles. Entities and pages already
+ * stored are only fetched again when their revision has changed, so running it again a month later refreshes the cache
+ * cheaply.
  *
  * Every request goes through [WikimediaClient]'s shared pace. Progress is in the database: a run that stopped resumes
  * at the next slice or batch, and first waits out any `Retry-After` Wikimedia gave before it stopped.
  *
- * Wikidata can stay too far behind for minutes on end (`maxlag`), longer than the client's retries last. The import
- * then pauses and resumes by itself, up to [WikidataProperties.restarts] times in a row without progress.
+ * Wikidata can stay too far behind for minutes on end (`maxlag`), and the query service overloaded, longer than the
+ * client's retries last. The import then pauses and resumes by itself, up to [WikidataProperties.restarts] times in a
+ * row without progress.
  */
 @Component
 class WikidataImport(
@@ -31,12 +34,18 @@ class WikidataImport(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
+    /** The Wikipedia editions of the sitelinks kept: `en` for `enwiki`. */
+    private val languages = properties.sites.map { it.removeSuffix("wiki") }
+
     @Volatile
     private var current: ImportRun? = null
 
     init {
-        // Each retry is another request, after Wikimedia asked to wait.
-        retries.retry(WikimediaClient.PACE).eventPublisher.onRetry { event -> current?.let { store.busy(it, event.waitInterval) } }
+        // Each retry is another request, after Wikimedia asked to wait or could not answer.
+        retries.retry(WikimediaClient.PACE).eventPublisher.onRetry { event ->
+            log.info("Wikimedia: {}. Trying again in {}", event.lastThrowable?.message, event.waitInterval)
+            current?.let { store.busy(it, event.waitInterval) }
+        }
     }
 
     fun run(): ImportRun {
@@ -57,11 +66,11 @@ class WikidataImport(
         }
     }
 
-    /** Entities and slices done so far, by any run: the import moved on when this grows. */
+    /** Entities, pages and slices done so far, by any run: the import moved on when this grows. */
     private fun progress(): Long {
         val run = store.currentRun()
         val counts = store.counts(run)
-        return listOf("fetched", "unchanged", "missing").sumOf { (counts[it] as Number).toLong() } + store.doneSlices(run).size
+        return DONE.sumOf { (counts[it] as Number).toLong() } + store.doneSlices(run).size
     }
 
     private fun resume(): ImportRun {
@@ -87,6 +96,11 @@ class WikidataImport(
             }
             if (run.phase == ImportPhase.CLASSES) {
                 fetchClasses(run)
+                store.queuePages(run, properties.sites, languages)
+                run = store.findRun(run.id)
+            }
+            if (run.phase == ImportPhase.PAGES) {
+                languages.forEach { fetchPages(run, it) }
                 store.finish(run)
             }
         } finally {
@@ -147,6 +161,45 @@ class WikidataImport(
         return EntityBatch(ids, requests, found.map { entities.path(it) }, unchanged, missing + gone)
     }
 
+    private fun fetchPages(run: ImportRun, language: String) {
+        var done = 0
+        while (true) {
+            val titles = store.nextPages(run, language, WikimediaClient.MAX_TITLES).ifEmpty { break }
+            store.savePages(run, fetchPages(language, titles))
+            done += titles.size
+            if (done % PROGRESS_EVERY < titles.size) log.info("{} Wikipedia: {} pages checked or fetched", language, done)
+        }
+    }
+
+    /**
+     * One batch of pages, as [fetch] for entities: asks for the latest revision of those already stored, then fetches
+     * those that are new or changed, [WikimediaClient.MAX_PAGES] a request.
+     */
+    private fun fetchPages(language: String, titles: List<String>): PageBatch {
+        val stored = store.pageRevisions(language, titles)
+        var requests = 0
+        val unchanged = mutableListOf<String>()
+        val missing = mutableListOf<String>()
+        if (stored.isNotEmpty()) {
+            val latest = wikimedia.pageRevisions(language, stored.keys.toList())
+            requests++
+            stored.forEach { (title, revision) ->
+                when (latest[title]) {
+                    null -> missing += title
+                    revision -> unchanged += title
+                }
+            }
+        }
+
+        val fetched = mutableMapOf<String, JsonNode>()
+        (titles - unchanged.toSet() - missing.toSet()).chunked(WikimediaClient.MAX_PAGES).forEach { chunk ->
+            val pages = wikimedia.pages(language, chunk)
+            requests++
+            chunk.forEach { title -> pages[title]?.let { fetched[title] = it } ?: missing.add(title) }
+        }
+        return PageBatch(language, titles, requests, fetched, unchanged, missing)
+    }
+
     private fun waitUntil(notBefore: Instant?) {
         val wait = notBefore?.let { Duration.between(Instant.now(), it) } ?: return
         if (wait.isNegative) return
@@ -162,6 +215,8 @@ class WikidataImport(
          * to, the feminine form of an occupation).
          */
         val LINKED_PROPS = listOf("info", "labels", "claims")
+        /** The counts of [RawStore.counts] that grow with every entity or page done. */
+        val DONE = listOf("fetched", "unchanged", "missing", "pages_fetched", "pages_unchanged", "pages_missing")
         const val PROGRESS_EVERY = 1000
     }
 }

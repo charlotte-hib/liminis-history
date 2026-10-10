@@ -11,13 +11,13 @@ import dev.wholivedwhen.wikidata.RawStore
 import dev.wholivedwhen.wikidata.WikidataProperties
 
 /** What a mapping run wrote, and whom it left out. */
-data class DatasetCounts(val people: Int, val leftOut: Map<LeftOut, Int>, val places: Int, val occupations: Int)
+data class DatasetCounts(val people: Int, val leftOut: Map<LeftOut, Int>, val articles: Int, val places: Int, val occupations: Int)
 
 /**
- * Rebuilds the schema `dataset` from `raw`: the people the last finished import discovered, their places with the
- * countries they lie in today, then their occupations and the classes above them, as far up as the import fetched
- * them. In one transaction, so the dataset is never seen half built. Calls no one, once Natural Earth's borders are
- * downloaded: run it as often as the mapping changes.
+ * Rebuilds the schema `dataset` from `raw`: the people the last finished import discovered, their Wikipedia articles,
+ * their places with the countries they lie in today, then their occupations and the classes above them, as far up as
+ * the import fetched them. In one transaction, so the dataset is never seen half built. Calls no one, once Natural
+ * Earth's borders are downloaded: run it as often as the mapping changes.
  */
 @Component
 class DatasetMapping(
@@ -63,6 +63,7 @@ class DatasetMapping(
         }
         dataset.savePeople(batch)
         people += batch.size
+        val articles = dataset.saveArticles()
 
         val placeRows = places.sorted().chunked(BATCH).sumOf { ids ->
             val rows = raw.entities(ids, PlaceMapper.PROPERTIES).map { placeMapper.map(jsonMapper.readValue(it)) }
@@ -72,7 +73,7 @@ class DatasetMapping(
 
         val classes = classes(occupations)
         dataset.saveOccupations(classes)
-        return DatasetCounts(people, leftOut, placeRows, classes.size).also { log.info("Mapped {}", it) }
+        return DatasetCounts(people, leftOut, articles, placeRows, classes.size).also { log.info("Mapped {}", it) }
     }
 
     /** The [occupations] stored in `raw`, and the classes above them, [WikidataProperties.classLevels] levels up. */
