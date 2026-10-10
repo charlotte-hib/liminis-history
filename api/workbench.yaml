@@ -667,9 +667,10 @@ components:
       type: string
       description: |
         `WIKIDATA_IMPORT` fetches Wikidata's people, or resumes the import that stopped. `DATASET_MAPPING` maps the last
-        finished import to the dataset's rows. `PERSON_FACTS_CLAIMS` proposes the facts of the people of the
-        release's moments. `STORY_DRAFT` drafts a moment's story with Claude into `backend/drafts/`.
-      enum: [WIKIDATA_IMPORT, DATASET_MAPPING, PERSON_FACTS_CLAIMS, STORY_DRAFT]
+        finished import to the dataset's rows. `DATASET_EXPORT` writes those rows to the fetched dataset's files, in
+        `backend/dataset-export/`. `PERSON_FACTS_CLAIMS` proposes the facts of the people of the release's moments.
+        `STORY_DRAFT` drafts a moment's story with Claude into `backend/drafts/`.
+      enum: [WIKIDATA_IMPORT, DATASET_MAPPING, DATASET_EXPORT, PERSON_FACTS_CLAIMS, STORY_DRAFT]
 
     Run:
       type: object

@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import dev.wholivedwhen.curation.PersonFactsProposals
+import dev.wholivedwhen.dataset.DatasetExport
 import dev.wholivedwhen.dataset.DatasetMapping
 import dev.wholivedwhen.drafting.StoryDrafting
 import dev.wholivedwhen.repository.MomentRepository
@@ -19,13 +20,14 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Runs imports, mappings, proposals and drafts in the background, one at a time: they share Wikimedia's pace and the
+ * Runs imports, mappings, exports, proposals and drafts in the background, one at a time: they share Wikimedia's pace and the
  * dataset. Kept in memory: a run stopped by a restart is started again by hand, and an import resumes where it was.
  */
 @Service
 class Runs(
     private val wikidataImport: WikidataImport,
     private val datasetMapping: DatasetMapping,
+    private val datasetExport: DatasetExport,
     private val personFacts: PersonFactsProposals,
     private val drafting: StoryDrafting,
     private val moments: MomentRepository,
@@ -72,6 +74,7 @@ class Runs(
     private fun work(run: RunDto): String = when (run.kind) {
         RunKindDto.WIKIDATA_IMPORT -> wikidataImport.run().let { "Import ${it.id} finished" }
         RunKindDto.DATASET_MAPPING -> datasetMapping.map().toString()
+        RunKindDto.DATASET_EXPORT -> datasetExport.export().let { (dir, manifest) -> "${manifest.counts} of import ${manifest.import.run}, in $dir" }
         RunKindDto.PERSON_FACTS_CLAIMS -> personFacts.propose().toString()
         RunKindDto.STORY_DRAFT -> drafting.draft(run.moment!!)
     }

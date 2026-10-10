@@ -40,6 +40,7 @@ class DatasetMapping(
     private fun map(run: ImportRun, placeMapper: PlaceMapper): DatasetCounts {
         val mapper = PersonMapper(properties, currentYear())
         dataset.clear()
+        dataset.saveMapping(run.id)
 
         var people = 0
         val leftOut = sortedMapOf<LeftOut, Int>()

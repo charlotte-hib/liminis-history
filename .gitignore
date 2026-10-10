@@ -21,5 +21,7 @@ e2e/test-results/
 e2e/playwright-report/
 # Natural Earth's borders, downloaded by the workbench's first mapping run (app.natural-earth).
 /backend/natural-earth/
+# The fetched dataset's files, written by the workbench's export (wb export), pushed to a private package.
+/backend/dataset-export/
 # Design notes, kept on one machine.
 /docs/design/

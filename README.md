@@ -86,12 +86,13 @@ It has a Postgres of its own (`compose.workbench.yaml`, at the repository's root
 ```sh
 backend/workbench/wb import            # fetch Wikidata's people (hours), or resume
 backend/workbench/wb map               # map the last import to the dataset's rows
+backend/workbench/wb export            # export them, push them privately, pin them in the data repository
 backend/workbench/wb claims            # propose the facts of the moments' people for review
 backend/workbench/wb draft edo-1830s   # draft a moment's story with Claude
 backend/workbench/wb queues            # what waits for review
 ```
 
-Each command starts a run in the background, one at a time, and follows it; `wb runs` lists them. Its API is `api/workbench.yaml`, spec first like the site's. Every request needs the token the workbench writes on each start to `~/.config/who-lived-when/workbench-token` (readable by the curator only), and must be addressed to `localhost` or `127.0.0.1`: a web page open in the curator's browser can send requests to localhost, but cannot read that file. An authorization server with passkeys will replace the token.
+Each command starts a run in the background, one at a time, and follows it; `wb runs` lists them. `wb export` writes the fetched dataset (the mapped rows, facts only, no decisions) to `backend/dataset-export/`: `manifest.json`, then people, their Wikipedia articles, places and occupations as gzipped JSON Lines in Q-id order, about 41 MB for 58,500 people. The same rows make the same bytes. It pushes them with ORAS (run in Docker) to a private package on GHCR, with the token of `gh` (which needs `write:packages`), and writes its digest to `data/fetched.lock` in the private data repository's clone next to this one, for a pull request there. Its API is `api/workbench.yaml`, spec first like the site's. Every request needs the token the workbench writes on each start to `~/.config/who-lived-when/workbench-token` (readable by the curator only), and must be addressed to `localhost` or `127.0.0.1`: a web page open in the curator's browser can send requests to localhost, but cannot read that file. An authorization server with passkeys will replace the token.
 
 ### Claims
 
