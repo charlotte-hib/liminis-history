@@ -1,6 +1,5 @@
 package dev.wholivedwhen.dataset
 
-import org.flywaydb.core.Flyway
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import java.sql.ResultSet
@@ -8,19 +7,13 @@ import java.time.OffsetDateTime
 import javax.sql.DataSource
 
 /**
- * The workbench's schema `dataset`: the rows mapped from `raw`, rebuilt on every mapping run. Its own migrations
- * (`db/dataset`), like `raw`'s.
+ * The workbench's schema `dataset` ([dev.wholivedwhen.WorkbenchSchemas]): the rows mapped from `raw`, rebuilt on every
+ * mapping run.
  */
 @Component
 class DatasetStore(dataSource: DataSource) {
 
     private val jdbc = JdbcTemplate(dataSource)
-
-    init {
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/dataset")
-            .schemas(SCHEMA).defaultSchema(SCHEMA).createSchemas(true)
-            .load().migrate()
-    }
 
     fun clear() {
         jdbc.execute(
@@ -338,8 +331,6 @@ class DatasetStore(dataSource: DataSource) {
     private fun ResultSet.instant(column: Int) = getObject(column, OffsetDateTime::class.java).toInstant()
 
     private companion object {
-        const val SCHEMA = "dataset"
-
         /** The ISO code of the country a place lies in today: by its coordinates, else its first country with one. */
         const val PLACE_COUNTRY = """coalesce(pl.coordinates_country,
             (select pc.iso from dataset.place_country pc where pc.place = pl.qid and pc.iso is not null order by pc.position limit 1))"""

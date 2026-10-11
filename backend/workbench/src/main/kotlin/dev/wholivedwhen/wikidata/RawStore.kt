@@ -1,6 +1,5 @@
 package dev.wholivedwhen.wikidata
 
-import org.flywaydb.core.Flyway
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionTemplate
@@ -46,8 +45,8 @@ data class PageBatch(
 )
 
 /**
- * The workbench's schema `raw`: what it fetched from Wikimedia, and how far each import got. Its own migrations
- * (`db/raw`), apart from the release schema's: the release is built again on every start, this is never dropped.
+ * The workbench's schema `raw` ([dev.wholivedwhen.WorkbenchSchemas]): what it fetched from Wikimedia, and how far each
+ * import got. Never dropped.
  */
 @Component
 class RawStore(dataSource: DataSource, private val transactions: TransactionTemplate) {
@@ -56,12 +55,6 @@ class RawStore(dataSource: DataSource, private val transactions: TransactionTemp
 
     // Reads the people a few hundred at a time rather than all at once: tens of thousands of entities do not fit in memory.
     private val streaming = JdbcTemplate(dataSource).apply { fetchSize = 500 }
-
-    init {
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/raw")
-            .schemas(SCHEMA).defaultSchema(SCHEMA).createSchemas(true)
-            .load().migrate()
-    }
 
     /** The last import that finished, if any. */
     fun lastFinishedRun(): ImportRun? =
@@ -342,8 +335,6 @@ class RawStore(dataSource: DataSource, private val transactions: TransactionTemp
     private fun Instant.utc() = atOffset(ZoneOffset.UTC)
 
     private companion object {
-        const val SCHEMA = "raw"
-
         /** An entity `e` cut down to its id, labels, sitelinks and the statements of the properties given as parameter. */
         const val CUT_DOWN = """
             jsonb_strip_nulls(jsonb_build_object(
