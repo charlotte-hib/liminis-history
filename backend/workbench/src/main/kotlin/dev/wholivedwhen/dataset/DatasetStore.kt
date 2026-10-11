@@ -1,6 +1,8 @@
 package dev.wholivedwhen.dataset
 
+import org.springframework.jdbc.core.DataClassRowMapper
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.core.RowMapper
 import org.springframework.stereotype.Component
 import java.sql.ResultSet
 import java.time.OffsetDateTime
@@ -132,60 +134,36 @@ class DatasetStore(dataSource: DataSource) {
     }
 
     /** The [limit] people after the Q-id [after], in Q-id order, with their occupations, places and flags. */
-    fun peopleAfter(after: String, limit: Int): List<PersonRow> {
-        val people = jdbc.query("select * from dataset.person where qid > ? order by qid limit ?", { rs, _ ->
-            PersonRow(
-                qid = rs.getString("qid"),
-                label = rs.getString("label"),
-                labelFr = rs.getString("label_fr"),
-                sitelinks = rs.getInt("sitelinks"),
-                born = rs.getInt("born"),
-                bornPrecision = rs.getInt("born_precision"),
-                died = rs.getInt("died"),
-                diedPrecision = rs.getObject("died_precision") as Int?,
-                diedEstimated = rs.getBoolean("died_estimated"),
-                datesApproximate = rs.getBoolean("dates_approximate"),
-                gender = rs.getString("gender"),
-                enwiki = rs.getString("enwiki"),
-                frwiki = rs.getString("frwiki"),
-                occupations = emptyList(),
-                places = emptyList(),
-                flags = emptySet(),
-            )
-        }, after, limit)
+    fun peopleAfter(after: String, limit: Int): List<PersonRow> = personRows("qid > ? order by qid limit ?", after, limit)
+
+    /** The people [where] selects from `dataset.person`, in its order, with their occupations, places and flags. */
+    private fun personRows(where: String, vararg args: Any): List<PersonRow> {
+        val people = jdbc.query("select * from dataset.person where $where", PERSON, *args)
         val ids = people.map { it.qid }.toTypedArray()
-        val occupations = jdbc.query(
+        val occupations = byFirstColumn(
             "select person, occupation, referenced from dataset.person_occupation where person = any (?) order by person, position",
-            { rs, _ -> rs.getString(1) to PersonOccupation(rs.getString(2), rs.getBoolean(3)) },
             ids,
-        ).groupBy({ it.first }, { it.second })
-        val places = jdbc.query(
+        ) { PersonOccupation(it.getString(2), it.getBoolean(3)) }
+        val places = byFirstColumn(
             """
             select person, property, place, start_year, end_year, referenced
             from dataset.person_place pp
             where person = any (?)
             order by person, ${PlaceProperty.sqlOrder("pp")}, position
             """.trimIndent(),
-            { rs, _ ->
-                rs.getString(1) to PersonPlace(
-                    rs.getString(2), rs.getString(3), rs.getObject(4) as Int?, rs.getObject(5) as Int?, rs.getBoolean(6),
-                )
-            },
             ids,
-        ).groupBy({ it.first }, { it.second })
-        val flags = jdbc.query(
-            "select person, reason from dataset.person_flag where person = any (?) order by person, reason",
-            { rs, _ -> rs.getString(1) to PersonFlag.valueOf(rs.getString(2)) },
-            ids,
-        ).groupBy({ it.first }, { it.second })
+        ) { PersonPlace(it.getString(2), it.getString(3), it.getObject(4) as Int?, it.getObject(5) as Int?, it.getBoolean(6)) }
+        val flags = byFirstColumn("select person, reason from dataset.person_flag where person = any (?) order by person, reason", ids) {
+            PersonFlag.valueOf(it.getString(2))
+        }
         return people.map {
-            it.copy(
-                occupations = occupations[it.qid].orEmpty(),
-                places = places[it.qid].orEmpty(),
-                flags = flags[it.qid].orEmpty().toSet(),
-            )
+            it.copy(occupations = occupations[it.qid].orEmpty(), places = places[it.qid].orEmpty(), flags = flags[it.qid].orEmpty().toSet())
         }
     }
+
+    /** Each row of [sql], read by [read], under the value of its first column, in the query's order. */
+    private fun <T> byFirstColumn(sql: String, vararg args: Any, read: (ResultSet) -> T): Map<String, List<T>> =
+        jdbc.query(sql, { rs, _ -> rs.getString(1) to read(rs) }, *args).groupBy({ it.first }, { it.second })
 
     /** The [limit] articles after [after]'s person and language, in that order. */
     fun articlesAfter(after: Pair<String, String>, limit: Int): List<ArticleRow> =
@@ -197,13 +175,7 @@ class DatasetStore(dataSource: DataSource) {
             order by person, language
             limit ?
             """.trimIndent(),
-            { rs, _ ->
-                ArticleRow(
-                    rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6),
-                    rs.getString(7),
-                )
-            },
-            after.first, after.second, limit,
+            ARTICLE, after.first, after.second, limit,
         )
 
     /** Every place, in Q-id order, with its countries and flags. */
@@ -262,75 +234,81 @@ class DatasetStore(dataSource: DataSource) {
             { rs, _ -> rs.getString(1) }, region, end, start, limit,
         )
 
-    /** The rows of those of [qids] in the dataset, with their occupations, places and flags, in no particular order. */
+    /**
+     * The rows of those of [qids] in the dataset, with the labels of their occupations and places and the country each
+     * place lies in today, in no particular order.
+     */
     fun people(qids: Collection<String>): List<DatasetPerson> {
-        val ids = qids.toTypedArray()
+        val rows = personRows("qid = any (?)", qids.toTypedArray())
+        val occupationIds = rows.flatMap { row -> row.occupations.map { it.occupation } }.distinct().toTypedArray()
         val occupations = jdbc.query(
-            """
-            select po.person, po.occupation, o.label, o.label_fr
-            from dataset.person_occupation po
-            left join dataset.occupation o on o.qid = po.occupation
-            where po.person = any (?)
-            order by po.person, po.position
-            """.trimIndent(),
-            { rs, _ ->
-                rs.getString(1) to DatasetOccupation(rs.getString(2), rs.getString(3), rs.getString(4))
-            },
-            ids,
-        ).groupBy({ it.first }, { it.second })
+            "select qid, label, label_fr from dataset.occupation where qid = any (?)",
+            { rs, _ -> DatasetOccupation(rs.getString(1), rs.getString(2), rs.getString(3)) },
+            occupationIds,
+        ).associateBy { it.occupation }
+        val placeIds = rows.flatMap { row -> row.places.map { it.place } }.distinct().toTypedArray()
         val places = jdbc.query(
-            """
-            select pp.person, pp.property, pp.place, pp.start_year, pp.end_year, pl.label, $PLACE_COUNTRY
-            from dataset.person_place pp
-            left join dataset.place pl on pl.qid = pp.place
-            where pp.person = any (?)
-            order by pp.person, ${PlaceProperty.sqlOrder("pp")}, pp.position
-            """.trimIndent(),
-            { rs, _ ->
-                rs.getString(1) to DatasetPlace(
-                    property = rs.getString(2), place = rs.getString(3), label = rs.getString(6), country = rs.getString(7),
-                    startYear = rs.getObject(4) as Int?, endYear = rs.getObject(5) as Int?,
-                )
-            },
-            ids,
-        ).groupBy({ it.first }, { it.second })
-        val flags = jdbc.query(
-            """
-            select person, flag, reason from dataset.person_flag where person = any (?)
-            union all
-            select pp.person, pf.flag, pp.property || '_' || pf.reason
-            from dataset.person_place pp
-            join dataset.place_flag pf on pf.place = pp.place
-            where pp.person = any (?)
-            order by 1, 2, 3
-            """.trimIndent(),
+            "select pl.qid, pl.label, $PLACE_COUNTRY from dataset.place pl where pl.qid = any (?)",
             { rs, _ -> rs.getString(1) to (rs.getString(2) to rs.getString(3)) },
-            ids, ids,
-        ).groupBy({ it.first }, { it.second })
-        return jdbc.query("select * from dataset.person where qid = any (?)", { rs, _ ->
-            val qid = rs.getString("qid")
+            placeIds,
+        ).toMap()
+        val placeFlags = byFirstColumn("select place, flag, reason from dataset.place_flag where place = any (?)", placeIds) {
+            it.getString(2) to it.getString(3)
+        }
+        return rows.map { row ->
             DatasetPerson(
-                qid = qid,
+                qid = row.qid,
+                label = row.label,
+                labelFr = row.labelFr,
+                born = row.born,
+                bornPrecision = row.bornPrecision,
+                died = row.died,
+                diedPrecision = row.diedPrecision,
+                diedEstimated = row.diedEstimated,
+                datesApproximate = row.datesApproximate,
+                enwiki = row.enwiki,
+                frwiki = row.frwiki,
+                // A deleted occupation or place is in no table: it keeps no label.
+                occupations = row.occupations.map { occupations[it.occupation] ?: DatasetOccupation(it.occupation, null, null) },
+                places = row.places.map {
+                    val (label, country) = places[it.place] ?: (null to null)
+                    DatasetPlace(it.property, it.place, label, country, it.startYear, it.endYear)
+                },
+                // The person's flags, then their places' under the place's property, such as P19_DISPUTED_AREA.
+                flags = (
+                    row.flags.map { it.flag to it.name } +
+                        row.places.flatMap { place -> placeFlags[place.place].orEmpty().map { (flag, reason) -> flag to "${place.property}_$reason" } }
+                    ).distinct().sortedWith(compareBy({ it.first }, { it.second })),
+            )
+        }
+    }
+
+    private fun ResultSet.instant(column: Int) = getObject(column, OffsetDateTime::class.java).toInstant()
+
+    private companion object {
+        /** A person's own columns; their occupations, places and flags are read apart. */
+        val PERSON = RowMapper { rs, _ ->
+            PersonRow(
+                qid = rs.getString("qid"),
                 label = rs.getString("label"),
                 labelFr = rs.getString("label_fr"),
+                sitelinks = rs.getInt("sitelinks"),
                 born = rs.getInt("born"),
                 bornPrecision = rs.getInt("born_precision"),
                 died = rs.getInt("died"),
                 diedPrecision = rs.getObject("died_precision") as Int?,
                 diedEstimated = rs.getBoolean("died_estimated"),
                 datesApproximate = rs.getBoolean("dates_approximate"),
+                gender = rs.getString("gender"),
                 enwiki = rs.getString("enwiki"),
                 frwiki = rs.getString("frwiki"),
-                occupations = occupations[qid].orEmpty(),
-                places = places[qid].orEmpty(),
-                flags = flags[qid].orEmpty().distinct(),
+                occupations = emptyList(),
+                places = emptyList(),
+                flags = emptySet(),
             )
-        }, ids)
-    }
+        }
+        val ARTICLE = DataClassRowMapper(ArticleRow::class.java)
 
-    private fun ResultSet.instant(column: Int) = getObject(column, OffsetDateTime::class.java).toInstant()
-
-    private companion object {
         /** The ISO code of the country a place lies in today: by its coordinates, else its first country with one. */
         const val PLACE_COUNTRY = """coalesce(pl.coordinates_country,
             (select pc.iso from dataset.place_country pc where pc.place = pl.qid and pc.iso is not null order by pc.position limit 1))"""
