@@ -1,6 +1,5 @@
 package dev.wholivedwhen.drafting
 
-import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
@@ -38,6 +37,7 @@ class StoryDrafting(
     private val people: PersonRepository,
     private val wikipedia: WikipediaJob?,
     private val sources: DraftSources,
+    private val drafter: StoryDrafter,
     private val jsonMapper: JsonMapper,
 ) {
 
@@ -52,7 +52,7 @@ class StoryDrafting(
 
         val momentSources = sources.forMoment(moment)
         log.info("Drafting {} from {} sources with {}", momentId, momentSources.size, properties.model)
-        val draft = StoryDrafter(AnthropicOkHttpClient.fromEnv(), properties.model).draft(moment, momentSources)
+        val draft = drafter.draft(moment, momentSources)
         val problems = StoryDraftValidator.problems(draft, momentSources, moment.startYear, moment.endYear)
 
         val file = Path.of(properties.outputDir, "$momentId.json")

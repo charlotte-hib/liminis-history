@@ -1,11 +1,16 @@
 package dev.wholivedwhen.drafting
 
 import com.anthropic.client.AnthropicClient
+import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import com.anthropic.core.JsonValue
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
 import com.anthropic.models.messages.StructuredOutputConfig
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Lazy
+import org.springframework.stereotype.Component
 import dev.wholivedwhen.domain.Moment
 
 /** Thrown when Claude returns no usable draft: a refusal, a truncated answer, or no structured output. */
@@ -32,12 +37,25 @@ private val SYSTEM_PROMPT = """
     Write plain, concrete English for a general reader, in short sentences and the present tense.
 """.trimIndent()
 
+@Configuration(proxyBeanMethods = false)
+class AnthropicConfiguration {
+
+    /**
+     * One client for every draft, with its connection pool, closed on shutdown. Built on the first draft, from
+     * `ANTHROPIC_API_KEY`: the workbench starts without one, and only drafting needs it.
+     */
+    @Bean
+    @Lazy
+    fun anthropicClient(): AnthropicClient = AnthropicOkHttpClient.fromEnv()
+}
+
 /** Drafts a moment's story with Claude, as structured output checked against a schema. */
-class StoryDrafter(private val client: AnthropicClient, private val model: String) {
+@Component
+class StoryDrafter(@Lazy private val client: AnthropicClient, private val properties: DraftingProperties) {
 
     fun draft(moment: Moment, sources: List<Source>): StoryDraft {
         val params = MessageCreateParams.builder()
-            .model(model)
+            .model(properties.model)
             .maxTokens(MAX_TOKENS)
             .system(SYSTEM_PROMPT)
             .outputConfig(
