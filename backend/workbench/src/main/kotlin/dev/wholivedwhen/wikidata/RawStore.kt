@@ -96,10 +96,12 @@ class RawStore(dataSource: DataSource, private val transactions: TransactionTemp
             { rs, _ -> rs.getString(1) }, properties.toTypedArray(), ids.toTypedArray(),
         )
 
-    /** The revision stored of each of [qids] the workbench fetched. */
+    /** The revision stored of each of [qids] already fetched once. */
     fun revisions(qids: Collection<String>): Map<String, Long> =
-        jdbc.query("select qid, revision from raw.entity where qid = any (?)", { rs, _ -> rs.getString(1) to rs.getLong(2) }, qids.toTypedArray())
-            .toMap()
+        jdbc.query(
+            "select qid, revision from raw.entity where qid = any (?)",
+            { rs, _ -> rs.getString(1) to rs.getLong(2) }, qids.toTypedArray(),
+        ).toMap()
 
     /** The import that has not finished, if one stopped half way, else a new one. */
     fun currentRun(): ImportRun =
@@ -262,13 +264,6 @@ class RawStore(dataSource: DataSource, private val transactions: TransactionTemp
             "select qid from raw.import_item where run_id = ? and kind = ? and done_at is null order by qid limit ?",
             { rs, _ -> rs.getString(1) }, run.id, kind.name, size,
         )
-
-    /** The revisions stored for those of [ids] already fetched once. */
-    fun revisions(ids: List<String>): Map<String, Long> =
-        jdbc.query(
-            "select qid, revision from raw.entity where qid = any (?)",
-            { rs, _ -> rs.getString(1) to rs.getLong(2) }, ids.toTypedArray(),
-        ).toMap()
 
     /** The next [size] pages in [language] this run has not done yet, in a fixed order. */
     fun nextPages(run: ImportRun, language: String, size: Int): List<String> =
