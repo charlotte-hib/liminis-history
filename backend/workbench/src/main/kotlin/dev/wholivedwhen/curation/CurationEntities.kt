@@ -23,7 +23,7 @@ import java.time.OffsetDateTime
 // The workbench's schema curation (db/curation), mapped for one claim at a time, with the types of ClaimModel.kt. The
 // JSON columns are read and written with Spring's JsonMapper (CurationJson).
 
-/** A claim: [payload] is what would ship, [proposal] what was last proposed, before any edit. Its id: [Claims.idOf]. */
+/** A claim: [payload] is what would ship, [proposal] what was last proposed, before any edit. Its id: [ClaimRules.idOf]. */
 @Entity
 @Table(schema = "curation")
 class Claim(
@@ -40,6 +40,16 @@ class Claim(
     @Generated
     @Column(insertable = false, updatable = false)
     val seq: Long = 0
+
+    /** Its status, payloads and flags together, as [ClaimRules] reads and changes them. */
+    var state: ClaimState
+        get() = ClaimState(status, payload, proposal, flags)
+        set(value) {
+            status = value.status
+            payload = value.payload
+            proposal = value.proposal
+            flags = value.flags
+        }
 
     /** What the claim rests on, in the order the sources were added. */
     @ElementCollection
