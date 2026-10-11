@@ -6,6 +6,7 @@ plugins {
 	// Claims, sources and decisions are JPA entities (curation/CurationEntities.kt), as the site's model is in core.
 	kotlin("plugin.allopen")
 	kotlin("plugin.jpa")
+	kotlin("kapt")
 	id("org.springframework.boot")
 	id("io.spring.dependency-management")
 	id("org.openapi.generator")
@@ -17,6 +18,8 @@ java {
 	}
 }
 
+val mapstructVersion = "1.6.3"
+
 dependencies {
 	implementation(project(":core"))
 	implementation("org.springframework.boot:spring-boot-starter-jackson")
@@ -27,6 +30,9 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")
+	// The curation model to the API's generated models and back (web/ClaimApiMapper.kt), as the site's ApiMapper.
+	implementation("org.mapstruct:mapstruct:$mapstructVersion")
+	kapt("org.mapstruct:mapstruct-processor:$mapstructVersion")
 	implementation("com.anthropic:anthropic-java:2.68.0")
 	implementation("org.springframework.boot:spring-boot-starter-restclient")
 	// One shared pace for every call to Wikimedia: rate limiter, bulkhead and retry, configured in application.yaml.
@@ -98,6 +104,12 @@ kotlin.sourceSets.main {
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
 	dependsOn(tasks.openApiGenerate)
+}
+
+kapt {
+	arguments {
+		arg("mapstruct.defaultComponentModel", "spring")
+	}
 }
 
 tasks.withType<Test> {

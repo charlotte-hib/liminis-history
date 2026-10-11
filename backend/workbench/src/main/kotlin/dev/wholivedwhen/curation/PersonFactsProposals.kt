@@ -8,13 +8,6 @@ import dev.wholivedwhen.dataset.DatasetStore
 import dev.wholivedwhen.dataset.PlaceProperty
 import dev.wholivedwhen.repository.MomentRepository
 import dev.wholivedwhen.wikidata.RawStore
-import dev.wholivedwhen.workbench.api.model.FlagDto
-import dev.wholivedwhen.workbench.api.model.FlagReasonDto
-import dev.wholivedwhen.workbench.api.model.OccupationDto
-import dev.wholivedwhen.workbench.api.model.OriginDto
-import dev.wholivedwhen.workbench.api.model.PersonFactsDto
-import dev.wholivedwhen.workbench.api.model.PlaceDto
-import dev.wholivedwhen.workbench.api.model.SourceDto
 
 @ConfigurationProperties("app.curation")
 data class CurationProperties(
@@ -50,8 +43,7 @@ class PersonFactsProposals(
     }
 
     private fun proposal(person: DatasetPerson, revision: Long?) = Proposal(
-        payload = PersonFactsDto(
-            type = "PERSON_FACTS",
+        payload = PersonFacts(
             person = person.qid,
             label = person.label,
             labelFr = person.labelFr,
@@ -65,28 +57,28 @@ class PersonFactsProposals(
             frwiki = person.frwiki,
             // A deleted occupation or place keeps its Q-id as its label.
             occupations = person.occupations.map {
-                OccupationDto(occupation = it.occupation, label = it.label ?: it.occupation, labelFr = it.labelFr)
+                Occupation(occupation = it.occupation, label = it.label ?: it.occupation, labelFr = it.labelFr)
             },
             places = person.places.map {
-                PlaceDto(
+                Place(
                     role = role(PlaceProperty.of(it.property)), place = it.place, label = it.label ?: it.place, country = it.country,
                     startYear = it.startYear, endYear = it.endYear,
                 )
             },
         ),
-        origin = OriginDto.WIKIDATA,
-        flags = person.flags.map { (flag, reason) -> FlagReasonDto(FlagDto.forValue(flag), reason) },
+        origin = Origin.WIKIDATA,
+        flags = person.flags.map { (flag, reason) -> FlagReason(Flag.valueOf(flag), reason) },
         sources = listOfNotNull(
-            SourceDto(kind = SourceDto.Kind.WIKIDATA, entity = person.qid, revision = revision),
-            person.enwiki?.let { SourceDto(kind = SourceDto.Kind.WIKIPEDIA, language = "en", title = it) },
-            person.frwiki?.let { SourceDto(kind = SourceDto.Kind.WIKIPEDIA, language = "fr", title = it) },
+            SourceRef(kind = SourceKind.WIKIDATA, entity = person.qid, revision = revision),
+            person.enwiki?.let { SourceRef(kind = SourceKind.WIKIPEDIA, language = "en", title = it) },
+            person.frwiki?.let { SourceRef(kind = SourceKind.WIKIPEDIA, language = "fr", title = it) },
         ),
     )
 
     private fun role(property: PlaceProperty) = when (property) {
-        PlaceProperty.BIRTH -> PlaceDto.Role.BIRTH
-        PlaceProperty.DEATH -> PlaceDto.Role.DEATH
-        PlaceProperty.WORK -> PlaceDto.Role.WORK
-        PlaceProperty.RESIDENCE -> PlaceDto.Role.RESIDENCE
+        PlaceProperty.BIRTH -> PlaceRole.BIRTH
+        PlaceProperty.DEATH -> PlaceRole.DEATH
+        PlaceProperty.WORK -> PlaceRole.WORK
+        PlaceProperty.RESIDENCE -> PlaceRole.RESIDENCE
     }
 }
