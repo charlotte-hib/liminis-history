@@ -2,7 +2,6 @@ package dev.wholivedwhen.web
 
 import org.springframework.web.bind.annotation.RestController
 import dev.wholivedwhen.curation.Claims
-import dev.wholivedwhen.curation.CurationStore
 import dev.wholivedwhen.web.WorkbenchSecurity.Companion.currentActor
 import dev.wholivedwhen.workbench.api.ClaimsApi
 import dev.wholivedwhen.workbench.api.model.ClaimDetailDto
@@ -15,14 +14,12 @@ import dev.wholivedwhen.workbench.api.model.NewDecisionDto
 import dev.wholivedwhen.workbench.api.model.QueueDto
 
 @RestController
-class ClaimController(private val claims: Claims, private val store: CurationStore) : ClaimsApi {
+class ClaimController(private val claims: Claims) : ClaimsApi {
 
-    override fun listQueues(): List<QueueDto> = store.queues()
+    override fun listQueues(): List<QueueDto> = claims.queues()
 
     override fun listClaims(type: ClaimTypeDto?, status: ClaimStatusDto?, flag: FlagDto?, after: Long?, limit: Int): List<ClaimDto> =
-        store.list(type, status, flag, after ?: 0, limit).map {
-            ClaimDto(it.id, it.seq, it.type, it.status, it.origin, it.flags, it.payload)
-        }
+        claims.list(type, status, flag, after ?: 0, limit)
 
     override fun getClaim(id: String): ClaimDetailDto = claims.detail(id)
 

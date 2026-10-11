@@ -3,6 +3,9 @@
 plugins {
 	kotlin("jvm")
 	kotlin("plugin.spring")
+	// Claims, sources and decisions are JPA entities (curation/CurationEntities.kt), as the site's model is in core.
+	kotlin("plugin.allopen")
+	kotlin("plugin.jpa")
 	id("org.springframework.boot")
 	id("io.spring.dependency-management")
 	id("org.openapi.generator")
@@ -49,6 +52,11 @@ kotlin {
 	compilerOptions {
 		freeCompilerArgs.addAll("-Xjsr305=strict")
 	}
+}
+
+allOpen {
+	annotation("jakarta.persistence.Entity")
+	annotation("jakarta.persistence.Embeddable")
 }
 
 // The workbench's API contract, api/workbench.yaml at the repository root, generates the controller interfaces and the
