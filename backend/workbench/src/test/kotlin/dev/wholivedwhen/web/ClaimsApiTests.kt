@@ -81,6 +81,9 @@ class ClaimsApiTests(
         mockMvc.post("/api/claims") { json(anecdote) }.andExpect {
             status { isConflict() }
             content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+            jsonPath("$.title") { value("Conflict") }
+            jsonPath("$.detail") { value("$anecdoteId exists already") }
+            jsonPath("$.instance") { value("/api/claims") }
         }
     }
 
@@ -164,7 +167,12 @@ class ClaimsApiTests(
         mockMvc.post("/api/claims") { json(anecdote) }
 
         mockMvc.post("/api/claims/{id}/decisions", anecdoteId) { json("""{"action": "REJECT"}""") }
-            .andExpect { status { isBadRequest() } }
+            .andExpect {
+                status { isBadRequest() }
+                content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+                jsonPath("$.title") { value("Bad Request") }
+                jsonPath("$.detail") { value("Say why, in a note") }
+            }
         mockMvc.post("/api/claims/{id}/decisions", anecdoteId) {
             json("""{"action": "APPROVE", "payload": {"type": "ANECDOTE", "person": "Q504", "year": 1851, "text": "t"}}""")
         }.andExpect { status { isBadRequest() } }
@@ -174,7 +182,11 @@ class ClaimsApiTests(
                 jsonPath("$.status") { value("REJECTED") }
             }
         mockMvc.post("/api/claims/{id}/decisions", "anecdote:Q1:1:none") { json("""{"action": "APPROVE"}""") }
-            .andExpect { status { isNotFound() } }
+            .andExpect {
+                status { isNotFound() }
+                content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+                jsonPath("$.detail") { value("No claim anecdote:Q1:1:none") }
+            }
     }
 
     @Test

@@ -1,9 +1,7 @@
 package dev.wholivedwhen.service
 
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.web.server.ResponseStatusException
 import dev.wholivedwhen.domain.CardType
 import dev.wholivedwhen.domain.Moment
 import dev.wholivedwhen.domain.PublicationStatus.PUBLISHED
@@ -14,6 +12,7 @@ import dev.wholivedwhen.repository.LifeRepository
 import dev.wholivedwhen.repository.MomentRepository
 import dev.wholivedwhen.repository.PersonRepository
 import dev.wholivedwhen.repository.StoryCardRepository
+import dev.wholivedwhen.support.NotFoundException
 import dev.wholivedwhen.web.ApiMapper
 import dev.wholivedwhen.api.model.DoorDto
 import dev.wholivedwhen.api.model.MomentDetailDto
@@ -54,7 +53,7 @@ class MomentService(
     fun story(id: String): StoryDto {
         val moment = find(id)
         val storyCards = cards.findByMomentIdOrderByPosition(id)
-        if (storyCards.isEmpty()) throw ResponseStatusException(HttpStatus.NOT_FOUND, "No story yet for: $id")
+        if (storyCards.isEmpty()) throw NotFoundException("No story yet for: $id")
         return StoryDto(summarize(listOf(moment)).single(), storyCards.map(mapper::toDto), doorsFrom(moment))
     }
 
@@ -111,5 +110,5 @@ class MomentService(
     private fun published() = moments.findByStatusOrderByFocusYearAscIdAsc(PUBLISHED)
 
     private fun find(id: String) = moments.findByIdAndStatus(id, PUBLISHED)
-        ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown moment: $id")
+        ?: throw NotFoundException("Unknown moment: $id")
 }

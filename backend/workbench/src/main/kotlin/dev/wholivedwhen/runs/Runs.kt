@@ -2,14 +2,15 @@ package dev.wholivedwhen.runs
 
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.DisposableBean
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
-import org.springframework.web.server.ResponseStatusException
 import dev.wholivedwhen.curation.PersonFactsProposals
 import dev.wholivedwhen.dataset.DatasetExport
 import dev.wholivedwhen.dataset.DatasetMapping
 import dev.wholivedwhen.drafting.StoryDrafting
 import dev.wholivedwhen.repository.MomentRepository
+import dev.wholivedwhen.support.ConflictException
+import dev.wholivedwhen.support.InvalidRequestException
+import dev.wholivedwhen.support.NotFoundException
 import dev.wholivedwhen.wikidata.WikidataImport
 import dev.wholivedwhen.workbench.api.model.RunDto
 import dev.wholivedwhen.workbench.api.model.RunKindDto
@@ -40,15 +41,15 @@ class Runs(
 
     fun all(): List<RunDto> = runs.values.sortedByDescending { it.id }
 
-    fun find(id: Long): RunDto = runs[id] ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "No run $id")
+    fun find(id: Long): RunDto = runs[id] ?: throw NotFoundException("No run $id")
 
     @Synchronized
     fun start(kind: RunKindDto, moment: String?): RunDto {
         if (kind == RunKindDto.STORY_DRAFT && (moment == null || !moments.existsById(moment))) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "A story draft needs a moment of the release")
+            throw InvalidRequestException("A story draft needs a moment of the release")
         }
         runs.values.firstOrNull { it.status == RunDto.Status.RUNNING }?.let {
-            throw ResponseStatusException(HttpStatus.CONFLICT, "Run ${it.id} (${it.kind.value}) is still running")
+            throw ConflictException("Run ${it.id} (${it.kind.value}) is still running")
         }
         val run = RunDto(
             id = ids.incrementAndGet(), kind = kind, status = RunDto.Status.RUNNING, startedAt = now(),

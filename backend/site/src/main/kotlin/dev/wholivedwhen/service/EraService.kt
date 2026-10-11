@@ -1,9 +1,8 @@
 package dev.wholivedwhen.service
 
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.web.server.ResponseStatusException
+import dev.wholivedwhen.support.NotFoundException
 import dev.wholivedwhen.repository.EraRepository
 import dev.wholivedwhen.repository.EventRepository
 import dev.wholivedwhen.repository.PersonRepository
@@ -24,7 +23,7 @@ class EraService(
 
     fun detail(id: String): EraDetailDto {
         val era = eras.findById(id).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown era: $id")
+            NotFoundException("Unknown era: $id")
         }
         return EraDetailDto(
             era = mapper.toDto(era),
