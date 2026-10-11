@@ -1,10 +1,11 @@
 package dev.wholivedwhen.curation
 
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
-import org.springframework.web.server.ResponseStatusException
 import tools.jackson.databind.json.JsonMapper
+import dev.wholivedwhen.support.ConflictException
+import dev.wholivedwhen.support.InvalidRequestException
+import dev.wholivedwhen.support.NotFoundException
 import dev.wholivedwhen.support.slugify
 import java.security.MessageDigest
 
@@ -50,7 +51,7 @@ class Claims(
         claim.sources.forEach(::check)
         val flags = if (claim.sources.size == 1) listOf(FlagReason(Flag.SINGLE_SOURCE, "ONE_SOURCE")) else emptyList()
         val id = idOf(claim.payload)
-        if (claims.existsById(id)) throw ResponseStatusException(HttpStatus.CONFLICT, "$id exists already")
+        if (claims.existsById(id)) throw ConflictException("$id exists already")
         val added = claims.save(Claim(id, typeOf(claim.payload), ClaimStatus.CANDIDATE, Origin.MANUAL, claim.payload, claim.payload, flags))
         addSources(added, claim.sources)
         decisions.save(Decision(id, by, null, ClaimStatus.CANDIDATE, null, claim.payload, claim.note))
@@ -87,7 +88,7 @@ class Claims(
         val last = decisions.findByClaimOrderById(id).last()
         val from = last.from
         if (last.by != by || from == null || last.undoes != null) {
-            throw ResponseStatusException(HttpStatus.CONFLICT, "The claim's last decision is not one to undo")
+            throw ConflictException("The claim's last decision is not one to undo")
         }
         val before = last.payloadBefore!!
         decisions.save(Decision(id, by, claim.status, from, claim.payload, before, "Undone", undoes = last.id))
@@ -167,7 +168,7 @@ class Claims(
     }
 
     private fun find(id: String): Claim =
-        claims.findById(id).orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "No claim $id") }
+        claims.findById(id).orElseThrow { NotFoundException("No claim $id") }
 
     private fun detail(claim: Claim) = ClaimDetail(claim, claim.sources.map(::toRef), decisions.findByClaimOrderById(claim.id))
 
@@ -203,7 +204,7 @@ class Claims(
         if (!complete) badRequest("A ${source.kind} source needs ${REQUIRED.getValue(source.kind)}")
     }
 
-    private fun badRequest(reason: String): Nothing = throw ResponseStatusException(HttpStatus.BAD_REQUEST, reason)
+    private fun badRequest(reason: String): Nothing = throw InvalidRequestException(reason)
 
     companion object {
         /** Who the workbench's own decisions are logged as: proposing and refreshing claims. */

@@ -1,9 +1,7 @@
 package dev.wholivedwhen.service
 
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.web.server.ResponseStatusException
 import dev.wholivedwhen.domain.Person
 import dev.wholivedwhen.domain.PublicationStatus.PUBLISHED
 import dev.wholivedwhen.repository.ConnectionRepository
@@ -12,6 +10,7 @@ import dev.wholivedwhen.repository.EventRepository
 import dev.wholivedwhen.repository.LifeRepository
 import dev.wholivedwhen.repository.MomentRepository
 import dev.wholivedwhen.repository.PersonRepository
+import dev.wholivedwhen.support.NotFoundException
 import dev.wholivedwhen.support.currentYear
 import dev.wholivedwhen.support.yearsBetween
 import dev.wholivedwhen.web.ApiMapper
@@ -38,7 +37,7 @@ class PersonService(
     /** A person and the world around them in [year], or in their prime if they were not alive then. */
     fun detail(slug: String, year: Int?): PersonDetailDto {
         val person = people.findBySlug(slug)
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown person: $slug")
+            ?: throw NotFoundException("Unknown person: $slug")
         val region = person.region.code
         val end = person.deathYear ?: currentYear()
         val ref = year?.takeIf { it in person.birthYear..end } ?: minOf(end, person.birthYear + PRIME_AGE)

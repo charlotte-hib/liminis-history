@@ -81,6 +81,8 @@ class MomentApiTests(@Autowired private val mockMvc: MockMvc) {
         mockMvc.get("/api/moments/atlantis").andExpect {
             status { isNotFound() }
             content { contentType("application/problem+json") }
+            jsonPath("$.type") { doesNotExist() }
+            jsonPath("$.title") { value("Not Found") }
             jsonPath("$.status") { value(404) }
             jsonPath("$.detail") { value("Unknown moment: atlantis") }
             jsonPath("$.instance") { value("/api/moments/atlantis") }
