@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 import dev.wholivedwhen.curation.CurationFixtures.HUGO
 import dev.wholivedwhen.curation.CurationFixtures.PEOPLE
 import dev.wholivedwhen.curation.CurationFixtures.ZOLA
@@ -28,9 +30,9 @@ import kotlin.test.assertEquals
 class PersonFactsProposalsTests(
     @Autowired private val proposals: PersonFactsProposals,
     @Autowired private val claims: Claims,
-    @Autowired private val store: CurationStore,
     @Autowired private val dataset: DatasetStore,
     @Autowired private val jdbc: JdbcTemplate,
+    @Autowired private val jsonMapper: JsonMapper,
 ) {
 
     @BeforeEach
@@ -39,7 +41,7 @@ class PersonFactsProposalsTests(
         CurationFixtures.map(dataset)
     }
 
-    private fun proposed() = store.list(null, null, null, 0, 100).map { it.id }
+    private fun proposed() = claims.list(null, null, null, 0, 100).map { it.id }
 
     @Test
     fun `proposes the best known people born in each moment's region and alive during it`() {
@@ -71,6 +73,9 @@ class PersonFactsProposalsTests(
             hugo.payload,
         )
         assertEquals(hugo.payload, hugo.proposal)
+        // Stored as the API writes it: the places' missing years left out, not null.
+        val stored = jdbc.queryForObject("select payload::text from curation.claim where id = ?", String::class.java, hugo.id)
+        assertEquals(jsonMapper.valueToTree<JsonNode>(hugo.payload), jsonMapper.readTree(stored))
         assertEquals(
             listOf(
                 SourceDto(kind = SourceDto.Kind.WIKIDATA, entity = "Q535"),
@@ -81,8 +86,8 @@ class PersonFactsProposalsTests(
         )
         assertEquals(listOf("rule" to "Proposed"), hugo.decisions.map { it.by to it.note })
 
-        assertEquals(listOf(FlagReasonDto(FlagDto.POORLY_DOCUMENTED, "DEATH_UNREFERENCED")), store.find("person-facts:Q504")!!.flags)
-        assertEquals(listOf(FlagReasonDto(FlagDto.SENSITIVE, "P19_DISPUTED_AREA")), store.find("person-facts:Q1001")!!.flags)
+        assertEquals(listOf(FlagReasonDto(FlagDto.POORLY_DOCUMENTED, "DEATH_UNREFERENCED")), claims.detail("person-facts:Q504").flags)
+        assertEquals(listOf(FlagReasonDto(FlagDto.SENSITIVE, "P19_DISPUTED_AREA")), claims.detail("person-facts:Q1001").flags)
     }
 
     @Test
@@ -121,9 +126,9 @@ class PersonFactsProposalsTests(
 
         // Proposing again keeps the conflict, until the curator decides.
         proposals.propose()
-        assertEquals(listOf(FlagReasonDto(FlagDto.CONFLICT, "CHANGED_SINCE_APPROVED")), store.find("person-facts:Q535")!!.flags)
+        assertEquals(listOf(FlagReasonDto(FlagDto.CONFLICT, "CHANGED_SINCE_APPROVED")), claims.detail("person-facts:Q535").flags)
         claims.decide("person-facts:Q535", NewDecisionDto(NewDecisionDto.Action.APPROVE, hugo.proposal), "curator")
-        assertEquals(emptyList(), store.find("person-facts:Q535")!!.flags)
+        assertEquals(emptyList(), claims.detail("person-facts:Q535").flags)
     }
 
     @Test
@@ -136,8 +141,8 @@ class PersonFactsProposalsTests(
         CurationFixtures.map(dataset, PEOPLE.map { if (it == HUGO || it == ZOLA) it.copy(born = it.born - 1) else it })
         proposals.propose()
 
-        assertEquals(ClaimStatusDto.REJECTED, store.find("person-facts:Q535")!!.status)
-        val edited = store.find("person-facts:Q504")!!
+        assertEquals(ClaimStatusDto.REJECTED, claims.detail("person-facts:Q535").status)
+        val edited = claims.detail("person-facts:Q504")
         assertEquals(ClaimStatusDto.NEEDS_WORK, edited.status)
         assertEquals(1901, (edited.payload as PersonFactsDto).died)
         assertEquals(1839, (edited.proposal as PersonFactsDto).born)
