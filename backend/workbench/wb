@@ -9,7 +9,7 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # Where the workbench writes the fetched dataset (app.dataset.export-dir, from backend/), and the private data
 # repository's clone, next to this one, where its pin goes.
 export_dir="${WB_EXPORT_DIR:-$repo/backend/dataset-export}"
-data_repo="${WB_DATA_REPO:-$repo/../who-lived-when-data}"
+data_repo="${WB_DATA_REPO:-$(dirname "$repo")/who-lived-when-data}"
 dataset_package=ghcr.io/charlotte-hib/who-lived-when-dataset
 # The data repository's CI pushes its release bundles with the same version.
 oras_image=ghcr.io/oras-project/oras:v1.3.4@sha256:f7bc056d54d97baa399414ed5048ecc67c3371b750d4bbce1d871827a5758179
