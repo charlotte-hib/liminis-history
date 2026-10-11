@@ -6,6 +6,7 @@ import org.springframework.transaction.support.TransactionTemplate
 import tools.jackson.databind.json.JsonMapper
 import dev.wholivedwhen.support.ConflictException
 import dev.wholivedwhen.support.NotFoundException
+import dev.wholivedwhen.support.StaleException
 
 /** A claim the workbench proposes: its record as fetched or drafted, where it came from, its flags and sources. */
 data class Proposal(val payload: Payload, val origin: Origin, val flags: List<FlagReason>, val sources: List<SourceRef>)
@@ -56,20 +57,23 @@ class Claims(
         return detail(added)
     }
 
-    /** Approves (the edited payload, if given), rejects or keeps the claim for later. */
+    /** Approves (the edited payload, if given), rejects or keeps the claim for later, if it is still at [version]. */
     @Transactional
-    fun decide(id: String, decision: NewDecision, by: String): ClaimDetail {
-        val claim = find(id)
+    fun decide(id: String, version: Long, decision: NewDecision, by: String): ClaimDetail {
+        val claim = find(id, version)
         val decided = ClaimRules.decide(claim.state, decision)
         decisions.save(Decision(id, by, claim.status, decided.status, claim.payload, decided.payload, decision.note))
         claim.state = decided
         return detail(claim)
     }
 
-    /** Puts back the claim as it was before the curator's last decision, if that is the claim's last decision. */
+    /**
+     * Puts back the claim as it was before the curator's last decision, if that is the claim's last decision and the
+     * claim is still at [version].
+     */
     @Transactional
-    fun undo(id: String, by: String): ClaimDetail {
-        val claim = find(id)
+    fun undo(id: String, version: Long, by: String): ClaimDetail {
+        val claim = find(id, version)
         val last = decisions.findByClaimOrderById(id).last()
         val from = last.from
         if (last.by != by || from == null || last.undoes != null) {
@@ -127,6 +131,11 @@ class Claims(
 
     private fun find(id: String): Claim =
         claims.findById(id).orElseThrow { NotFoundException("No claim $id") }
+
+    /** The claim, if it is still at the [version] the request was based on. */
+    private fun find(id: String, version: Long): Claim = find(id).also {
+        if (it.version != version) throw StaleException("$id changed since version $version: it is at ${it.version}, read it again")
+    }
 
     private fun detail(claim: Claim) = ClaimDetail(claim, claim.sources.map(::toRef), decisions.findByClaimOrderById(claim.id))
 

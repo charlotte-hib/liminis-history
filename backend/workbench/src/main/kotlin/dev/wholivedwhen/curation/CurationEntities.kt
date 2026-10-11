@@ -14,6 +14,7 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.OrderColumn
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import org.hibernate.annotations.Generated
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.annotations.ListIndexJdbcTypeCode
@@ -40,6 +41,13 @@ class Claim(
     @Generated
     @Column(insertable = false, updatable = false)
     val seq: Long = 0
+
+    /**
+     * Raised by Hibernate with every change to the claim, and checked when it writes it: the claim's ETag. Null until
+     * the claim is first stored, which tells Spring Data to insert it.
+     */
+    @Version
+    val version: Long? = null
 
     /** Its status, payloads and flags together, as [ClaimRules] reads and changes them. */
     var state: ClaimState
