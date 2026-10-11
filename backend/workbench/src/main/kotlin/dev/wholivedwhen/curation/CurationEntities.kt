@@ -27,7 +27,7 @@ import dev.wholivedwhen.workbench.api.model.SourceDto
 import java.time.OffsetDateTime
 
 // The workbench's schema curation (db/curation), mapped for one claim at a time. The JSON columns are read and written
-// with Spring's JsonMapper (CurationSchema), as the API reads and writes them.
+// with Spring's JsonMapper (CurationJson), as the API reads and writes them.
 
 /** A claim: [payload] is what would ship, [proposal] what was last proposed, before any edit. Its id: [Claims.idOf]. */
 @Entity
