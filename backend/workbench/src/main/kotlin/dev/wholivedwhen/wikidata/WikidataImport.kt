@@ -79,36 +79,42 @@ class WikidataImport(
         waitUntil(run.notBefore)
         current = run
         try {
-            if (run.phase == ImportPhase.DISCOVER) {
-                discovery.discover(run)
-                store.queuePeople(run)
+            // Each step does its phase's work, then moves the run to the next phase: a resumed run starts at its own.
+            for ((phase, step) in steps) {
+                if (run.phase != phase) continue
+                step(run)
                 run = store.findRun(run.id)
-            }
-            if (run.phase == ImportPhase.PEOPLE) {
-                fetchAll(run, EntityKind.PEOPLE)
-                store.queueLinked(run, properties.linkedProperties)
-                run = store.findRun(run.id)
-            }
-            if (run.phase == ImportPhase.LINKED) {
-                fetchAll(run, EntityKind.LINKED)
-                store.startClasses(run)
-                run = store.findRun(run.id)
-            }
-            if (run.phase == ImportPhase.CLASSES) {
-                fetchClasses(run)
-                store.queuePages(run, properties.sites, languages)
-                run = store.findRun(run.id)
-            }
-            if (run.phase == ImportPhase.PAGES) {
-                languages.forEach { fetchPages(run, it) }
-                store.finish(run)
             }
         } finally {
             current = null
         }
         log.info("Import {} done: {}", run.id, store.counts(run))
-        return store.findRun(run.id)
+        return run
     }
+
+    /** The phases in order, each with its work and what it queues for the next one. */
+    private val steps: List<Pair<ImportPhase, (ImportRun) -> Unit>> = listOf(
+        ImportPhase.DISCOVER to { run ->
+            discovery.discover(run)
+            store.queuePeople(run)
+        },
+        ImportPhase.PEOPLE to { run ->
+            fetchAll(run, EntityKind.PEOPLE)
+            store.queueLinked(run, properties.linkedProperties)
+        },
+        ImportPhase.LINKED to { run ->
+            fetchAll(run, EntityKind.LINKED)
+            store.startClasses(run)
+        },
+        ImportPhase.CLASSES to { run ->
+            fetchClasses(run)
+            store.queuePages(run, properties.sites, languages)
+        },
+        ImportPhase.PAGES to { run ->
+            languages.forEach { fetchPages(run, it) }
+            store.finish(run)
+        },
+    )
 
     private fun fetchAll(run: ImportRun, kind: EntityKind) {
         var done = 0
@@ -136,18 +142,10 @@ class WikidataImport(
     private fun fetch(kind: EntityKind, ids: List<String>): EntityBatch {
         val stored = store.revisions(ids)
         var requests = 0
-        val unchanged = mutableListOf<String>()
-        val missing = mutableListOf<String>()
-        if (stored.isNotEmpty()) {
-            val latest = wikimedia.entities(stored.keys.toList(), listOf("info")).path("entities")
+        val (unchanged, missing) = compare(stored) { qids ->
             requests++
-            stored.forEach { (qid, revision) ->
-                val entity = latest.path(qid)
-                when {
-                    entity.has("missing") -> missing += qid
-                    entity.path("lastrevid").asLong() == revision -> unchanged += qid
-                }
-            }
+            val latest = wikimedia.entities(qids, listOf("info")).path("entities")
+            qids.filterNot { latest.path(it).has("missing") }.associateWith { latest.path(it).path("lastrevid").asLong() }
         }
 
         val wanted = ids - unchanged.toSet() - missing.toSet()
@@ -178,18 +176,11 @@ class WikidataImport(
     private fun fetchPages(language: String, titles: List<String>): PageBatch {
         val stored = store.pageRevisions(language, titles)
         var requests = 0
-        val unchanged = mutableListOf<String>()
-        val missing = mutableListOf<String>()
-        if (stored.isNotEmpty()) {
-            val latest = wikimedia.pageRevisions(language, stored.keys.toList())
+        val (unchanged, gone) = compare(stored) {
             requests++
-            stored.forEach { (title, revision) ->
-                when (latest[title]) {
-                    null -> missing += title
-                    revision -> unchanged += title
-                }
-            }
+            wikimedia.pageRevisions(language, it)
         }
+        val missing = gone.toMutableList()
 
         val fetched = mutableMapOf<String, JsonNode>()
         (titles - unchanged.toSet() - missing.toSet()).chunked(WikimediaClient.MAX_PAGES).forEach { chunk ->
@@ -198,6 +189,16 @@ class WikidataImport(
             chunk.forEach { title -> pages[title]?.let { fetched[title] = it } ?: missing.add(title) }
         }
         return PageBatch(language, titles, requests, fetched, unchanged, missing)
+    }
+
+    /**
+     * Which of the [stored] revisions are still the latest, and which items are gone, from the [latest] revisions of
+     * the stored items (none for an item gone). Asks nothing when nothing is stored.
+     */
+    private fun compare(stored: Map<String, Long>, latest: (List<String>) -> Map<String, Long>): Pair<List<String>, List<String>> {
+        if (stored.isEmpty()) return emptyList<String>() to emptyList()
+        val revisions = latest(stored.keys.toList())
+        return stored.filter { (id, revision) -> revisions[id] == revision }.keys.toList() to stored.keys.filter { it !in revisions }
     }
 
     private fun waitUntil(notBefore: Instant?) {
