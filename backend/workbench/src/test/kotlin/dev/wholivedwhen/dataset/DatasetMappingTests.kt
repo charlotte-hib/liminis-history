@@ -6,22 +6,16 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import org.springframework.core.io.ClassPathResource
 import org.springframework.jdbc.core.JdbcTemplate
 import tools.jackson.databind.json.JsonMapper
 import dev.wholivedwhen.testing.PostgresTestConfiguration
-import dev.wholivedwhen.wikidata.BirthSlice
-import dev.wholivedwhen.wikidata.EntityBatch
-import dev.wholivedwhen.wikidata.PageBatch
 import dev.wholivedwhen.wikidata.RawStore
-import java.time.LocalDate
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The mapping from `raw` to `dataset`, on what an import of the 28 people born from 2000 to 1901 BCE stored: the
- * responses recorded from Wikidata on 2026-10-09 and from Wikipedia on 2026-10-10, put in `raw` as the import puts them. Natural Earth's borders are
- * the fixtures', already where the mapping keeps them.
+ * The mapping from `raw` to `dataset`, on what an import of the 28 people born from 2000 to 1901 BCE stored
+ * ([RecordedImport]). Natural Earth's borders are the fixtures', already where the mapping keeps them.
  */
 @SpringBootTest(
     properties = [
@@ -39,43 +33,16 @@ class DatasetMappingTests(
     @Autowired private val jsonMapper: JsonMapper,
 ) {
 
+    private val recorded = RecordedImport(raw, jdbc, jsonMapper)
+
     @BeforeEach
-    fun emptyCache() {
-        jdbc.execute(
-            "truncate raw.discovered, raw.entity, raw.import_item, raw.discovery_slice, raw.page, raw.page_item, raw.import_run restart identity",
-        )
-    }
-
-    private fun recorded(file: String, folder: String = "wikidata") =
-        jsonMapper.readTree(ClassPathResource("wiremock/__files/$folder/$file").inputStream)
-
-    /** Stores the recorded people, places, occupations, classes and articles, as a finished import would. */
-    private fun importRecorded() {
-        val run = raw.currentRun()
-        val people = recorded("sparql-born-2000-to-1901-bce.json").path("results").path("bindings").associate {
-            it.path("person").path("value").asString().substringAfterLast('/') to it.path("sitelinks").path("value").asString().toInt()
-        }
-        raw.saveSlice(run, BirthSlice(LocalDate.of(-1999, 1, 1), LocalDate.of(-1899, 1, 1)), people)
-        val files = listOf("born", "linked-to-born", "classes-1-of-born", "classes-2-of-born", "classes-3-of-born")
-        files.map { "wbgetentities-$it-2000-to-1901-bce.json" }.forEach { file ->
-            val entities = recorded(file).path("entities").values().toList()
-            raw.saveBatch(run, EntityBatch(entities.map { it.path("id").asString() }, 1, entities, emptyList(), emptyList()))
-        }
-        listOf("en", "fr").forEach { language ->
-            (1..2).forEach { i ->
-                val pages = recorded("$language-born-2000-to-1901-bce-$i.json", "wikipedia").path("query").path("pages").values()
-                val byTitle = pages.associateBy { it.path("title").asString() }
-                raw.savePages(run, PageBatch(language, byTitle.keys.toList(), 1, byTitle, emptyList(), emptyList()))
-            }
-        }
-        raw.finish(run)
-    }
+    fun emptyCache() = recorded.emptyCache()
 
     private fun rows(sql: String) = jdbc.queryForList(sql).map { it.values.toList() }
 
     @Test
     fun `maps every person the last import found, their places and their occupations`() {
-        importRecorded()
+        recorded.store()
 
         val counts = mapping.map()
 
@@ -153,7 +120,7 @@ class DatasetMappingTests(
 
     @Test
     fun `mapping again replaces the dataset`() {
-        importRecorded()
+        recorded.store()
         mapping.map()
 
         mapping.map()

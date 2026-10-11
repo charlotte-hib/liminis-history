@@ -1,5 +1,7 @@
 package dev.wholivedwhen.dataset
 
+import java.time.Instant
+
 /**
  * One person of the fetched dataset: facts as Wikidata states them, with no decision applied (corrections, regions and
  * domains come from `data/`, at compile time). Years count as the site does: negative for BCE, no year 0.
@@ -27,6 +29,21 @@ data class PersonRow(
     val occupations: List<PersonOccupation>,
     val places: List<PersonPlace>,
     val flags: Set<PersonFlag>,
+)
+
+/** A person's Wikipedia article in one [language], `en` or `fr`: its intro as plain text, as Wikipedia gives it. */
+data class ArticleRow(
+    /** The person's Q-id. */
+    val person: String,
+    val language: String,
+    /** The page's title, past any redirect from the sitelink's. */
+    val title: String,
+    val url: String,
+    val extract: String,
+    /** A thumbnail of the page image. */
+    val thumbnailUrl: String?,
+    /** The page image's file name on Commons, to credit it. */
+    val image: String?,
 )
 
 /** One of a person's occupations (P106), in Wikidata's order, best rank first. */
@@ -124,3 +141,6 @@ data class DatasetPlace(
     val startYear: Int?,
     val endYear: Int?,
 )
+
+/** The import a mapping run read: the facts are as Wikimedia gave them between its start and its end. */
+data class MappedImport(val run: Long, val startedAt: Instant, val finishedAt: Instant)

@@ -40,6 +40,9 @@ app:
   curation:
     # The people of each moment whose facts are proposed for review (wb claims), the best known first.
     people-per-moment: 50
+  dataset:
+    # The fetched dataset's files (wb export), written from backend/, where wb finds them to push.
+    export-dir: dataset-export
   drafting:
     model: claude-opus-5-5
     output-dir: drafts
