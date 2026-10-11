@@ -106,6 +106,9 @@ paths:
       responses:
         "201":
           description: The claim, waiting for review.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
           content:
             application/json:
               schema:
@@ -122,12 +125,16 @@ paths:
       tags: [claims]
       operationId: getClaim
       summary: A claim
-      description: A claim with its sources and every decision taken on it.
+      description: A claim with its sources and every decision taken on it. Its `ETag` is the version to send back in
+        `If-Match` when deciding on it or undoing a decision.
       parameters:
         - $ref: "#/components/parameters/ClaimId"
       responses:
         "200":
           description: The claim.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
           content:
             application/json:
               schema:
@@ -144,9 +151,11 @@ paths:
       summary: Decide on a claim
       description: |
         Approve (with an edited payload, if given), reject, or keep for later. A rejection and keeping for later need a
-        note saying why. The decision is logged with the payload before and after.
+        note saying why. The decision is logged with the payload before and after. Needs the claim's version in
+        `If-Match`, so a decision is never taken on a claim that changed since it was read.
       parameters:
         - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/IfMatch"
       requestBody:
         required: true
         content:
@@ -156,6 +165,9 @@ paths:
       responses:
         "200":
           description: The claim after the decision.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
           content:
             application/json:
               schema:
@@ -166,18 +178,28 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
+        "428":
+          $ref: "#/components/responses/PreconditionRequired"
 
   /api/claims/{id}/undo:
     post:
       tags: [claims]
       operationId: undo
       summary: Undo the last decision
-      description: Puts back the status and payload from before the curator's last decision on this claim, and logs it.
+      description: |
+        Puts back the status and payload from before the curator's last decision on this claim, and logs it. Needs the
+        claim's version in `If-Match`, as deciding does.
       parameters:
         - $ref: "#/components/parameters/ClaimId"
+        - $ref: "#/components/parameters/IfMatch"
       responses:
         "200":
           description: The claim as it was before that decision.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
           content:
             application/json:
               schema:
@@ -188,6 +210,10 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
+        "428":
+          $ref: "#/components/responses/PreconditionRequired"
 
   /api/runs:
     get:
@@ -263,7 +289,24 @@ components:
       scheme: bearer
       description: The token in `~/.config/who-lived-when/workbench-token`, new on every start.
 
+  headers:
+    ETag:
+      description: The claim's version, a number in quotes, e.g. `"3"`. It changes with every decision, undo or refresh.
+      schema:
+        type: string
+        example: '"3"'
+
   parameters:
+    IfMatch:
+      name: If-Match
+      in: header
+      description: |
+        The claim's `ETag`, as last read. Required: without it the answer is 428; when the claim changed since, 412.
+        Optional in this contract only so that a missing one gets its own answer.
+      required: false
+      schema:
+        type: string
+        example: '"3"'
     ClaimId:
       name: id
       in: path
@@ -290,6 +333,18 @@ components:
             $ref: "#/components/schemas/Problem"
     Conflict:
       description: The claim already exists, there is nothing to undo, or a run is already running.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    PreconditionFailed:
+      description: The claim changed since the version in `If-Match`. Read it again, then decide.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    PreconditionRequired:
+      description: No `If-Match`. Send the claim's `ETag`.
       content:
         application/problem+json:
           schema:

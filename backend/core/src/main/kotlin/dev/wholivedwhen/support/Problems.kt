@@ -1,5 +1,6 @@
 package dev.wholivedwhen.support
 
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.HttpStatus
 import org.springframework.web.ErrorResponse
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -17,6 +18,9 @@ class InvalidRequestException(message: String) : RuntimeException(message)
 /** The request conflicts with the current state: the claim exists already, a run is still running. */
 class ConflictException(message: String) : RuntimeException(message)
 
+/** What the request was based on changed since it was read: a claim decided on meanwhile. */
+class StaleException(message: String) : RuntimeException(message)
+
 @RestControllerAdvice
 class ProblemHandler {
 
@@ -28,4 +32,12 @@ class ProblemHandler {
 
     @ExceptionHandler
     fun conflict(e: ConflictException): ErrorResponse = ErrorResponse.create(e, HttpStatus.CONFLICT, e.message!!)
+
+    @ExceptionHandler
+    fun stale(e: StaleException): ErrorResponse = ErrorResponse.create(e, HttpStatus.PRECONDITION_FAILED, e.message!!)
+
+    /** Two writes raced past the version check: the second one fails when Hibernate writes it, as if it were stale. */
+    @ExceptionHandler
+    fun raced(e: OptimisticLockingFailureException): ErrorResponse =
+        ErrorResponse.create(e, HttpStatus.PRECONDITION_FAILED, "It changed while this request was being served: read it again")
 }

@@ -21,6 +21,9 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
+import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 /** The claims and runs API, as `wb` and `curate` call it. */
 @SpringBootTest(properties = ["app.wikipedia.enrich=false", "app.curation.people-per-moment=2"])
@@ -41,6 +44,12 @@ class ClaimsApiTests(
     }
 
     private fun MockHttpServletRequestDsl.signedIn() = header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+
+    private fun MockHttpServletRequestDsl.ifMatch(etag: String) = header(HttpHeaders.IF_MATCH, etag)
+
+    /** The claim's ETag, as a client reads it before deciding. */
+    private fun etag(id: String): String =
+        mockMvc.get("/api/claims/{id}", id) { signedIn() }.andReturn().response.getHeader(HttpHeaders.ETAG)!!
 
     private fun MockHttpServletRequestDsl.json(body: String) {
         signedIn()
@@ -142,16 +151,24 @@ class ClaimsApiTests(
                          "text": "After Louis-Napoléon's coup, Hugo fled to Brussels disguised as a worker."}}
         """.trimIndent()
 
-        mockMvc.post("/api/claims/{id}/decisions", anecdoteId) { json(edited) }.andExpect {
+        val proposed = etag(anecdoteId)
+        val approved = mockMvc.post("/api/claims/{id}/decisions", anecdoteId) {
+            json(edited)
+            ifMatch(proposed)
+        }.andExpect {
             status { isOk() }
             jsonPath("$.status") { value("APPROVED") }
             jsonPath("$.payload.text") { value(containsString("After Louis-Napoléon's coup")) }
             jsonPath("$.proposal.text") { value(containsString("Hugo fled")) }
             jsonPath("$.decisions[1].from") { value("CANDIDATE") }
             jsonPath("$.decisions[1].edited") { value(true) }
-        }
+        }.andReturn().response.getHeader(HttpHeaders.ETAG)!!
+        assertNotEquals(proposed, approved)
 
-        mockMvc.post("/api/claims/{id}/undo", anecdoteId) { signedIn() }.andExpect {
+        mockMvc.post("/api/claims/{id}/undo", anecdoteId) {
+            signedIn()
+            ifMatch(approved)
+        }.andExpect {
             status { isOk() }
             jsonPath("$.status") { value("CANDIDATE") }
             jsonPath("$.payload.text") { value(containsString("Hugo fled")) }
@@ -159,15 +176,21 @@ class ClaimsApiTests(
             jsonPath("$.decisions[2].note") { value("Undone") }
         }
         // An undo is not undone, and the claim's creation is not either.
-        mockMvc.post("/api/claims/{id}/undo", anecdoteId) { signedIn() }.andExpect { status { isConflict() } }
+        mockMvc.post("/api/claims/{id}/undo", anecdoteId) {
+            signedIn()
+            ifMatch(etag(anecdoteId))
+        }.andExpect { status { isConflict() } }
     }
 
     @Test
     fun `a rejection needs a reason, and an edit must stay about the same person`() {
         mockMvc.post("/api/claims") { json(anecdote) }
+        val proposed = etag(anecdoteId)
 
-        mockMvc.post("/api/claims/{id}/decisions", anecdoteId) { json("""{"action": "REJECT"}""") }
-            .andExpect {
+        mockMvc.post("/api/claims/{id}/decisions", anecdoteId) {
+            json("""{"action": "REJECT"}""")
+            ifMatch(proposed)
+        }.andExpect {
                 status { isBadRequest() }
                 content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
                 jsonPath("$.title") { value("Bad Request") }
@@ -175,18 +198,61 @@ class ClaimsApiTests(
             }
         mockMvc.post("/api/claims/{id}/decisions", anecdoteId) {
             json("""{"action": "APPROVE", "payload": {"type": "ANECDOTE", "person": "Q504", "year": 1851, "text": "t"}}""")
+            ifMatch(proposed)
         }.andExpect { status { isBadRequest() } }
-        mockMvc.post("/api/claims/{id}/decisions", anecdoteId) { json("""{"action": "REJECT", "note": "Legend"}""") }
-            .andExpect {
+        mockMvc.post("/api/claims/{id}/decisions", anecdoteId) {
+            json("""{"action": "REJECT", "note": "Legend"}""")
+            ifMatch(proposed)
+        }.andExpect {
                 status { isOk() }
                 jsonPath("$.status") { value("REJECTED") }
             }
-        mockMvc.post("/api/claims/{id}/decisions", "anecdote:Q1:1:none") { json("""{"action": "APPROVE"}""") }
-            .andExpect {
+        mockMvc.post("/api/claims/{id}/decisions", "anecdote:Q1:1:none") {
+            json("""{"action": "APPROVE"}""")
+            ifMatch(proposed)
+        }.andExpect {
                 status { isNotFound() }
                 content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
                 jsonPath("$.detail") { value("No claim anecdote:Q1:1:none") }
             }
+    }
+
+    @Test
+    fun `a decision names the version of the claim it was taken on`() {
+        val added = mockMvc.post("/api/claims") { json(anecdote) }.andReturn().response.getHeader(HttpHeaders.ETAG)!!
+        assertTrue(added.matches(Regex("\"[0-9]+\"")), added)
+        assertEquals(added, etag(anecdoteId))
+        val approve = """{"action": "APPROVE"}"""
+
+        mockMvc.post("/api/claims/{id}/decisions", anecdoteId) { json(approve) }.andExpect {
+            status { isEqualTo(428) }
+            content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+            jsonPath("$.detail") { value("Send the claim's ETag in If-Match") }
+        }
+        mockMvc.post("/api/claims/{id}/undo", anecdoteId) { signedIn() }.andExpect { status { isEqualTo(428) } }
+        for (other in listOf("\"999\"", "W/$added", "*")) {
+            mockMvc.post("/api/claims/{id}/decisions", anecdoteId) {
+                json(approve)
+                ifMatch(other)
+            }.andExpect {
+                status { isPreconditionFailed() }
+                content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+            }
+        }
+
+        mockMvc.post("/api/claims/{id}/decisions", anecdoteId) {
+            json(approve)
+            ifMatch(added)
+        }.andExpect { status { isOk() } }
+        // Someone else, still on the version they read, does not overwrite that decision.
+        mockMvc.post("/api/claims/{id}/decisions", anecdoteId) {
+            json("""{"action": "REJECT", "note": "Legend"}""")
+            ifMatch(added)
+        }.andExpect {
+            status { isPreconditionFailed() }
+            jsonPath("$.detail") { value(containsString("$anecdoteId changed since version ${added.trim('"')}")) }
+        }
+        mockMvc.get("/api/claims/{id}", anecdoteId) { signedIn() }.andExpect { jsonPath("$.status") { value("APPROVED") } }
     }
 
     @Test
