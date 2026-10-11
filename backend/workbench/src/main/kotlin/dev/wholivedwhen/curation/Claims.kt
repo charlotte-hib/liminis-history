@@ -1,6 +1,7 @@
 package dev.wholivedwhen.curation
 
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import tools.jackson.databind.json.JsonMapper
 import dev.wholivedwhen.support.ConflictException
@@ -27,7 +28,8 @@ class Claims(
     private val jsonMapper: JsonMapper,
 ) {
 
-    fun detail(id: String): ClaimDetail = transactions.execute { detail(find(id)) }!!
+    @Transactional(readOnly = true)
+    fun detail(id: String): ClaimDetail = detail(find(id))
 
     /** Claims after [after] in the order they were proposed, at most [limit], of [type], [status] and [flag] if given. */
     fun list(type: ClaimType?, status: ClaimStatus?, flag: Flag?, after: Long, limit: Int): List<Claim> =
@@ -42,7 +44,8 @@ class Claims(
     }
 
     /** Adds a claim the curator found, waiting for review. */
-    fun add(claim: NewClaim, by: String): ClaimDetail = transactions.execute {
+    @Transactional
+    fun add(claim: NewClaim, by: String): ClaimDetail {
         val flags = ClaimRules.flagsOfNew(claim)
         val id = ClaimRules.idOf(claim.payload)
         if (claims.existsById(id)) throw ConflictException("$id exists already")
@@ -50,20 +53,22 @@ class Claims(
         val added = claims.save(Claim(id, type, ClaimStatus.CANDIDATE, Origin.MANUAL, claim.payload, claim.payload, flags))
         addSources(added, claim.sources)
         decisions.save(Decision(id, by, null, ClaimStatus.CANDIDATE, null, claim.payload, claim.note))
-        detail(added)
-    }!!
+        return detail(added)
+    }
 
     /** Approves (the edited payload, if given), rejects or keeps the claim for later. */
-    fun decide(id: String, decision: NewDecision, by: String): ClaimDetail = transactions.execute {
+    @Transactional
+    fun decide(id: String, decision: NewDecision, by: String): ClaimDetail {
         val claim = find(id)
         val decided = ClaimRules.decide(claim.state, decision)
         decisions.save(Decision(id, by, claim.status, decided.status, claim.payload, decided.payload, decision.note))
         claim.state = decided
-        detail(claim)
-    }!!
+        return detail(claim)
+    }
 
     /** Puts back the claim as it was before the curator's last decision, if that is the claim's last decision. */
-    fun undo(id: String, by: String): ClaimDetail = transactions.execute {
+    @Transactional
+    fun undo(id: String, by: String): ClaimDetail {
         val claim = find(id)
         val last = decisions.findByClaimOrderById(id).last()
         val from = last.from
@@ -74,10 +79,13 @@ class Claims(
         decisions.save(Decision(id, by, claim.status, from, claim.payload, before, "Undone", undoes = last.id))
         claim.status = from
         claim.payload = before
-        detail(claim)
-    }!!
+        return detail(claim)
+    }
 
-    /** Adds the claims of [proposals] that are new, and refreshes those whose proposal changed ([ClaimRules.refresh]). */
+    /**
+     * Adds the claims of [proposals] that are new, and refreshes those whose proposal changed ([ClaimRules.refresh]):
+     * one transaction per claim, so a run stopped half way keeps the claims it got through.
+     */
     fun propose(proposals: List<Proposal>): ProposalCounts {
         var added = 0
         var refreshed = 0
