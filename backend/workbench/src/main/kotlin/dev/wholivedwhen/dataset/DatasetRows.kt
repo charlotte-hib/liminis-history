@@ -52,6 +52,21 @@ data class PersonOccupation(val occupation: String, val referenced: Boolean)
 /** A place of birth (P19), death (P20), work (P937) or residence (P551), with its start and end years when stated. */
 data class PersonPlace(val property: String, val place: String, val startYear: Int?, val endYear: Int?, val referenced: Boolean)
 
+/** The properties of a person's places, in the order the dataset lists them. */
+enum class PlaceProperty(val code: String) {
+    BIRTH("P19"),
+    DEATH("P20"),
+    WORK("P937"),
+    RESIDENCE("P551");
+
+    companion object {
+        fun of(code: String): PlaceProperty = entries.first { it.code == code }
+
+        /** Sorts rows of `dataset.person_place` (aliased [table]) in that order. */
+        fun sqlOrder(table: String) = "array_position(array[${entries.joinToString { "'${it.code}'" }}], $table.property)"
+    }
+}
+
 /** Why a person's facts need a person's eye: the flag of the review policy, and the reason for it. */
 enum class PersonFlag(val flag: String) {
     BIRTH_UNREFERENCED(POORLY_DOCUMENTED),

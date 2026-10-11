@@ -169,9 +169,9 @@ class DatasetStore(dataSource: DataSource) {
         val places = jdbc.query(
             """
             select person, property, place, start_year, end_year, referenced
-            from dataset.person_place
+            from dataset.person_place pp
             where person = any (?)
-            order by person, array_position(array['P19', 'P20', 'P937', 'P551'], property), position
+            order by person, ${PlaceProperty.sqlOrder("pp")}, position
             """.trimIndent(),
             { rs, _ ->
                 rs.getString(1) to PersonPlace(
@@ -260,7 +260,7 @@ class DatasetStore(dataSource: DataSource) {
             """
             select p.qid
             from dataset.person p
-            join dataset.person_place pp on pp.person = p.qid and pp.property = 'P19' and pp.position = 0
+            join dataset.person_place pp on pp.person = p.qid and pp.property = '${PlaceProperty.BIRTH.code}' and pp.position = 0
             join dataset.place pl on pl.qid = pp.place
             where $PLACE_COUNTRY = ? and p.born <= ? and p.died >= ?
             order by p.sitelinks desc, p.qid
@@ -291,7 +291,7 @@ class DatasetStore(dataSource: DataSource) {
             from dataset.person_place pp
             left join dataset.place pl on pl.qid = pp.place
             where pp.person = any (?)
-            order by pp.person, array_position(array['P19', 'P20', 'P937', 'P551'], pp.property), pp.position
+            order by pp.person, ${PlaceProperty.sqlOrder("pp")}, pp.position
             """.trimIndent(),
             { rs, _ ->
                 rs.getString(1) to DatasetPlace(

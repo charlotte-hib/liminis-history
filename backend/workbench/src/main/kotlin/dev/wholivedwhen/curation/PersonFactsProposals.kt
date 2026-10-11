@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
 import dev.wholivedwhen.dataset.DatasetPerson
 import dev.wholivedwhen.dataset.DatasetStore
+import dev.wholivedwhen.dataset.PlaceProperty
 import dev.wholivedwhen.repository.MomentRepository
 import dev.wholivedwhen.wikidata.RawStore
 import dev.wholivedwhen.workbench.api.model.FlagDto
@@ -68,7 +69,7 @@ class PersonFactsProposals(
             },
             places = person.places.map {
                 PlaceDto(
-                    role = ROLES.getValue(it.property), place = it.place, label = it.label ?: it.place, country = it.country,
+                    role = role(PlaceProperty.of(it.property)), place = it.place, label = it.label ?: it.place, country = it.country,
                     startYear = it.startYear, endYear = it.endYear,
                 )
             },
@@ -82,12 +83,10 @@ class PersonFactsProposals(
         ),
     )
 
-    private companion object {
-        val ROLES = mapOf(
-            "P19" to PlaceDto.Role.BIRTH,
-            "P20" to PlaceDto.Role.DEATH,
-            "P937" to PlaceDto.Role.WORK,
-            "P551" to PlaceDto.Role.RESIDENCE,
-        )
+    private fun role(property: PlaceProperty) = when (property) {
+        PlaceProperty.BIRTH -> PlaceDto.Role.BIRTH
+        PlaceProperty.DEATH -> PlaceDto.Role.DEATH
+        PlaceProperty.WORK -> PlaceDto.Role.WORK
+        PlaceProperty.RESIDENCE -> PlaceDto.Role.RESIDENCE
     }
 }

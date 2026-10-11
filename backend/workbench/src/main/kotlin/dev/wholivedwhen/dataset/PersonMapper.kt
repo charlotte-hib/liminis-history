@@ -73,7 +73,7 @@ class PersonMapper(private val properties: WikidataProperties, private val curre
                 enwiki = enwiki,
                 frwiki = frwiki,
                 occupations = occupations,
-                places = PLACES.flatMap { property -> places(entity, property) },
+                places = PlaceProperty.entries.flatMap { places(entity, it.code) },
                 flags = flags,
             ),
         )
@@ -119,8 +119,6 @@ class PersonMapper(private val properties: WikidataProperties, private val curre
         private const val DEATH = "P570"
         private const val OCCUPATION = "P106"
         private const val GENDER = "P21"
-        /** Places of birth, death, work and residence. */
-        private val PLACES = listOf("P19", "P20", "P937", "P551")
         /** Floruit, and the end of a work period. */
         private val WORKED = listOf("P1317", "P2032")
         private const val START = "P580"
@@ -128,6 +126,6 @@ class PersonMapper(private val properties: WikidataProperties, private val curre
         private const val ESTIMATED_AGE = 60
 
         /** The statements the mapping reads: the rest of an entity can stay in the database. */
-        val PROPERTIES = listOf(BIRTH, DEATH, OCCUPATION, GENDER) + PLACES + WORKED
+        val PROPERTIES = listOf(BIRTH, DEATH, OCCUPATION, GENDER) + PlaceProperty.entries.map { it.code } + WORKED
     }
 }
