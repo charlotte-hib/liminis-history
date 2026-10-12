@@ -1,0 +1,205 @@
+"use client";
+
+import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import type { components } from "@/lib/api-schema";
+import { year } from "@/lib/years";
+
+type PersonFacts = components["schemas"]["PersonFacts"];
+type Anecdote = components["schemas"]["Anecdote"];
+type Payload = components["schemas"]["Payload"];
+
+type Props<T> = { payload: T; pending: boolean; onApprove: (payload: Payload, note: string) => void; onCancel: () => void };
+
+const input = "rounded-md border border-line bg-surface px-3 py-2 font-[inherit] disabled:opacity-60";
+
+const PRECISIONS = [
+  { value: 11, name: "day" },
+  { value: 10, name: "month" },
+  { value: 9, name: "year" },
+  { value: 8, name: "decade" },
+  { value: 7, name: "century" },
+];
+
+/** A year typed in: an integer, negative for BCE, never 0. */
+function parseYear(text: string): number | null {
+  const value = Number(text.trim());
+  return Number.isInteger(value) && value !== 0 && text.trim() !== "" ? value : null;
+}
+
+/** Edits a person's facts, then approves them as edited. */
+export function FactsForm({ payload, pending, onApprove, onCancel }: Props<PersonFacts>) {
+  const [facts, setFacts] = useState(payload);
+  const [born, setBorn] = useState(String(payload.born));
+  const [died, setDied] = useState(String(payload.died));
+  const [note, setNote] = useState("");
+  const bornYear = parseYear(born);
+  const diedYear = parseYear(died);
+  const problem =
+    bornYear === null || diedYear === null
+      ? "Years are whole numbers, negative for BCE, never 0."
+      : bornYear > diedYear
+        ? "Born after the death."
+        : null;
+
+  const move = (from: number, to: number) => {
+    const occupations = [...facts.occupations];
+    const [moved] = occupations.splice(from, 1);
+    occupations.splice(to, 0, moved);
+    setFacts({ ...facts, occupations });
+  };
+
+  const submit = () => {
+    if (problem || bornYear === null || diedYear === null) return;
+    onApprove({ ...facts, born: bornYear, died: diedYear }, note);
+  };
+
+  return (
+    <EditFrame pending={pending} problem={problem} onSubmit={submit} onCancel={onCancel}>
+      <div className="grid grid-cols-2 gap-4">
+        <Labelled name="Label, English">
+          <input className={input} value={facts.label} onChange={(e) => setFacts({ ...facts, label: e.target.value })} />
+        </Labelled>
+        <Labelled name="Label, French">
+          <input
+            className={input}
+            value={facts.labelFr ?? ""}
+            onChange={(e) => setFacts({ ...facts, labelFr: e.target.value || undefined })}
+          />
+        </Labelled>
+      </div>
+      <div className="grid grid-cols-[140px_160px_140px_minmax(0,1fr)] items-end gap-4">
+        <Labelled name="Born" was={born !== String(payload.born) ? year(payload.born) : undefined}>
+          <input className={`${input} font-mono`} inputMode="numeric" value={born} onChange={(e) => setBorn(e.target.value)} />
+        </Labelled>
+        <Labelled name="Precision">
+          <select
+            className={input}
+            value={facts.bornPrecision}
+            onChange={(e) => setFacts({ ...facts, bornPrecision: Number(e.target.value) })}
+          >
+            {PRECISIONS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </Labelled>
+        <Labelled name="Died" was={died !== String(payload.died) ? year(payload.died) : undefined}>
+          <input className={`${input} font-mono`} inputMode="numeric" value={died} onChange={(e) => setDied(e.target.value)} />
+        </Labelled>
+        <label className="flex items-center gap-2 pb-2.5">
+          <input
+            type="checkbox"
+            checked={facts.datesApproximate}
+            onChange={(e) => setFacts({ ...facts, datesApproximate: e.target.checked })}
+          />
+          Dates approximate
+        </label>
+      </div>
+      <fieldset className="flex flex-col gap-2 rounded-lg border border-line bg-surface px-4 py-3">
+        <legend className="px-1.5 text-[13px] text-muted">Occupations, the first one shows on the site</legend>
+        {facts.occupations.map((occupation, i) => (
+          <div key={occupation.occupation} className="flex items-center gap-3">
+            <span className="w-5 font-mono text-muted">{i + 1}</span>
+            <span className="flex-1">
+              {occupation.label} {occupation.labelFr && <span className="text-muted">· {occupation.labelFr}</span>}
+            </span>
+            <button
+              type="button"
+              aria-label={`Move ${occupation.label} up`}
+              disabled={i === 0}
+              onClick={() => move(i, i - 1)}
+              className="h-8 w-9 rounded border border-line disabled:opacity-40"
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              aria-label={`Remove ${occupation.label}`}
+              onClick={() => setFacts({ ...facts, occupations: facts.occupations.filter((_, j) => j !== i) })}
+              className="h-8 w-9 rounded border border-line"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        {!facts.occupations.length && <span className="text-muted">None</span>}
+      </fieldset>
+      <Labelled name="Why, for the log (optional)">
+        <input className={input} value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} />
+      </Labelled>
+    </EditFrame>
+  );
+}
+
+/** Edits an anecdote's year and text, then approves it as edited. */
+export function AnecdoteForm({ payload, pending, onApprove, onCancel }: Props<Anecdote>) {
+  const [when, setWhen] = useState(String(payload.year));
+  const [text, setText] = useState(payload.text);
+  const [note, setNote] = useState("");
+  const parsed = parseYear(when);
+  const problem = parsed === null ? "The year is a whole number, negative for BCE, never 0." : text.trim() ? null : "Write the anecdote.";
+
+  return (
+    <EditFrame
+      pending={pending}
+      problem={problem}
+      onSubmit={() => parsed !== null && !problem && onApprove({ ...payload, year: parsed, text: text.trim() }, note)}
+      onCancel={onCancel}
+    >
+      <Labelled name="Year" was={when !== String(payload.year) ? year(payload.year) : undefined}>
+        <input className={`${input} w-32 font-mono`} value={when} onChange={(e) => setWhen(e.target.value)} />
+      </Labelled>
+      <Labelled name={`The anecdote · ${text.length} / 400`}>
+        <textarea className={`${input} h-28 resize-none`} maxLength={400} value={text} onChange={(e) => setText(e.target.value)} />
+      </Labelled>
+      <Labelled name="Why, for the log (optional)">
+        <input className={input} value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} />
+      </Labelled>
+    </EditFrame>
+  );
+}
+
+function Labelled({ name, was, children }: { name: string; was?: string; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[13px] text-muted">{name}</span>
+      {children}
+      {was && <span className="text-[12.5px] text-lamp">was {was}</span>}
+    </label>
+  );
+}
+
+/** ⌘⏎ or Ctrl+⏎ approves with the changes, Esc drops them. */
+function EditFrame(props: { pending: boolean; problem: string | null; onSubmit: () => void; onCancel: () => void; children: ReactNode }) {
+  const { pending, problem, onSubmit, onCancel, children } = props;
+  const keys = (event: KeyboardEvent) => {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      onSubmit();
+    } else if (event.key === "Escape") {
+      onCancel();
+    }
+  };
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    onSubmit();
+  };
+
+  return (
+    <form aria-label="Edit the claim" onSubmit={submit} onKeyDown={keys} className="flex flex-col gap-4">
+      <fieldset disabled={pending} className="flex flex-col gap-4">
+        {children}
+      </fieldset>
+      {problem && <p role="alert" className="text-conflict">{problem}</p>}
+      <div className="flex gap-2.5">
+        <button type="submit" disabled={pending || !!problem} className="min-h-11 rounded-md bg-ink px-3.5 text-bar disabled:opacity-50">
+          <kbd className="mr-2">⌘⏎</kbd>Approve with my changes
+        </button>
+        <button type="button" onClick={onCancel} className="min-h-11 rounded-md border border-line px-3.5">
+          <kbd className="mr-2">Esc</kbd>Discard changes
+        </button>
+      </div>
+    </form>
+  );
+}
