@@ -5,7 +5,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Component
 import dev.wholivedwhen.dataset.DatasetPerson
 import dev.wholivedwhen.dataset.DatasetStore
-import dev.wholivedwhen.dataset.PlaceProperty
 import dev.wholivedwhen.repository.MomentRepository
 import dev.wholivedwhen.wikidata.RawStore
 
@@ -27,6 +26,7 @@ class PersonFactsProposals(
     private val raw: RawStore,
     private val claims: Claims,
     private val properties: CurationProperties,
+    private val mapper: PersonFactsMapper,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -43,29 +43,7 @@ class PersonFactsProposals(
     }
 
     private fun proposal(person: DatasetPerson, revision: Long?) = Proposal(
-        payload = PersonFacts(
-            person = person.qid,
-            label = person.label,
-            labelFr = person.labelFr,
-            born = person.born,
-            bornPrecision = person.bornPrecision,
-            died = person.died,
-            diedPrecision = person.diedPrecision,
-            diedEstimated = person.diedEstimated,
-            datesApproximate = person.datesApproximate,
-            enwiki = person.enwiki,
-            frwiki = person.frwiki,
-            // A deleted occupation or place keeps its Q-id as its label.
-            occupations = person.occupations.map {
-                Occupation(occupation = it.occupation, label = it.label ?: it.occupation, labelFr = it.labelFr)
-            },
-            places = person.places.map {
-                Place(
-                    role = role(PlaceProperty.of(it.property)), place = it.place, label = it.label ?: it.place, country = it.country,
-                    startYear = it.startYear, endYear = it.endYear,
-                )
-            },
-        ),
+        payload = mapper.facts(person),
         origin = Origin.WIKIDATA,
         flags = person.flags.map { (flag, reason) -> FlagReason(Flag.valueOf(flag), reason) },
         sources = listOfNotNull(
@@ -74,11 +52,4 @@ class PersonFactsProposals(
             person.frwiki?.let { SourceRef(kind = SourceKind.WIKIPEDIA, language = "fr", title = it) },
         ),
     )
-
-    private fun role(property: PlaceProperty) = when (property) {
-        PlaceProperty.BIRTH -> PlaceRole.BIRTH
-        PlaceProperty.DEATH -> PlaceRole.DEATH
-        PlaceProperty.WORK -> PlaceRole.WORK
-        PlaceProperty.RESIDENCE -> PlaceRole.RESIDENCE
-    }
 }
