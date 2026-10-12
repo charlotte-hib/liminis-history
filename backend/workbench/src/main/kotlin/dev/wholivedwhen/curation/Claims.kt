@@ -8,14 +8,6 @@ import dev.wholivedwhen.support.ConflictException
 import dev.wholivedwhen.support.NotFoundException
 import dev.wholivedwhen.support.StaleException
 
-/** A claim the workbench proposes: its record as fetched or drafted, where it came from, its flags and sources. */
-data class Proposal(val payload: Payload, val origin: Origin, val flags: List<FlagReason>, val sources: List<SourceRef>)
-
-/** What proposing came to: claims added, claims whose proposal changed, and claims left as they were. */
-data class ProposalCounts(val added: Int, val refreshed: Int, val unchanged: Int) {
-    override fun toString() = "$added added, $refreshed refreshed, $unchanged unchanged"
-}
-
 /**
  * Claims and the curator's decisions on them. Every change of status or payload is logged with who made it: the
  * curator (through the API), or the workbench's rules when it proposes or refreshes a claim.
