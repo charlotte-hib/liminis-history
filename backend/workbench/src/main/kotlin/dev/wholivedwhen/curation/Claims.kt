@@ -3,7 +3,6 @@ package dev.wholivedwhen.curation
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
-import tools.jackson.databind.json.JsonMapper
 import dev.wholivedwhen.support.ConflictException
 import dev.wholivedwhen.support.NotFoundException
 import dev.wholivedwhen.support.StaleException
@@ -15,10 +14,9 @@ import dev.wholivedwhen.support.StaleException
 @Service
 class Claims(
     private val claims: ClaimRepository,
-    private val sources: SourceRepository,
     private val decisions: DecisionRepository,
+    private val sources: ClaimSources,
     private val transactions: TransactionTemplate,
-    private val jsonMapper: JsonMapper,
 ) {
 
     @Transactional(readOnly = true)
@@ -26,7 +24,7 @@ class Claims(
 
     /** Claims after [after] in the order they were proposed, at most [limit], of [type], [status] and [flag] if given. */
     fun list(type: ClaimType?, status: ClaimStatus?, flag: Flag?, after: Long, limit: Int): List<Claim> =
-        claims.list(type?.name, status?.name, flag?.let { json(listOf(mapOf("flag" to it))) }, after, limit)
+        claims.list(type?.name, status?.name, flag?.let { """[{"flag": "${it.name}"}]""" }, after, limit)
 
     /** For each claim type that has claims: how many wait, how many were kept for later, and the waiting ones' flags. */
     fun queues(): List<Queue> {
@@ -39,13 +37,11 @@ class Claims(
     /** Adds a claim the curator found, waiting for review. */
     @Transactional
     fun add(claim: NewClaim, by: String): ClaimDetail {
-        val flags = ClaimRules.flagsOfNew(claim)
-        val id = ClaimRules.idOf(claim.payload)
-        if (claims.existsById(id)) throw ConflictException("$id exists already")
-        val type = ClaimRules.typeOf(claim.payload)
-        val added = claims.save(Claim(id, type, ClaimStatus.CANDIDATE, Origin.MANUAL, claim.payload, claim.payload, flags))
-        addSources(added, claim.sources)
-        decisions.save(Decision(id, by, null, ClaimStatus.CANDIDATE, null, claim.payload, claim.note))
+        val candidate = Claim.candidate(claim.payload, Origin.MANUAL, ClaimRules.flagsOfNew(claim))
+        if (claims.existsById(candidate.id)) throw ConflictException("${candidate.id} exists already")
+        val added = claims.save(candidate)
+        sources.attach(added, claim.sources)
+        decisions.save(Decision(added.id, by, null, added.status, null, added.payload, claim.note))
         return detail(added)
     }
 
@@ -90,9 +86,8 @@ class Claims(
             var claim = claims.findById(id).orElse(null)
             when {
                 claim == null -> {
-                    val type = ClaimRules.typeOf(proposal.payload)
-                    claim = claims.save(Claim(id, type, ClaimStatus.CANDIDATE, proposal.origin, proposal.payload, proposal.payload, proposal.flags))
-                    decisions.save(Decision(id, ClaimRules.RULES, null, ClaimStatus.CANDIDATE, null, proposal.payload, "Proposed"))
+                    claim = claims.save(Claim.candidate(proposal.payload, proposal.origin, proposal.flags))
+                    decisions.save(Decision(id, ClaimRules.RULES, null, claim.status, null, claim.payload, "Proposed"))
                     added++
                 }
                 ClaimRules.changes(claim.state, proposal) -> {
@@ -105,20 +100,9 @@ class Claims(
                     claim.state = after
                 }
             }
-            addSources(claim, proposal.sources)
+            sources.attach(claim, proposal.sources)
         }
         return ProposalCounts(added, refreshed, proposals.size - added - refreshed)
-    }
-
-    /** Adds those of [added] the claim does not already rest on, after the ones it has. */
-    private fun addSources(claim: Claim, added: List<SourceRef>) {
-        val attached = claim.sources.map(::toRef).toMutableList()
-        for (source in added.filter { it !in attached }) {
-            val locator = json(locatorOf(source))
-            sources.addIfMissing(source.kind.name, locator)
-            claim.sources += ClaimSource(sources.find(source.kind.name, locator), source.quote)
-            attached += source
-        }
     }
 
     private fun find(id: String): Claim =
@@ -129,14 +113,5 @@ class Claims(
         if (it.version != version) throw StaleException("$id changed since version $version: it is at ${it.version}, read it again")
     }
 
-    private fun detail(claim: Claim) = ClaimDetail(claim, claim.sources.map(::toRef), decisions.findByClaimOrderById(claim.id))
-
-    private fun toRef(source: ClaimSource): SourceRef =
-        jsonMapper.convertValue(source.source.locator + mapOf("kind" to source.source.kind.name, "quote" to source.quote), SourceRef::class.java)
-
-    /** A source's fields but its kind and quote, which the source's identity does not include. */
-    private fun locatorOf(source: SourceRef): Map<*, *> =
-        jsonMapper.convertValue(source, Map::class.java).filterKeys { it != "kind" && it != "quote" }.filterValues { it != null }
-
-    private fun json(value: Any): String = jsonMapper.writeValueAsString(value)
+    private fun detail(claim: Claim) = ClaimDetail(claim, sources.of(claim), decisions.findByClaimOrderById(claim.id))
 }
