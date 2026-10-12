@@ -7,10 +7,7 @@ import org.springframework.http.ProblemDetail
 import org.springframework.web.ErrorResponseException
 import org.springframework.web.bind.annotation.RestController
 import dev.wholivedwhen.curation.ClaimDetail
-import dev.wholivedwhen.curation.ClaimStatus
-import dev.wholivedwhen.curation.ClaimType
 import dev.wholivedwhen.curation.Claims
-import dev.wholivedwhen.curation.Flag
 import dev.wholivedwhen.support.StaleException
 import dev.wholivedwhen.web.WorkbenchSecurity.Companion.currentActor
 import dev.wholivedwhen.workbench.api.ClaimsApi
@@ -37,7 +34,7 @@ class ClaimController(
     override fun listQueues(): List<QueueDto> = claims.queues().map(mapper::toDto)
 
     override fun listClaims(type: ClaimTypeDto?, status: ClaimStatusDto?, flag: FlagDto?, after: Long?, limit: Int): List<ClaimDto> =
-        claims.list(type?.let { ClaimType.valueOf(it.name) }, status?.let { ClaimStatus.valueOf(it.name) }, flag?.let { Flag.valueOf(it.name) }, after ?: 0, limit)
+        claims.list(type?.let(mapper::toModel), status?.let(mapper::toModel), flag?.let(mapper::toModel), after ?: 0, limit)
             .map(mapper::toDto)
 
     override fun getClaim(id: String): ClaimDetailDto = answer(claims.detail(id))
