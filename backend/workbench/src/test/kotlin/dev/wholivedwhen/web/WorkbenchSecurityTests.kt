@@ -38,7 +38,7 @@ class WorkbenchSecurityTests(
     /** Every endpoint of the API, with its path variables filled in. */
     private fun endpoints() = mappings.handlerMethods.keys.flatMap { info ->
         info.methodsCondition.methods.flatMap { method ->
-            info.patternValues.map { HttpMethod.valueOf(method.name) to it.replace("{id}", "1") }
+            info.patternValues.map { HttpMethod.valueOf(method.name) to it.replace("{id}", "1").replace("{qid}", "Q1") }
         }
     }
 

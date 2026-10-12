@@ -283,6 +283,31 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
         }
     }
 
+    /**
+     * The people whose English or French label contains [query], ignoring case, those it starts with first, then the
+     * best known; the person [query] names first when it is a Q-id.
+     */
+    fun find(query: String, limit: Int): List<PersonSummary> =
+        jdbc.query(
+            """
+            select p.qid as person, p.label, p.label_fr, p.born, p.died,
+                (select o.label from dataset.person_occupation po join dataset.occupation o on o.qid = po.occupation
+                 where po.person = p.qid order by po.position limit 1) as occupation
+            from dataset.person p
+            where p.qid = ? or strpos(lower(p.label), lower(?)) > 0 or strpos(lower(p.label_fr), lower(?)) > 0
+            order by p.qid = ? desc, starts_with(lower(p.label), lower(?)) desc, p.sitelinks desc, p.qid
+            limit ?
+            """.trimIndent(),
+            DataClassRowMapper(PersonSummary::class.java), query, query, query, query, query, limit,
+        )
+
+    /** The person's Wikipedia articles, by language. */
+    fun articles(person: String): List<ArticleRow> =
+        jdbc.query(
+            "select person, language, title, url, extract, thumbnail_url, image from dataset.person_article where person = ? order by language",
+            ARTICLE, person,
+        )
+
     private fun ResultSet.instant(column: String) = getObject(column, OffsetDateTime::class.java).toInstant()
 
     private companion object {

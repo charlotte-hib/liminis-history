@@ -22,6 +22,8 @@ security:
 tags:
   - name: claims
     description: What the curator approves, edits or rejects, with its sources and the decisions taken.
+  - name: people
+    description: The fetched people, and what Wikidata and Wikipedia say about them, to review their claims against.
   - name: runs
     description: Imports, mappings, proposals and drafts, one at a time, in the background.
 
@@ -214,6 +216,70 @@ paths:
           $ref: "#/components/responses/PreconditionFailed"
         "428":
           $ref: "#/components/responses/PreconditionRequired"
+
+  /api/people:
+    get:
+      tags: [people]
+      operationId: findPeople
+      summary: Find people by name
+      description: |
+        The fetched people whose English or French label contains `q`, ignoring case, those it starts with first, then
+        the best known. A Q-id finds that person.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        "200":
+          description: At most `limit` people.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/people/{qid}/evidence:
+    get:
+      tags: [people]
+      operationId: getEvidence
+      summary: What the sources say about a person
+      description: |
+        Every statement of the person's dates, occupations and places as the last import fetched it from Wikidata,
+        deprecated ones left out, with how many references name a source; and the intros of their English and French
+        Wikipedia articles.
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Qid"
+      responses:
+        "200":
+          description: The evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Evidence"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/runs:
     get:
@@ -750,6 +816,95 @@ components:
         result:
           type: string
           description: What it came to, or why it failed.
+
+    PersonSummary:
+      type: object
+      required: [person, label, born, died]
+      properties:
+        person:
+          $ref: "#/components/schemas/Qid"
+        label:
+          type: string
+        labelFr:
+          type: string
+        born:
+          $ref: "#/components/schemas/Year"
+        died:
+          $ref: "#/components/schemas/Year"
+        occupation:
+          type: string
+          description: The first occupation's label, the one the site shows.
+
+    Evidence:
+      type: object
+      required: [person, revision, statements, articles]
+      properties:
+        person:
+          $ref: "#/components/schemas/Qid"
+        revision:
+          type: integer
+          format: int64
+          description: The Wikidata revision the import fetched.
+        statements:
+          type: array
+          description: By field in the order of the enum, then best rank first, in Wikidata's order.
+          items:
+            $ref: "#/components/schemas/Statement"
+        articles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Article"
+
+    Statement:
+      type: object
+      description: One Wikidata statement. A date has `year` and `precision`; an occupation or a place has `item`.
+      required: [field, property, rank, references]
+      properties:
+        field:
+          type: string
+          enum: [BORN, DIED, OCCUPATION, BIRTHPLACE, DEATHPLACE, WORKPLACE, RESIDENCE]
+        property:
+          type: string
+          example: P569
+        year:
+          $ref: "#/components/schemas/Year"
+        precision:
+          type: integer
+          description: Wikidata's precision. 9 a year, 8 a decade, 7 a century, 10 and 11 a month and a day.
+        circa:
+          type: boolean
+          description: Qualified "circa".
+        item:
+          $ref: "#/components/schemas/Qid"
+        label:
+          type: string
+          description: The item's English label, else French, else its Q-id.
+        unknown:
+          type: boolean
+          description: Wikidata says "unknown value".
+        rank:
+          type: string
+          enum: [PREFERRED, NORMAL]
+        references:
+          type: integer
+          description: References naming a source; one that only names the Wikimedia project it was copied from does not count.
+
+    Article:
+      type: object
+      required: [language, title, url, extract]
+      properties:
+        language:
+          type: string
+          example: en
+        title:
+          type: string
+        url:
+          type: string
+        extract:
+          type: string
+          description: The intro, as plain text, as Wikipedia gives it.
+        thumbnailUrl:
+          type: string
 
     Qid:
       type: string
