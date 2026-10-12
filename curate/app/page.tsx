@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { FLAG_STYLE, FLAGS, QUEUES } from "@/lib/labels";
 import { workbench } from "@/lib/workbench";
 import type { components } from "@/lib/api-schema";
@@ -7,6 +8,8 @@ type Flag = components["schemas"]["Flag"];
 
 /** How many claims wait in each queue, and why the flagged ones need a look. */
 export default async function Inbox() {
+  // The queues live in the workbench: render at request time, never at build time.
+  await connection();
   const { data: queues, error } = await workbench.GET("/api/queues");
   if (!queues) throw new Error(`The workbench did not answer: ${JSON.stringify(error)}`);
   const waiting = queues.reduce((sum, queue) => sum + queue.candidates, 0);
