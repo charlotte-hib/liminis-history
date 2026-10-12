@@ -65,6 +65,12 @@ class Claim(
     @OrderColumn(name = "position")
     @ListIndexJdbcTypeCode(SqlTypes.SMALLINT)
     val sources: MutableList<ClaimSource> = mutableListOf()
+
+    companion object {
+        /** A new claim waiting for review, its id and type from what it is about. */
+        fun candidate(payload: Payload, origin: Origin, flags: List<FlagReason>) =
+            Claim(ClaimRules.idOf(payload), ClaimRules.typeOf(payload), ClaimStatus.CANDIDATE, origin, payload, payload, flags)
+    }
 }
 
 /** A source a claim rests on, with the passage it rests on. A book's quotes never leave the workbench. */
