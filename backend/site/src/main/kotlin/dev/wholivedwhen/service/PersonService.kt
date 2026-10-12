@@ -75,7 +75,7 @@ class PersonService(
      */
     fun connectionsOf(person: Person): List<ConnectionDto> {
         val curated = connections.findInvolving(person.slug).map { connection ->
-            ConnectionDto(mapper.toDto(connection.other(person)), connection.kind, connection.year, connection.text, connection.sourceUrl)
+            mapper.toDto(connection, connection.other(person))
         }
         val linked = curated.map { it.person.slug }.toSet()
         val shared = events.findDistinctByParticipantsPersonSlugOrderByYearAscIdAsc(person.slug).flatMap { event ->
