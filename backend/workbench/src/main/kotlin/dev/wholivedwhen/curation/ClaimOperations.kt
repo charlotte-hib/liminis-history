@@ -1,6 +1,8 @@
 package dev.wholivedwhen.curation
 
-// What Claims takes and gives back: never stored as such, so free to change with the service.
+// The inputs and results of the operations Claims offers, in the curation model. The controller turns the API's
+// models (api/workbench.yaml) into these and back (ClaimApiMapper), so the service never depends on generated code.
+// Never stored as such, so free to change with the service.
 
 /** A claim the curator found, with at least one source, and why they add it. */
 data class NewClaim(val payload: Payload, val sources: List<SourceRef>, val note: String? = null)
