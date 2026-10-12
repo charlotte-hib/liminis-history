@@ -38,10 +38,13 @@ data class Statement(
     val references: List<JsonNode> = emptyList(),
 ) {
     /**
-     * Has a reference naming a source. One that only says which Wikimedia project the statement was copied from
-     * (P143, with its URL or retrieval date) does not count: it says where the value came from, not who stated it.
+     * The references naming a source. One that only says which Wikimedia project the statement was copied from (P143,
+     * with its URL or retrieval date) does not count: it says where the value came from, not who stated it.
      */
-    val referenced get() = references.any { reference -> reference.path("snaks").propertyNames().any { it !in WIKIMEDIA_IMPORT } }
+    val sourcedReferences get() = references.count { reference -> reference.path("snaks").propertyNames().any { it !in WIKIMEDIA_IMPORT } }
+
+    /** Has a reference naming a source. */
+    val referenced get() = sourcedReferences > 0
 
     /** Qualified "circa" (P1480, sourcing circumstances). */
     val circa get() = qualifiers[SOURCING_CIRCUMSTANCES].orEmpty().any { it.id == CIRCA }

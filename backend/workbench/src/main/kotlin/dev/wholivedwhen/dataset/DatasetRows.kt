@@ -159,3 +159,14 @@ data class DatasetPlace(
 
 /** The import a mapping run read: the facts are as Wikimedia gave them between its start and its end. */
 data class MappedImport(val run: Long, val startedAt: Instant, val finishedAt: Instant)
+
+/** A person found by name, as a list of matches shows them. */
+data class PersonSummary(
+    val person: String,
+    val label: String,
+    val labelFr: String?,
+    val born: Int,
+    val died: Int,
+    /** The first occupation's label, the one the site shows. */
+    val occupation: String?,
+)
