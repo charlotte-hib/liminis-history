@@ -4,7 +4,7 @@ package dev.wholivedwhen.curation
 // (api/workbench.yaml): a change to the contract cannot make the claims already stored unreadable. The JSON columns
 // hold these types as Spring's JsonMapper writes them (CurationJson), nulls left out, and the text columns hold the
 // enums' names. Renaming a field or a constant here is a migration of the stored rows (db/curation). The payloads are
-// in Payloads.kt; what the service takes and gives back, in ClaimRequests.kt.
+// in Payloads.kt; what the service takes and gives back, in ClaimOperations.kt.
 
 enum class ClaimType { PERSON_FACTS, CONNECTION, EVENT, ANECDOTE }
 
