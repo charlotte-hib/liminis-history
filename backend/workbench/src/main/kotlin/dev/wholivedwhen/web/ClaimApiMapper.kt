@@ -9,9 +9,12 @@ import org.mapstruct.SubclassMapping
 import dev.wholivedwhen.curation.Anecdote
 import dev.wholivedwhen.curation.Claim
 import dev.wholivedwhen.curation.ClaimDetail
+import dev.wholivedwhen.curation.ClaimStatus
+import dev.wholivedwhen.curation.ClaimType
 import dev.wholivedwhen.curation.Connection
 import dev.wholivedwhen.curation.Decision
 import dev.wholivedwhen.curation.Event
+import dev.wholivedwhen.curation.Flag
 import dev.wholivedwhen.curation.NewClaim
 import dev.wholivedwhen.curation.NewDecision
 import dev.wholivedwhen.curation.Payload
@@ -20,9 +23,12 @@ import dev.wholivedwhen.curation.Queue
 import dev.wholivedwhen.workbench.api.model.AnecdoteDto
 import dev.wholivedwhen.workbench.api.model.ClaimDetailDto
 import dev.wholivedwhen.workbench.api.model.ClaimDto
+import dev.wholivedwhen.workbench.api.model.ClaimStatusDto
+import dev.wholivedwhen.workbench.api.model.ClaimTypeDto
 import dev.wholivedwhen.workbench.api.model.ConnectionDto
 import dev.wholivedwhen.workbench.api.model.DecisionDto
 import dev.wholivedwhen.workbench.api.model.EventDto
+import dev.wholivedwhen.workbench.api.model.FlagDto
 import dev.wholivedwhen.workbench.api.model.NewClaimDto
 import dev.wholivedwhen.workbench.api.model.NewDecisionDto
 import dev.wholivedwhen.workbench.api.model.PayloadDto
@@ -85,6 +91,12 @@ abstract class ClaimApiMapper {
     @SubclassMapping(source = EventDto::class, target = Event::class)
     @SubclassMapping(source = AnecdoteDto::class, target = Anecdote::class)
     abstract fun toModel(payload: PayloadDto): Payload
+
+    abstract fun toModel(type: ClaimTypeDto): ClaimType
+
+    abstract fun toModel(status: ClaimStatusDto): ClaimStatus
+
+    abstract fun toModel(flag: FlagDto): Flag
 
     @Named("utc")
     fun utc(decidedAt: OffsetDateTime?): OffsetDateTime? = decidedAt?.withOffsetSameInstant(ZoneOffset.UTC)

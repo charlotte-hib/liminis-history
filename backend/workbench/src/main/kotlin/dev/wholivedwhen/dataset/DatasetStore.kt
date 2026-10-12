@@ -13,7 +13,7 @@ import javax.sql.DataSource
  * mapping run.
  */
 @Component
-class DatasetStore(dataSource: DataSource) {
+class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapper) {
 
     private val jdbc = JdbcTemplate(dataSource)
 
@@ -266,26 +266,16 @@ class DatasetStore(dataSource: DataSource) {
             rs.getString("flag") to rs.getString("reason")
         }, placeIds)
         return rows.map { row ->
-            DatasetPerson(
-                qid = row.qid,
-                label = row.label,
-                labelFr = row.labelFr,
-                born = row.born,
-                bornPrecision = row.bornPrecision,
-                died = row.died,
-                diedPrecision = row.diedPrecision,
-                diedEstimated = row.diedEstimated,
-                datesApproximate = row.datesApproximate,
-                enwiki = row.enwiki,
-                frwiki = row.frwiki,
+            mapper.person(
+                row,
                 // A deleted occupation or place is in no table: it keeps no label.
-                occupations = row.occupations.map { occupations[it.occupation] ?: DatasetOccupation(it.occupation, null, null) },
-                places = row.places.map {
+                labelledOccupations = row.occupations.map { occupations[it.occupation] ?: DatasetOccupation(it.occupation, null, null) },
+                labelledPlaces = row.places.map {
                     val (label, country) = places[it.place] ?: (null to null)
                     DatasetPlace(it.property, it.place, label, country, it.startYear, it.endYear)
                 },
                 // The person's flags, then their places' under the place's property, such as P19_DISPUTED_AREA.
-                flags = (
+                allFlags = (
                     row.flags.map { it.flag to it.name } +
                         row.places.flatMap { place -> placeFlags[place.place].orEmpty().map { (flag, reason) -> flag to "${place.property}_$reason" } }
                     ).distinct().sortedWith(compareBy({ it.first }, { it.second })),
