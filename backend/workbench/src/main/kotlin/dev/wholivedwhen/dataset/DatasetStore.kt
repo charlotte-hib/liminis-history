@@ -41,7 +41,7 @@ class DatasetStore(dataSource: DataSource) {
     /** The import the rows come from, none before the first mapping run. */
     fun mappedImport(): MappedImport? =
         jdbc.query("select import_run, import_started_at, import_finished_at from dataset.mapping", { rs, _ ->
-            MappedImport(rs.getLong(1), rs.instant(2), rs.instant(3))
+            MappedImport(rs.getLong("import_run"), rs.instant("import_started_at"), rs.instant("import_finished_at"))
         }).singleOrNull()
 
     fun savePeople(people: List<PersonRow>) {
@@ -140,30 +140,38 @@ class DatasetStore(dataSource: DataSource) {
     private fun personRows(where: String, vararg args: Any): List<PersonRow> {
         val people = jdbc.query("select * from dataset.person where $where", PERSON, *args)
         val ids = people.map { it.qid }.toTypedArray()
-        val occupations = byFirstColumn(
+        val occupations = grouped(
+            "person",
             "select person, occupation, referenced from dataset.person_occupation where person = any (?) order by person, position",
+            DataClassRowMapper(PersonOccupation::class.java),
             ids,
-        ) { PersonOccupation(it.getString(2), it.getBoolean(3)) }
-        val places = byFirstColumn(
+        )
+        val places = grouped(
+            "person",
             """
             select person, property, place, start_year, end_year, referenced
             from dataset.person_place pp
             where person = any (?)
             order by person, ${PlaceProperty.sqlOrder("pp")}, position
             """.trimIndent(),
+            DataClassRowMapper(PersonPlace::class.java),
             ids,
-        ) { PersonPlace(it.getString(2), it.getString(3), it.getObject(4) as Int?, it.getObject(5) as Int?, it.getBoolean(6)) }
-        val flags = byFirstColumn("select person, reason from dataset.person_flag where person = any (?) order by person, reason", ids) {
-            PersonFlag.valueOf(it.getString(2))
-        }
+        )
+        val flags = grouped(
+            "person",
+            "select person, reason from dataset.person_flag where person = any (?) order by person, reason",
+            { rs, _ -> PersonFlag.valueOf(rs.getString("reason")) },
+            ids,
+        )
         return people.map {
             it.copy(occupations = occupations[it.qid].orEmpty(), places = places[it.qid].orEmpty(), flags = flags[it.qid].orEmpty().toSet())
         }
     }
 
-    /** Each row of [sql], read by [read], under the value of its first column, in the query's order. */
-    private fun <T> byFirstColumn(sql: String, vararg args: Any, read: (ResultSet) -> T): Map<String, List<T>> =
-        jdbc.query(sql, { rs, _ -> rs.getString(1) to read(rs) }, *args).groupBy({ it.first }, { it.second })
+    /** Each row of [sql], read by [read], under the value of its column [key], in the query's order. */
+    private fun <T : Any> grouped(key: String, sql: String, read: RowMapper<T>, vararg args: Any): Map<String, List<T>> =
+        jdbc.query(sql, { rs, row -> rs.getString(key) to read.mapRow(rs, row)!! }, *args)
+            .groupBy({ it.first }, { it.second })
 
     /** The [limit] articles after [after]'s person and language, in that order. */
     fun articlesAfter(after: Pair<String, String>, limit: Int): List<ArticleRow> =
@@ -180,14 +188,14 @@ class DatasetStore(dataSource: DataSource) {
 
     /** Every place, in Q-id order, with its countries and flags. */
     fun places(): List<PlaceRow> {
-        val countries = jdbc.query(
+        val countries = grouped(
+            "place",
             "select place, country, iso from dataset.place_country order by place, position",
-            { rs, _ -> rs.getString(1) to PlaceCountry(rs.getString(2), rs.getString(3)) },
-        ).groupBy({ it.first }, { it.second })
-        val flags = jdbc.query(
-            "select place, reason from dataset.place_flag order by place, reason",
-            { rs, _ -> rs.getString(1) to PlaceFlag.valueOf(rs.getString(2)) },
-        ).groupBy({ it.first }, { it.second })
+            DataClassRowMapper(PlaceCountry::class.java),
+        )
+        val flags = grouped("place", "select place, reason from dataset.place_flag order by place, reason", { rs, _ ->
+            PlaceFlag.valueOf(rs.getString("reason"))
+        })
         return jdbc.query("select * from dataset.place order by qid") { rs, _ ->
             val qid = rs.getString("qid")
             val latitude = rs.getObject("latitude") as Double?
@@ -207,12 +215,14 @@ class DatasetStore(dataSource: DataSource) {
 
     /** Every occupation and class above one, in Q-id order, with the classes it belongs to. */
     fun occupations(): List<OccupationRow> {
-        val parents = jdbc.query(
+        val parents = grouped(
+            "occupation",
             "select occupation, parent from dataset.occupation_parent order by occupation, position",
-            { rs, _ -> rs.getString(1) to rs.getString(2) },
-        ).groupBy({ it.first }, { it.second })
+            { rs, _ -> rs.getString("parent") },
+        )
         return jdbc.query("select qid, label, label_fr, female_label_fr from dataset.occupation order by qid") { rs, _ ->
-            OccupationRow(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), parents[rs.getString(1)].orEmpty())
+            val qid = rs.getString("qid")
+            OccupationRow(qid, rs.getString("label"), rs.getString("label_fr"), rs.getString("female_label_fr"), parents[qid].orEmpty())
         }
     }
 
@@ -231,7 +241,7 @@ class DatasetStore(dataSource: DataSource) {
             order by p.sitelinks desc, p.qid
             limit ?
             """.trimIndent(),
-            { rs, _ -> rs.getString(1) }, region, end, start, limit,
+            { rs, _ -> rs.getString("qid") }, region, end, start, limit,
         )
 
     /**
@@ -242,19 +252,19 @@ class DatasetStore(dataSource: DataSource) {
         val rows = personRows("qid = any (?)", qids.toTypedArray())
         val occupationIds = rows.flatMap { row -> row.occupations.map { it.occupation } }.distinct().toTypedArray()
         val occupations = jdbc.query(
-            "select qid, label, label_fr from dataset.occupation where qid = any (?)",
-            { rs, _ -> DatasetOccupation(rs.getString(1), rs.getString(2), rs.getString(3)) },
+            "select qid as occupation, label, label_fr from dataset.occupation where qid = any (?)",
+            DataClassRowMapper(DatasetOccupation::class.java),
             occupationIds,
         ).associateBy { it.occupation }
         val placeIds = rows.flatMap { row -> row.places.map { it.place } }.distinct().toTypedArray()
         val places = jdbc.query(
-            "select pl.qid, pl.label, $PLACE_COUNTRY from dataset.place pl where pl.qid = any (?)",
-            { rs, _ -> rs.getString(1) to (rs.getString(2) to rs.getString(3)) },
+            "select pl.qid, pl.label, $PLACE_COUNTRY as country from dataset.place pl where pl.qid = any (?)",
+            { rs, _ -> rs.getString("qid") to (rs.getString("label") to rs.getString("country")) },
             placeIds,
         ).toMap()
-        val placeFlags = byFirstColumn("select place, flag, reason from dataset.place_flag where place = any (?)", placeIds) {
-            it.getString(2) to it.getString(3)
-        }
+        val placeFlags = grouped("place", "select place, flag, reason from dataset.place_flag where place = any (?)", { rs, _ ->
+            rs.getString("flag") to rs.getString("reason")
+        }, placeIds)
         return rows.map { row ->
             DatasetPerson(
                 qid = row.qid,
@@ -283,7 +293,7 @@ class DatasetStore(dataSource: DataSource) {
         }
     }
 
-    private fun ResultSet.instant(column: Int) = getObject(column, OffsetDateTime::class.java).toInstant()
+    private fun ResultSet.instant(column: String) = getObject(column, OffsetDateTime::class.java).toInstant()
 
     private companion object {
         /** A person's own columns; their occupations, places and flags are read apart. */
