@@ -98,6 +98,18 @@ Each command starts a run in the background, one at a time, and follows it; `wb 
 
 Anything a careful reader could dispute is a claim in the workbench's schema `curation` (never dropped: it holds the curator's work): a person's facts as fetched, a connection, an event, an anecdote. Each has an id derived from what it is about (`person-facts:Q535`), a status (`CANDIDATE`, `APPROVED`, `REJECTED`, `NEEDS_WORK`), its sources (a Wikidata entity, a Wikipedia article, a book's page, a web page, a podcast's minute) and flags saying why it needs a person's eye. Every decision is logged with the payload before and after, and who made it; the curator's last one can be undone. `wb claims` proposes the facts of the people born in each moment's region and alive during it, the 50 best known per moment. Proposing again after an import refreshes them: a claim not yet decided takes the new facts, an approved one goes back to review, flagged. Claims can also be added by hand (`POST /api/claims`), from a podcast or a book, with at least one source.
 
+### Reviewing claims: `curate`
+
+`curate/` is the curator's review app, a Next.js app on the curator's computer only, never in an image. With the workbench running:
+
+```bash
+cd curate && npm ci && npm run dev   # http://127.0.0.1:3100
+```
+
+The inbox counts what waits in each queue and why. A queue lists its claims, conflicts first, then the other flagged ones, beside the claim under review: a person's facts field by field against every statement Wikidata holds (with how many references name a source) and the person's Wikipedia intros (`GET /api/people/{qid}/evidence`). Keys: `A` approve, `E` edit (then `⌘⏎` to approve as edited), `R` reject, `N` keep for later, each with an optional note, `S` or `J` the next claim, `K` the previous one, `U` undo the last decision. A decision carries the version the claim was read at (`If-Match`): when it changed meanwhile, in another tab, the workbench refuses and curate offers to read it again. "Add a claim" adds an anecdote about one of the fetched people (found by name, `GET /api/people`), with where it was heard or read.
+
+Only curate's server talks to the workbench: it reads the workbench's token from its file for every call (`WORKBENCH_TOKEN_FILE`, `WORKBENCH_URL` to point it elsewhere), so the browser never holds it. Like the workbench, it answers only requests addressed to `localhost` or `127.0.0.1`. Its end-to-end tests (`e2e/curate/`, `npx playwright test --config curate.config.ts`) decide on claims, so they run against a workbench on a throwaway copy of its database, never in CI.
+
 ## Drafting a story with Claude
 
 Stories are prose, so they are drafted by Claude and reviewed by a person before they ship: `wb draft <moment>`.

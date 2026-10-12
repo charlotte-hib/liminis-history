@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/* A tool, plain and dense: the site's warm paper and ink, without its gallery. */
+@theme {
+  --color-paper: #f6f1e6;
+  --color-bar: #fbf8f1;
+  --color-surface: #fffdf8;
+  --color-ink: #221d17;
+  --color-muted: #5d5446;
+  --color-line: #ddd3c2;
+  --color-faint: #ece4d6;
+  --color-lamp: #9a6a14;
+  --color-lamp-soft: #f3e7cc;
+  --color-conflict: #8a3d0e;
+  --color-conflict-soft: #f6dfcc;
+  --color-poor: #2c527c;
+  --color-poor-soft: #dde6f1;
+  --color-sensitive: #7a2f6a;
+  --color-sensitive-soft: #f0dcea;
+  --color-ok: #3c6a24;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+kbd {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+}
