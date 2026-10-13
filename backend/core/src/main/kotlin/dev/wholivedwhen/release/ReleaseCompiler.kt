@@ -37,16 +37,15 @@ object ReleaseCompiler {
     fun compile(release: Release): CompiledRelease {
         val references = References()
 
-        val regions = release.regions.map { references.at("regions.jsonl ${it.id}") { mapper.region(it) } }
+        val peopleCompiler = PeopleCompiler(release)
+        val listed = release.regions.map { references.at("regions.jsonl ${it.id}") { mapper.region(it) } }
+        val regions = listed + peopleCompiler.otherRegions(listed.map { it.code }.toSet()).map { (code, name) -> Region(code, name) }
         references.regions(regions)
 
         val eras = release.eras.map { references.at("eras.jsonl ${it.id}") { mapper.era(it, references) } }
         references.eras(eras)
 
-        val people = release.people.map { references.at("people.jsonl ${it.id}") { mapper.person(it, references) } }
-        people.groupBy { it.slug }.values.firstOrNull { it.size > 1 }?.let { same ->
-            throw InvalidReleaseException("people.jsonl: ${same.joinToString(" and ") { it.id }} have the same slug, ${same[0].slug}")
-        }
+        val people = peopleCompiler.compile(references)
         references.people(people)
 
         val lives = release.lives.map {

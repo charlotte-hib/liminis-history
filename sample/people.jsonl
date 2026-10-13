@@ -1,97 +1,96 @@
-{"id":"ada-lovelace","name":"Ada Lovelace","born":1815,"died":1852,"region":"GB","domain":"ARTS","occupation":"mathematician"}
-{"id":"akira-kurosawa","name":"Akira Kurosawa","born":1910,"died":1998,"region":"JP","domain":"ARTS","occupation":"film director"}
-{"id":"alfred-the-great","name":"Alfred the Great","born":849,"died":899,"region":"GB","domain":"POWER","occupation":"king of Wessex"}
-{"id":"ashikaga-takauji","name":"Ashikaga Takauji","born":1305,"died":1358,"region":"JP","domain":"POWER","occupation":"first Muromachi shogun"}
-{"id":"auguste-rodin","name":"Auguste Rodin","born":1840,"died":1917,"region":"FR","domain":"ARTS","occupation":"sculptor"}
-{"id":"berthe-morisot","name":"Berthe Morisot","born":1841,"died":1895,"region":"FR","domain":"ARTS","occupation":"painter"}
-{"id":"cao-xueqin","name":"Cao Xueqin","born":1715,"died":1763,"approximate":true,"region":"CN","domain":"ARTS","occupation":"novelist"}
-{"id":"cardinal-richelieu","name":"Cardinal Richelieu","born":1585,"died":1642,"region":"FR","domain":"POWER","occupation":"chief minister"}
-{"id":"charlemagne","name":"Charlemagne","born":748,"died":814,"approximate":true,"region":"FR","domain":"POWER","occupation":"emperor of the Franks"}
-{"id":"charles-darwin","name":"Charles Darwin","born":1809,"died":1882,"region":"GB","domain":"ARTS","occupation":"naturalist"}
-{"id":"charles-de-gaulle","name":"Charles de Gaulle","born":1890,"died":1970,"region":"FR","domain":"POWER","occupation":"general and president"}
-{"id":"charles-dickens","name":"Charles Dickens","born":1812,"died":1870,"region":"GB","domain":"ARTS","occupation":"novelist"}
-{"id":"chikamatsu-monzaemon","name":"Chikamatsu Monzaemon","born":1653,"died":1725,"region":"JP","domain":"ARTS","occupation":"playwright"}
-{"id":"christine-de-pizan","name":"Christine de Pizan","born":1364,"died":1430,"approximate":true,"region":"FR","domain":"ARTS","occupation":"writer"}
-{"id":"claude-debussy","name":"Claude Debussy","born":1862,"died":1918,"region":"FR","domain":"ARTS","occupation":"composer"}
-{"id":"claude-monet","name":"Claude Monet","born":1840,"died":1926,"region":"FR","domain":"ARTS","occupation":"painter"}
-{"id":"clovis-i","name":"Clovis I","born":466,"died":511,"approximate":true,"region":"FR","domain":"POWER","occupation":"king of the Franks"}
-{"id":"coco-chanel","name":"Coco Chanel","born":1883,"died":1971,"region":"FR","domain":"ARTS","occupation":"fashion designer"}
-{"id":"confucius","name":"Confucius","born":-551,"died":-479,"region":"CN","domain":"ARTS","occupation":"philosopher"}
-{"id":"du-fu","name":"Du Fu","born":712,"died":770,"region":"CN","domain":"ARTS","occupation":"poet"}
-{"id":"edith-piaf","name":"Édith Piaf","born":1915,"died":1963,"region":"FR","domain":"ARTS","occupation":"singer"}
-{"id":"edouard-manet","name":"Édouard Manet","born":1832,"died":1883,"region":"FR","domain":"ARTS","occupation":"painter"}
-{"id":"eleanor-of-aquitaine","name":"Eleanor of Aquitaine","born":1122,"died":1204,"approximate":true,"region":"FR","domain":"POWER","occupation":"queen of France, then of England"}
-{"id":"elizabeth-i","name":"Elizabeth I","born":1533,"died":1603,"region":"GB","domain":"POWER","occupation":"queen of England"}
-{"id":"emile-zola","name":"Émile Zola","born":1840,"died":1902,"region":"FR","domain":"ARTS","occupation":"novelist","bio":"Building the twenty-novel Rougon-Macquart cycle through the 1870s and 80s."}
-{"id":"emperor-meiji","name":"Emperor Meiji","born":1852,"died":1912,"region":"JP","domain":"POWER","occupation":"emperor"}
-{"id":"empress-dowager-cixi","name":"Empress Dowager Cixi","born":1835,"died":1908,"region":"CN","domain":"POWER","occupation":"regent"}
-{"id":"empress-suiko","name":"Empress Suiko","born":554,"died":628,"region":"JP","domain":"POWER","occupation":"empress"}
-{"id":"francis-i","name":"Francis I","born":1494,"died":1547,"region":"FR","domain":"POWER","occupation":"king of France","wikipedia":"Francis_I_of_France"}
-{"id":"francois-rabelais","name":"François Rabelais","born":1494,"died":1553,"approximate":true,"region":"FR","domain":"ARTS","occupation":"writer"}
-{"id":"geoffrey-chaucer","name":"Geoffrey Chaucer","born":1343,"died":1400,"approximate":true,"region":"GB","domain":"ARTS","occupation":"poet"}
-{"id":"george-sand","name":"George Sand","born":1804,"died":1876,"region":"FR","domain":"ARTS","occupation":"novelist"}
-{"id":"georges-bizet","name":"Georges Bizet","born":1838,"died":1875,"region":"FR","domain":"ARTS","occupation":"composer","bio":"Carmen premiered in 1875 to a cool reception; he died three months later."}
-{"id":"georges-clemenceau","name":"Georges Clemenceau","born":1841,"died":1929,"region":"FR","domain":"POWER","occupation":"statesman, journalist","bio":"A physician turned politician, he spent the 1870s as a fierce critic of the government from the far left."}
-{"id":"hayao-miyazaki","name":"Hayao Miyazaki","born":1941,"region":"JP","domain":"ARTS","occupation":"animator"}
-{"id":"henry-iv","name":"Henry IV","born":1553,"died":1610,"region":"FR","domain":"POWER","occupation":"king of France","wikipedia":"Henry_IV_of_France"}
-{"id":"henry-viii","name":"Henry VIII","born":1491,"died":1547,"region":"GB","domain":"POWER","occupation":"king of England"}
-{"id":"higuchi-ichiyo","name":"Higuchi Ichiyō","born":1872,"died":1896,"region":"JP","domain":"ARTS","occupation":"writer"}
-{"id":"hirohito","name":"Hirohito","born":1901,"died":1989,"region":"JP","domain":"POWER","occupation":"emperor"}
-{"id":"hojo-masako","name":"Hōjō Masako","born":1157,"died":1225,"region":"JP","domain":"POWER","occupation":"shogunal regent"}
-{"id":"isaac-newton","name":"Isaac Newton","born":1643,"died":1727,"region":"GB","domain":"ARTS","occupation":"physicist"}
-{"id":"ito-hirobumi","name":"Itō Hirobumi","born":1841,"died":1909,"region":"JP","domain":"POWER","occupation":"first prime minister of Japan"}
-{"id":"jane-austen","name":"Jane Austen","born":1775,"died":1817,"region":"GB","domain":"ARTS","occupation":"novelist"}
-{"id":"jean-paul-sartre","name":"Jean-Paul Sartre","born":1905,"died":1980,"region":"FR","domain":"ARTS","occupation":"philosopher"}
-{"id":"joan-of-arc","name":"Joan of Arc","born":1412,"died":1431,"region":"FR","domain":"POWER","occupation":"military leader"}
-{"id":"kangxi-emperor","name":"Kangxi Emperor","born":1654,"died":1722,"region":"CN","domain":"POWER","occupation":"Qing emperor"}
-{"id":"katsushika-hokusai","name":"Katsushika Hokusai","born":1760,"died":1849,"region":"JP","domain":"ARTS","occupation":"printmaker","wikipedia":"Hokusai"}
-{"id":"kublai-khan","name":"Kublai Khan","born":1215,"died":1294,"region":"CN","domain":"POWER","occupation":"Yuan emperor"}
-{"id":"kukai","name":"Kūkai","born":774,"died":835,"region":"JP","domain":"ARTS","occupation":"monk and calligrapher"}
-{"id":"li-bai","name":"Li Bai","born":701,"died":762,"region":"CN","domain":"ARTS","occupation":"poet"}
-{"id":"louis-ix","name":"Louis IX","born":1214,"died":1270,"region":"FR","domain":"POWER","occupation":"king of France","wikipedia":"Louis_IX_of_France"}
-{"id":"louis-xiv","name":"Louis XIV","born":1638,"died":1715,"region":"FR","domain":"POWER","occupation":"king of France"}
-{"id":"lu-xun","name":"Lu Xun","born":1881,"died":1936,"region":"CN","domain":"ARTS","occupation":"writer"}
-{"id":"mao-zedong","name":"Mao Zedong","born":1893,"died":1976,"region":"CN","domain":"POWER","occupation":"founder of the People's Republic"}
-{"id":"marcel-proust","name":"Marcel Proust","born":1871,"died":1922,"region":"FR","domain":"ARTS","occupation":"novelist"}
-{"id":"marie-antoinette","name":"Marie Antoinette","born":1755,"died":1793,"region":"FR","domain":"POWER","occupation":"queen of France"}
-{"id":"marie-curie","name":"Marie Curie","born":1867,"died":1934,"region":"FR","domain":"ARTS","occupation":"physicist and chemist"}
-{"id":"matsuo-basho","name":"Matsuo Bashō","born":1644,"died":1694,"region":"JP","domain":"ARTS","occupation":"poet"}
-{"id":"maximilien-robespierre","name":"Maximilien Robespierre","born":1758,"died":1794,"region":"FR","domain":"POWER","occupation":"revolutionary"}
-{"id":"michel-de-montaigne","name":"Michel de Montaigne","born":1533,"died":1592,"region":"FR","domain":"ARTS","occupation":"essayist"}
-{"id":"minamoto-no-yoritomo","name":"Minamoto no Yoritomo","born":1147,"died":1199,"region":"JP","domain":"POWER","occupation":"first Kamakura shogun"}
-{"id":"moliere","name":"Molière","born":1622,"died":1673,"region":"FR","domain":"ARTS","occupation":"playwright"}
-{"id":"murasaki-shikibu","name":"Murasaki Shikibu","born":973,"died":1014,"approximate":true,"region":"JP","domain":"ARTS","occupation":"novelist"}
-{"id":"napoleon","name":"Napoleon","born":1769,"died":1821,"region":"FR","domain":"POWER","occupation":"emperor of the French"}
-{"id":"napoleon-iii","name":"Napoleon III","born":1808,"died":1873,"region":"FR","domain":"POWER","occupation":"emperor of the French"}
-{"id":"natsume-soseki","name":"Natsume Sōseki","born":1867,"died":1916,"region":"JP","domain":"ARTS","occupation":"novelist"}
-{"id":"oda-nobunaga","name":"Oda Nobunaga","born":1534,"died":1582,"region":"JP","domain":"POWER","occupation":"warlord"}
-{"id":"oliver-cromwell","name":"Oliver Cromwell","born":1599,"died":1658,"region":"GB","domain":"POWER","occupation":"Lord Protector"}
-{"id":"paul-cezanne","name":"Paul Cézanne","born":1839,"died":1906,"region":"FR","domain":"ARTS","occupation":"painter","bio":"Exhibited with the Impressionists in 1874, then withdrew to Provence."}
-{"id":"peter-abelard","name":"Peter Abelard","born":1079,"died":1142,"region":"FR","domain":"ARTS","occupation":"philosopher"}
-{"id":"prince-shotoku","name":"Prince Shōtoku","born":574,"died":622,"region":"JP","domain":"POWER","occupation":"regent"}
-{"id":"qin-shi-huang","name":"Qin Shi Huang","born":-259,"died":-210,"region":"CN","domain":"POWER","occupation":"first emperor of China"}
-{"id":"queen-victoria","name":"Queen Victoria","born":1819,"died":1901,"region":"GB","domain":"POWER","occupation":"queen"}
-{"id":"rene-descartes","name":"René Descartes","born":1596,"died":1650,"region":"FR","domain":"ARTS","occupation":"philosopher"}
-{"id":"sakamoto-ryoma","name":"Sakamoto Ryōma","born":1836,"died":1867,"region":"JP","domain":"POWER","occupation":"samurai reformer"}
-{"id":"sei-shonagon","name":"Sei Shōnagon","born":966,"died":1025,"approximate":true,"region":"JP","domain":"ARTS","occupation":"writer"}
-{"id":"sen-no-rikyu","name":"Sen no Rikyū","born":1522,"died":1591,"region":"JP","domain":"ARTS","occupation":"tea master"}
-{"id":"sesshu-toyo","name":"Sesshū Tōyō","born":1420,"died":1506,"region":"JP","domain":"ARTS","occupation":"painter"}
-{"id":"shen-kuo","name":"Shen Kuo","born":1031,"died":1095,"region":"CN","domain":"ARTS","occupation":"scientist"}
-{"id":"sima-qian","name":"Sima Qian","born":-145,"died":-86,"approximate":true,"region":"CN","domain":"ARTS","occupation":"historian"}
-{"id":"simone-de-beauvoir","name":"Simone de Beauvoir","born":1908,"died":1986,"region":"FR","domain":"ARTS","occupation":"philosopher"}
-{"id":"simone-veil","name":"Simone Veil","born":1927,"died":2017,"region":"FR","domain":"POWER","occupation":"politician"}
-{"id":"taira-no-kiyomori","name":"Taira no Kiyomori","born":1118,"died":1181,"region":"JP","domain":"POWER","occupation":"military leader"}
-{"id":"tokugawa-ieyasu","name":"Tokugawa Ieyasu","born":1543,"died":1616,"region":"JP","domain":"POWER","occupation":"first Edo shogun"}
-{"id":"toyotomi-hideyoshi","name":"Toyotomi Hideyoshi","born":1537,"died":1598,"region":"JP","domain":"POWER","occupation":"unifier of Japan"}
-{"id":"utagawa-hiroshige","name":"Utagawa Hiroshige","born":1797,"died":1858,"region":"JP","domain":"ARTS","occupation":"printmaker","wikipedia":"Hiroshige"}
-{"id":"vercingetorix","name":"Vercingetorix","born":-82,"died":-46,"approximate":true,"region":"FR","domain":"POWER","occupation":"Gallic chieftain"}
-{"id":"victor-hugo","name":"Victor Hugo","born":1802,"died":1885,"region":"FR","domain":"ARTS","occupation":"novelist, poet","bio":"Back from nineteen years of exile, he was the Republic's living monument."}
-{"id":"virginia-woolf","name":"Virginia Woolf","born":1882,"died":1941,"region":"GB","domain":"ARTS","occupation":"novelist"}
-{"id":"voltaire","name":"Voltaire","born":1694,"died":1778,"region":"FR","domain":"ARTS","occupation":"writer"}
-{"id":"william-shakespeare","name":"William Shakespeare","born":1564,"died":1616,"region":"GB","domain":"ARTS","occupation":"playwright"}
-{"id":"william-the-conqueror","name":"William the Conqueror","born":1028,"died":1087,"approximate":true,"region":"GB","domain":"POWER","occupation":"king of England"}
-{"id":"winston-churchill","name":"Winston Churchill","born":1874,"died":1965,"region":"GB","domain":"POWER","occupation":"prime minister"}
-{"id":"wu-zetian","name":"Wu Zetian","born":624,"died":705,"region":"CN","domain":"POWER","occupation":"empress"}
-{"id":"yukio-mishima","name":"Yukio Mishima","born":1925,"died":1970,"region":"JP","domain":"ARTS","occupation":"novelist"}
-{"id":"zeami","name":"Zeami","born":1363,"died":1443,"approximate":true,"region":"JP","domain":"ARTS","occupation":"Noh playwright","wikipedia":"Zeami_Motokiyo"}
-{"id":"zheng-he","name":"Zheng He","born":1371,"died":1433,"region":"CN","domain":"POWER","occupation":"admiral"}
+{"id":"ada-lovelace","qid":"Q7259","name":"Ada Lovelace","born":1815,"died":1852,"region":"GB","domain":"ARTS","occupation":"mathematician"}
+{"id":"akira-kurosawa","qid":"Q8006","name":"Akira Kurosawa","born":1910,"died":1998,"region":"JP","domain":"ARTS","occupation":"film director"}
+{"id":"alfred-the-great","qid":"Q83476","name":"Alfred the Great","born":849,"died":899,"region":"GB","domain":"POWER","occupation":"king of Wessex"}
+{"id":"ashikaga-takauji","qid":"Q297107","name":"Ashikaga Takauji","born":1305,"died":1358,"region":"JP","domain":"POWER","occupation":"first Muromachi shogun"}
+{"id":"auguste-rodin","qid":"Q30755","name":"Auguste Rodin","born":1840,"died":1917,"region":"FR","domain":"ARTS","occupation":"sculptor"}
+{"id":"berthe-morisot","qid":"Q105320","name":"Berthe Morisot","born":1841,"died":1895,"region":"FR","domain":"ARTS","occupation":"painter"}
+{"id":"cao-xueqin","qid":"Q182874","name":"Cao Xueqin","born":1715,"died":1763,"approximate":true,"region":"CN","domain":"ARTS","occupation":"novelist"}
+{"id":"cardinal-richelieu","qid":"Q26702","name":"Cardinal Richelieu","born":1585,"died":1642,"region":"FR","domain":"POWER","occupation":"chief minister"}
+{"id":"charlemagne","qid":"Q3044","name":"Charlemagne","born":748,"died":814,"approximate":true,"region":"FR","domain":"POWER","occupation":"emperor of the Franks"}
+{"id":"charles-darwin","qid":"Q1035","name":"Charles Darwin","born":1809,"died":1882,"region":"GB","domain":"ARTS","occupation":"naturalist"}
+{"id":"charles-de-gaulle","qid":"Q2042","name":"Charles de Gaulle","born":1890,"died":1970,"region":"FR","domain":"POWER","occupation":"general and president"}
+{"id":"charles-dickens","qid":"Q5686","name":"Charles Dickens","born":1812,"died":1870,"region":"GB","domain":"ARTS","occupation":"novelist"}
+{"id":"chikamatsu-monzaemon","qid":"Q324986","name":"Chikamatsu Monzaemon","born":1653,"died":1725,"region":"JP","domain":"ARTS","occupation":"playwright"}
+{"id":"christine-de-pizan","qid":"Q234816","name":"Christine de Pizan","born":1364,"died":1430,"approximate":true,"region":"FR","domain":"ARTS","occupation":"writer"}
+{"id":"claude-debussy","qid":"Q4700","name":"Claude Debussy","born":1862,"died":1918,"region":"FR","domain":"ARTS","occupation":"composer"}
+{"id":"claude-monet","qid":"Q296","name":"Claude Monet","born":1840,"died":1926,"region":"FR","domain":"ARTS","occupation":"painter"}
+{"id":"clovis-i","qid":"Q82339","name":"Clovis I","born":466,"died":511,"approximate":true,"region":"FR","domain":"POWER","occupation":"king of the Franks"}
+{"id":"coco-chanel","qid":"Q45661","name":"Coco Chanel","born":1883,"died":1971,"region":"FR","domain":"ARTS","occupation":"fashion designer"}
+{"id":"confucius","qid":"Q4604","name":"Confucius","born":-551,"died":-479,"region":"CN","domain":"ARTS","occupation":"philosopher"}
+{"id":"du-fu","qid":"Q33772","name":"Du Fu","born":712,"died":770,"region":"CN","domain":"ARTS","occupation":"poet"}
+{"id":"edith-piaf","qid":"Q1631","name":"Édith Piaf","born":1915,"died":1963,"region":"FR","domain":"ARTS","occupation":"singer"}
+{"id":"edouard-manet","qid":"Q40599","name":"Édouard Manet","born":1832,"died":1883,"region":"FR","domain":"ARTS","occupation":"painter"}
+{"id":"eleanor-of-aquitaine","qid":"Q178525","name":"Eleanor of Aquitaine","born":1122,"died":1204,"approximate":true,"region":"FR","domain":"POWER","occupation":"queen of France, then of England"}
+{"id":"elizabeth-i","qid":"Q7207","name":"Elizabeth I","born":1533,"died":1603,"region":"GB","domain":"POWER","occupation":"queen of England"}
+{"id":"emile-zola","qid":"Q504","name":"Émile Zola","born":1840,"died":1902,"region":"FR","domain":"ARTS","occupation":"novelist","bio":"Building the twenty-novel Rougon-Macquart cycle through the 1870s and 80s."}
+{"id":"emperor-meiji","qid":"Q174231","name":"Emperor Meiji","born":1852,"died":1912,"region":"JP","domain":"POWER","occupation":"emperor"}
+{"id":"empress-dowager-cixi","qid":"Q47842","name":"Empress Dowager Cixi","born":1835,"died":1908,"region":"CN","domain":"POWER","occupation":"regent"}
+{"id":"empress-suiko","qid":"Q298057","name":"Empress Suiko","born":554,"died":628,"region":"JP","domain":"POWER","occupation":"empress"}
+{"id":"francis-i","qid":"Q129857","name":"Francis I","born":1494,"died":1547,"region":"FR","domain":"POWER","occupation":"king of France","wikipedia":"Francis_I_of_France"}
+{"id":"francois-rabelais","qid":"Q131018","name":"François Rabelais","born":1494,"died":1553,"approximate":true,"region":"FR","domain":"ARTS","occupation":"writer"}
+{"id":"geoffrey-chaucer","qid":"Q5683","name":"Geoffrey Chaucer","born":1343,"died":1400,"approximate":true,"region":"GB","domain":"ARTS","occupation":"poet"}
+{"id":"george-sand","qid":"Q3816","name":"George Sand","born":1804,"died":1876,"region":"FR","domain":"ARTS","occupation":"novelist"}
+{"id":"georges-bizet","qid":"Q56158","name":"Georges Bizet","born":1838,"died":1875,"region":"FR","domain":"ARTS","occupation":"composer","bio":"Carmen premiered in 1875 to a cool reception; he died three months later."}
+{"id":"georges-clemenceau","qid":"Q171730","name":"Georges Clemenceau","born":1841,"died":1929,"region":"FR","domain":"POWER","occupation":"statesman, journalist","bio":"A physician turned politician, he spent the 1870s as a fierce critic of the government from the far left."}
+{"id":"henry-iv","qid":"Q936976","name":"Henry IV","born":1553,"died":1610,"region":"FR","domain":"POWER","occupation":"king of France","wikipedia":"Henry_IV_of_France"}
+{"id":"henry-viii","qid":"Q38370","name":"Henry VIII","born":1491,"died":1547,"region":"GB","domain":"POWER","occupation":"king of England"}
+{"id":"higuchi-ichiyo","qid":"Q237948","name":"Higuchi Ichiyō","born":1872,"died":1896,"region":"JP","domain":"ARTS","occupation":"writer"}
+{"id":"hirohito","qid":"Q34479","name":"Hirohito","born":1901,"died":1989,"region":"JP","domain":"POWER","occupation":"emperor"}
+{"id":"hojo-masako","qid":"Q463961","name":"Hōjō Masako","born":1157,"died":1225,"region":"JP","domain":"POWER","occupation":"shogunal regent"}
+{"id":"isaac-newton","qid":"Q935","name":"Isaac Newton","born":1643,"died":1727,"region":"GB","domain":"ARTS","occupation":"physicist"}
+{"id":"ito-hirobumi","qid":"Q174971","name":"Itō Hirobumi","born":1841,"died":1909,"region":"JP","domain":"POWER","occupation":"first prime minister of Japan"}
+{"id":"jane-austen","qid":"Q36322","name":"Jane Austen","born":1775,"died":1817,"region":"GB","domain":"ARTS","occupation":"novelist"}
+{"id":"jean-paul-sartre","qid":"Q9364","name":"Jean-Paul Sartre","born":1905,"died":1980,"region":"FR","domain":"ARTS","occupation":"philosopher"}
+{"id":"joan-of-arc","qid":"Q7226","name":"Joan of Arc","born":1412,"died":1431,"region":"FR","domain":"POWER","occupation":"military leader"}
+{"id":"kangxi-emperor","qid":"Q17790","name":"Kangxi Emperor","born":1654,"died":1722,"region":"CN","domain":"POWER","occupation":"Qing emperor"}
+{"id":"katsushika-hokusai","qid":"Q5586","name":"Katsushika Hokusai","born":1760,"died":1849,"region":"JP","domain":"ARTS","occupation":"printmaker","wikipedia":"Hokusai"}
+{"id":"kublai-khan","qid":"Q7523","name":"Kublai Khan","born":1215,"died":1294,"region":"CN","domain":"POWER","occupation":"Yuan emperor"}
+{"id":"kukai","qid":"Q222227","name":"Kūkai","born":774,"died":835,"region":"JP","domain":"ARTS","occupation":"monk and calligrapher"}
+{"id":"li-bai","qid":"Q7071","name":"Li Bai","born":701,"died":762,"region":"CN","domain":"ARTS","occupation":"poet"}
+{"id":"louis-ix","qid":"Q346","name":"Louis IX","born":1214,"died":1270,"region":"FR","domain":"POWER","occupation":"king of France","wikipedia":"Louis_IX_of_France"}
+{"id":"louis-xiv","qid":"Q7742","name":"Louis XIV","born":1638,"died":1715,"region":"FR","domain":"POWER","occupation":"king of France"}
+{"id":"lu-xun","qid":"Q23114","name":"Lu Xun","born":1881,"died":1936,"region":"CN","domain":"ARTS","occupation":"writer"}
+{"id":"mao-zedong","qid":"Q5816","name":"Mao Zedong","born":1893,"died":1976,"region":"CN","domain":"POWER","occupation":"founder of the People's Republic"}
+{"id":"marcel-proust","qid":"Q7199","name":"Marcel Proust","born":1871,"died":1922,"region":"FR","domain":"ARTS","occupation":"novelist"}
+{"id":"marie-antoinette","qid":"Q47365","name":"Marie Antoinette","born":1755,"died":1793,"region":"FR","domain":"POWER","occupation":"queen of France"}
+{"id":"marie-curie","qid":"Q7186","name":"Marie Curie","born":1867,"died":1934,"region":"FR","domain":"ARTS","occupation":"physicist and chemist"}
+{"id":"matsuo-basho","qid":"Q5676","name":"Matsuo Bashō","born":1644,"died":1694,"region":"JP","domain":"ARTS","occupation":"poet"}
+{"id":"maximilien-robespierre","qid":"Q44197","name":"Maximilien Robespierre","born":1758,"died":1794,"region":"FR","domain":"POWER","occupation":"revolutionary"}
+{"id":"michel-de-montaigne","qid":"Q41568","name":"Michel de Montaigne","born":1533,"died":1592,"region":"FR","domain":"ARTS","occupation":"essayist"}
+{"id":"minamoto-no-yoritomo","qid":"Q242800","name":"Minamoto no Yoritomo","born":1147,"died":1199,"region":"JP","domain":"POWER","occupation":"first Kamakura shogun"}
+{"id":"moliere","qid":"Q687","name":"Molière","born":1622,"died":1673,"region":"FR","domain":"ARTS","occupation":"playwright"}
+{"id":"murasaki-shikibu","qid":"Q81731","name":"Murasaki Shikibu","born":973,"died":1014,"approximate":true,"region":"JP","domain":"ARTS","occupation":"novelist"}
+{"id":"napoleon","qid":"Q517","name":"Napoleon","born":1769,"died":1821,"region":"FR","domain":"POWER","occupation":"emperor of the French"}
+{"id":"napoleon-iii","qid":"Q7721","name":"Napoleon III","born":1808,"died":1873,"region":"FR","domain":"POWER","occupation":"emperor of the French"}
+{"id":"natsume-soseki","qid":"Q180903","name":"Natsume Sōseki","born":1867,"died":1916,"region":"JP","domain":"ARTS","occupation":"novelist"}
+{"id":"oda-nobunaga","qid":"Q171411","name":"Oda Nobunaga","born":1534,"died":1582,"region":"JP","domain":"POWER","occupation":"warlord"}
+{"id":"oliver-cromwell","qid":"Q44279","name":"Oliver Cromwell","born":1599,"died":1658,"region":"GB","domain":"POWER","occupation":"Lord Protector"}
+{"id":"paul-cezanne","qid":"Q35548","name":"Paul Cézanne","born":1839,"died":1906,"region":"FR","domain":"ARTS","occupation":"painter","bio":"Exhibited with the Impressionists in 1874, then withdrew to Provence."}
+{"id":"peter-abelard","qid":"Q4295","name":"Peter Abelard","born":1079,"died":1142,"region":"FR","domain":"ARTS","occupation":"philosopher"}
+{"id":"prince-shotoku","qid":"Q263972","name":"Prince Shōtoku","born":574,"died":622,"region":"JP","domain":"POWER","occupation":"regent"}
+{"id":"qin-shi-huang","qid":"Q7192","name":"Qin Shi Huang","born":-259,"died":-210,"region":"CN","domain":"POWER","occupation":"first emperor of China"}
+{"id":"queen-victoria","qid":"Q9439","name":"Queen Victoria","born":1819,"died":1901,"region":"GB","domain":"POWER","occupation":"queen"}
+{"id":"rene-descartes","qid":"Q9191","name":"René Descartes","born":1596,"died":1650,"region":"FR","domain":"ARTS","occupation":"philosopher"}
+{"id":"sakamoto-ryoma","qid":"Q378450","name":"Sakamoto Ryōma","born":1836,"died":1867,"region":"JP","domain":"POWER","occupation":"samurai reformer"}
+{"id":"sei-shonagon","qid":"Q231603","name":"Sei Shōnagon","born":966,"died":1025,"approximate":true,"region":"JP","domain":"ARTS","occupation":"writer"}
+{"id":"sen-no-rikyu","qid":"Q305477","name":"Sen no Rikyū","born":1522,"died":1591,"region":"JP","domain":"ARTS","occupation":"tea master"}
+{"id":"sesshu-toyo","qid":"Q48514","name":"Sesshū Tōyō","born":1420,"died":1506,"region":"JP","domain":"ARTS","occupation":"painter"}
+{"id":"shen-kuo","qid":"Q270085","name":"Shen Kuo","born":1031,"died":1095,"region":"CN","domain":"ARTS","occupation":"scientist"}
+{"id":"sima-qian","qid":"Q9372","name":"Sima Qian","born":-145,"died":-86,"approximate":true,"region":"CN","domain":"ARTS","occupation":"historian"}
+{"id":"simone-de-beauvoir","qid":"Q7197","name":"Simone de Beauvoir","born":1908,"died":1986,"region":"FR","domain":"ARTS","occupation":"philosopher"}
+{"id":"simone-veil","qid":"Q298180","name":"Simone Veil","born":1927,"died":2017,"region":"FR","domain":"POWER","occupation":"politician"}
+{"id":"taira-no-kiyomori","qid":"Q281833","name":"Taira no Kiyomori","born":1118,"died":1181,"region":"JP","domain":"POWER","occupation":"military leader"}
+{"id":"tokugawa-ieyasu","qid":"Q171977","name":"Tokugawa Ieyasu","born":1543,"died":1616,"region":"JP","domain":"POWER","occupation":"first Edo shogun"}
+{"id":"toyotomi-hideyoshi","qid":"Q187550","name":"Toyotomi Hideyoshi","born":1537,"died":1598,"region":"JP","domain":"POWER","occupation":"unifier of Japan"}
+{"id":"utagawa-hiroshige","qid":"Q200798","name":"Utagawa Hiroshige","born":1797,"died":1858,"region":"JP","domain":"ARTS","occupation":"printmaker","wikipedia":"Hiroshige"}
+{"id":"vercingetorix","qid":"Q178953","name":"Vercingetorix","born":-82,"died":-46,"approximate":true,"region":"FR","domain":"POWER","occupation":"Gallic chieftain"}
+{"id":"victor-hugo","qid":"Q535","name":"Victor Hugo","born":1802,"died":1885,"region":"FR","domain":"ARTS","occupation":"novelist, poet","bio":"Back from nineteen years of exile, he was the Republic's living monument."}
+{"id":"virginia-woolf","qid":"Q40909","name":"Virginia Woolf","born":1882,"died":1941,"region":"GB","domain":"ARTS","occupation":"novelist"}
+{"id":"voltaire","qid":"Q9068","name":"Voltaire","born":1694,"died":1778,"region":"FR","domain":"ARTS","occupation":"writer"}
+{"id":"william-shakespeare","qid":"Q692","name":"William Shakespeare","born":1564,"died":1616,"region":"GB","domain":"ARTS","occupation":"playwright"}
+{"id":"william-the-conqueror","qid":"Q37594","name":"William the Conqueror","born":1028,"died":1087,"approximate":true,"region":"GB","domain":"POWER","occupation":"king of England"}
+{"id":"winston-churchill","qid":"Q8016","name":"Winston Churchill","born":1874,"died":1965,"region":"GB","domain":"POWER","occupation":"prime minister"}
+{"id":"wu-zetian","qid":"Q9738","name":"Wu Zetian","born":624,"died":705,"region":"CN","domain":"POWER","occupation":"empress"}
+{"id":"yukio-mishima","qid":"Q134456","name":"Yukio Mishima","born":1925,"died":1970,"region":"JP","domain":"ARTS","occupation":"novelist"}
+{"id":"zeami","qid":"Q169352","name":"Zeami","born":1363,"died":1443,"approximate":true,"region":"JP","domain":"ARTS","occupation":"Noh playwright","wikipedia":"Zeami_Motokiyo"}
+{"id":"zheng-he","qid":"Q7333","name":"Zheng He","born":1371,"died":1433,"region":"CN","domain":"POWER","occupation":"admiral"}

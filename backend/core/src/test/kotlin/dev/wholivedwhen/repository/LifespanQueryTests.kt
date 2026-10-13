@@ -77,5 +77,5 @@ class LifespanQueryTests(
     }
 
     private fun person(slug: String, region: Region, born: Int, died: Int?) =
-        Person(slug, slug, slug, born, died, false, region, Domain.EVERYDAY, "", null)
+        Person(slug, null, slug, slug, born, died, false, region, Domain.EVERYDAY, emptyList(), 0, 0, null)
 }

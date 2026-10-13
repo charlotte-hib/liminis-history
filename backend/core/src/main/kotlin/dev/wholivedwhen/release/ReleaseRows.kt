@@ -11,6 +11,7 @@ import dev.wholivedwhen.domain.EventParticipant
 import dev.wholivedwhen.domain.Life
 import dev.wholivedwhen.domain.Moment
 import dev.wholivedwhen.domain.Person
+import dev.wholivedwhen.domain.PersonPlace
 import dev.wholivedwhen.domain.Region
 import dev.wholivedwhen.domain.StoryCard
 
@@ -26,6 +27,7 @@ data class EraRow(
 
 data class PersonRow(
     val id: String,
+    val qid: String?,
     val slug: String,
     val name: String,
     val birthYear: Int,
@@ -33,12 +35,24 @@ data class PersonRow(
     val datesApproximate: Boolean,
     val regionCode: String,
     val domain: String,
-    val occupation: String,
+    val occupations: List<String>,
+    val sitelinks: Int,
+    val fame: Int,
     val wikipediaTitle: String?,
     val bioShort: String?,
     val about: String?,
     val wikipediaUrl: String?,
     val portraitUrl: String?,
+)
+
+data class PersonPlaceRow(
+    val personId: String,
+    val position: Int,
+    val placeQid: String,
+    val kind: String,
+    val regionCode: String?,
+    val startYear: Int?,
+    val endYear: Int?,
 )
 
 data class LifeRow(
@@ -76,6 +90,7 @@ data class MomentRow(
     val id: String,
     val regionCode: String,
     val place: String,
+    val placeQid: String?,
     val period: String,
     val startYear: Int,
     val endYear: Int,
@@ -131,6 +146,9 @@ abstract class ReleaseRowMapper {
 
     @Mapping(target = "regionCode", source = "region.code")
     abstract fun person(entity: Person): PersonRow
+
+    @Mapping(target = "personId", source = "person.id")
+    abstract fun place(place: PersonPlace, person: Person, position: Int): PersonPlaceRow
 
     @Mapping(target = "eraId", source = "era.id")
     @Mapping(target = "url", source = "art.url")
@@ -189,6 +207,7 @@ abstract class ReleaseRowMapper {
                 "region" to regions.map(::region),
                 "era" to eras.map(::era),
                 "person" to people.map(::person),
+                "person_place" to people.flatMap { person -> person.places.mapIndexed { position, place -> place(place, person, position) } },
                 "life" to lives.map(::life),
                 "event" to events.map(::event),
                 "event_participant" to events.flatMap { it.participants }.mapIndexed { i, it -> participant(it, i + 1L) },

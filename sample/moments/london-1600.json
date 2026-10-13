@@ -2,6 +2,7 @@
   "id": "london-1600",
   "region": "GB",
   "place": "London",
+  "placeQid": "Q84",
   "period": "c. 1600",
   "start": 1588,
   "end": 1603,

@@ -15,6 +15,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert
 import org.springframework.jdbc.support.JdbcUtils
+import org.springframework.jdbc.support.SqlArrayValue
 import org.springframework.jdbc.datasource.SingleConnectionDataSource
 import org.springframework.stereotype.Component
 import java.nio.file.Path
@@ -117,7 +118,7 @@ class LoadRelease(private val release: ReleaseProperties) : JavaMigration {
 
         rows.tables.forEach { (table, tableRows) ->
             if (tableRows.isEmpty()) return@forEach
-            val sources = tableRows.map(::BeanPropertySqlParameterSource)
+            val sources = tableRows.map(::RowParameters)
             // The rows' columns rather than the table's: generated ones (person's search_name) take no value.
             val columns = sources.first().parameterNames.filter { it != "class" }.map(JdbcUtils::convertPropertyNameToUnderscoreName)
             SimpleJdbcInsert(jdbc).withSchemaName(schema).withTableName(table).usingColumns(*columns.toTypedArray())
@@ -128,6 +129,15 @@ class LoadRelease(private val release: ReleaseProperties) : JavaMigration {
             jdbc.queryForObject("""select setval('"$schema".${table}_seq', greatest(max(id), 1)) from "$schema".$table""", Long::class.java)
         }
         log.info("Loaded the release in {} into {}: {} people, {} moments", release.dir, schema, rows.count("person"), rows.count("moment"))
+    }
+
+    /** A row's properties as parameters; lists become arrays (person's occupations). */
+    private class RowParameters(row: Any) : BeanPropertySqlParameterSource(row) {
+        override fun getValue(paramName: String): Any? =
+            when (val value = super.getValue(paramName)) {
+                is List<*> -> SqlArrayValue("varchar", *value.filterNotNull().toTypedArray())
+                else -> value
+            }
     }
 
     private companion object {

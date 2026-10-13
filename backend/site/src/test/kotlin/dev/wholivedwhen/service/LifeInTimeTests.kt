@@ -15,7 +15,7 @@ class LifeInTimeTests {
     private val rome = Region("IT", "Italy")
     private val republic = Era("it-republic", rome, "Roman Republic", "Roman Republic", -509, -27)
     private val empire = Era("it-empire", rome, "Roman Empire", "Roman Empire", -27, 476)
-    private val augustus = Person("augustus", "augustus", "Augustus", -63, 14, false, rome, Domain.POWER, "emperor", null)
+    private val augustus = Person("augustus", "Q1405", "augustus", "Augustus", -63, 14, false, rome, Domain.POWER, listOf("emperor"), 300, 100, null)
     private val mapper = ApiMapperImpl()
 
     @Test

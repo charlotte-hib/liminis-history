@@ -34,8 +34,8 @@ class ReaderUpdatesTests(@Autowired private val people: PersonRepository) {
     @Test
     fun `the reader cannot save any other change`() {
         val zola = people.findBySlug("emile-zola")!!
-        val renamed = Person(zola.id, zola.slug, "Zola", zola.birthYear, zola.deathYear, zola.datesApproximate, zola.region,
-            zola.domain, zola.occupation, zola.wikipediaTitle)
+        val renamed = Person(zola.id, zola.qid, zola.slug, "Zola", zola.birthYear, zola.deathYear, zola.datesApproximate, zola.region,
+            zola.domain, zola.occupations, zola.sitelinks, zola.fame, zola.wikipediaTitle)
 
         assertFailsWith<DataAccessException> { people.saveAndFlush(renamed) }
     }
