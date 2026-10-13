@@ -100,8 +100,8 @@ export function LifeChip({ life, around, year }: { life: Life } & AroundProps) {
     <>
       <button type="button" onClick={() => setOpen(true)} className={cn(chipClass, "border-dashed hover:border-lamp")}>
         <LifeMark life={life} size="sm" />
-        {life.label}
-        <span className="font-mono text-xs text-muted-foreground">typical life</span>
+        <span className="truncate">{life.label}</span>
+        <span className="shrink-0 font-mono text-xs text-muted-foreground">typical life</span>
       </button>
       <DetailPanel open={open} onOpenChange={setOpen} kicker="Everyday life">
         <LifeDetails life={life} around={around} year={year} />
