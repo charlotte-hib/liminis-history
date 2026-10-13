@@ -3,7 +3,7 @@ spring:
   # The db service in docker-compose.yml, as the two roles of db/roles.sql: the API only reads, and Flyway, which
   # creates and loads each release's schema, owns them. Their passwords come from db/roles.env, then db-roles.env.
   datasource:
-    url: jdbc:postgresql://db:5432/wholivedwhen
+    url: jdbc:postgresql://db:5432/liminis
     username: site_reader
     password: ${SITE_READER_PASSWORD}
   flyway:

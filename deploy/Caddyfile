@@ -1,12 +1,12 @@
 # This app's site on the server's Caddy, which serves every site on the server and gets the HTTPS
 # certificates. The server's /etc/caddy/Caddyfile owns the site addresses and imports this snippet:
-#   import /opt/who-lived-when/deploy/Caddyfile
+#   import /opt/liminis/deploy/Caddyfile
 #   <site addresses> {
-#   	import who-lived-when
+#   	import liminis
 #   }
 # After changing this file: sudo systemctl reload caddy
 
-(who-lived-when) {
+(liminis) {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:3000
 	header {

@@ -1,4 +1,4 @@
-# Prometheus for Who Lived When: scrapes the backend's Actuator endpoint on the Compose network.
+# Prometheus for Liminis: scrapes the backend's Actuator endpoint on the Compose network.
 # Mounted as a directory (a single-file bind mount would keep the old file after `git checkout`), and
 # reloaded by Prometheus itself when it changes (--config.auto-reload), so a deploy picks up edits.
 

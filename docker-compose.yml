@@ -9,9 +9,12 @@
 # profile on when the server has that file. Locally:
 #   docker compose --profile monitoring up --build, then http://localhost:3001 (user admin).
 
+# Named here rather than after the checkout's directory, so its volumes keep their names wherever it is cloned.
+name: liminis
+
 services:
   backend:
-    image: ${BACKEND_IMAGE:-who-lived-when-backend}
+    image: ${BACKEND_IMAGE:-liminis-backend}
     build:
       context: ./backend
       # The API contract the build generates code from (backend/Dockerfile).
@@ -97,7 +100,7 @@ services:
         condition: service_healthy
 
   frontend:
-    image: ${FRONTEND_IMAGE:-who-lived-when-frontend}
+    image: ${FRONTEND_IMAGE:-liminis-frontend}
     build:
       context: ./frontend
       args:

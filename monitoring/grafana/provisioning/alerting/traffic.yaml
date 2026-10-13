@@ -24,7 +24,7 @@ policies:
 groups:
   - orgId: 1
     name: Traffic
-    folder: Who Lived When
+    folder: Liminis
     interval: 1m
     rules:
       - uid: api-traffic-high

@@ -308,7 +308,7 @@ jobs:
         # The release bundle goes on stdin; deploy.sh unpacks it unless the server has it already.
         run: |
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "deploy@${{ vars.VPS_HOST }}" \
-            "cd /opt/who-lived-when && git fetch --quiet origin && git checkout --quiet --detach $GITHUB_SHA && \
+            "cd /opt/liminis && git fetch --quiet origin && git checkout --quiet --detach $GITHUB_SHA && \
              deploy/deploy.sh $GITHUB_SHA ${{ steps.images.outputs.backend }} ${{ steps.images.outputs.frontend }}" \
             < "$RUNNER_TEMP/release/release.tar.gz"
 
