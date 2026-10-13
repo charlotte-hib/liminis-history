@@ -179,11 +179,21 @@ export function StoryPlayer({ story }: { story: Story }) {
           <X />
         </button>
       </div>
-      {art && (
-        <a href={art.sourceUrl} target="_blank" rel="noreferrer" className="absolute top-12 right-4 z-20 max-w-xs text-right text-[11px] text-white/60 hover:underline">
-          {art.credit}
-        </a>
-      )}
+      {/* Every card names its moment and leads to its page, so nobody has to play every card to browse the moment.
+          On the painting's own dark wash, like the close button: a light sky would swallow bare text. */}
+      <div className="absolute inset-x-4 top-14 z-20 flex items-start justify-between gap-4">
+        <Link
+          href={`/moment/${moment.id}`}
+          className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-white/30 bg-black/30 py-1 pr-2 pl-3 text-xs font-medium tracking-[0.12em] uppercase hover:bg-black/50"
+        >
+          {titleOf(moment)} <ChevronRight className="size-3.5" />
+        </Link>
+        {art && (
+          <a href={art.sourceUrl} target="_blank" rel="noreferrer" className="max-w-xs min-w-0 text-right text-[11px] text-white/60 hover:underline">
+            {art.credit}
+          </a>
+        )}
+      </div>
 
       {!atEnd && (
         <>
