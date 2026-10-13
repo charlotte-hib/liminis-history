@@ -45,7 +45,7 @@ kotlin {
 }
 
 // The API contract, api/openapi.yaml at the repository root, generates the controller interfaces and the response
-// models (dev.wholivedwhen.api); the controllers implement the interfaces. Nothing else is generated.
+// models (art.liminis.api); the controllers implement the interfaces. Nothing else is generated.
 val apiSpec = rootProject.layout.projectDirectory.file("../api/openapi.yaml")
 val generatedApi = layout.buildDirectory.dir("generated/openapi")
 
@@ -53,8 +53,8 @@ openApiGenerate {
 	generatorName = "kotlin-spring"
 	inputSpec = apiSpec
 	outputDir = generatedApi
-	apiPackage = "dev.wholivedwhen.api"
-	modelPackage = "dev.wholivedwhen.api.model"
+	apiPackage = "art.liminis.api"
+	modelPackage = "art.liminis.api.model"
 	modelNameSuffix = "Dto"
 	// Only apis and models: no supporting files (application, build file, README, exception handler).
 	globalProperties = mapOf("apis" to "", "models" to "")

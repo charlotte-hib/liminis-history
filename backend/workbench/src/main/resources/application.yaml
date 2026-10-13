@@ -132,4 +132,4 @@ resilience4j:
       wikimedia:
         # The waits come from Retry-After, else grow from app.wikimedia.default-retry-wait (WikimediaRetry).
         max-attempts: 6
-        retry-exceptions: dev.wholivedwhen.wikimedia.WikimediaBusyException
+        retry-exceptions: art.liminis.wikimedia.WikimediaBusyException

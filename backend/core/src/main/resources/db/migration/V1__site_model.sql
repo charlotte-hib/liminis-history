@@ -1,4 +1,4 @@
--- The site model, as the entities in dev.wholivedwhen.domain map it: Hibernate validates them against these tables.
+-- The site model, as the entities in art.liminis.domain map it: Hibernate validates them against these tables.
 -- Columns are not null wherever the entity's property is not nullable. Text columns keep the entities' lengths.
 
 create table region (
