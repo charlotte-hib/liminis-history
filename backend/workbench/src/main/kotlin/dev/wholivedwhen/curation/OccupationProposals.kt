@@ -7,8 +7,9 @@ import dev.wholivedwhen.occupations.Occupations
 import dev.wholivedwhen.wikidata.RawStore
 
 /**
- * Proposes a domain claim for every occupation the dataset's people hold, and for the classes above them, the most
- * held first: mapping "visual artist" once covers painters, sculptors and engravers not mapped themselves.
+ * Proposes a domain claim for every occupation the dataset's people hold, and for the classes above them: those most
+ * held as a first occupation first, then classes such as "visual artist", whose mapping once covers painters and
+ * engravers not mapped themselves.
  */
 @Component
 class OccupationProposals(private val occupations: Occupations, private val raw: RawStore, private val claims: Claims) {

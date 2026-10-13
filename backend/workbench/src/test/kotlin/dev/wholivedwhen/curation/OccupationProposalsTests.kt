@@ -45,7 +45,7 @@ class OccupationProposalsTests(
     }
 
     @Test
-    fun `proposes every occupation held and the classes above it, the most held first, without a domain`() {
+    fun `proposes every occupation held, the most held first, then the classes above them, without a domain`() {
         assertEquals(ProposalCounts(added = 4, refreshed = 0, unchanged = 0), proposals.propose())
 
         val proposed = claims.list(ClaimType.OCCUPATION_DOMAIN, null, null, 0, 100)
@@ -73,6 +73,7 @@ class OccupationProposalsTests(
         val evidence = occupations.evidence(visualArtist.qid)
 
         assertEquals(1, evidence.people)
+        assertEquals(0, evidence.first)
         assertEquals(listOf("Rembrandt"), evidence.examples.map { it.label })
         assertEquals(listOf(OccupationLabel("Q483501", "artist")), evidence.parents)
         assertEquals(2, occupations.evidence("Q36180").people)
