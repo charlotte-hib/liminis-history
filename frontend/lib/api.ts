@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 import createClient from "openapi-fetch";
+import { cache } from "react";
 import type { paths } from "@/lib/api-schema";
 import { BACKEND_URL } from "@/lib/backend-url";
 
@@ -17,7 +18,9 @@ async function load<T>(request: () => Promise<{ data?: T; response: Response }>)
 }
 
 export const getMoments = async () => (await load(() => api.GET("/api/moments"))) ?? [];
-export const getMoment = (id: string) => load(() => api.GET("/api/moments/{id}", { params: { path: { id } } }));
+// Cached per request: a page and its metadata ask for the same moment or person.
+export const getMoment = cache((id: string) => load(() => api.GET("/api/moments/{id}", { params: { path: { id } } })));
 export const getStory = (id: string) => load(() => api.GET("/api/moments/{id}/story", { params: { path: { id } } }));
-export const getPerson = (slug: string, year?: number) =>
-  load(() => api.GET("/api/people/{slug}", { params: { path: { slug }, query: { year: year || undefined } } }));
+export const getPerson = cache((slug: string, year?: number) =>
+  load(() => api.GET("/api/people/{slug}", { params: { path: { slug }, query: { year: year || undefined } } })),
+);

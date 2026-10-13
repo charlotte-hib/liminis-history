@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Connections } from "@/components/connections";
 import { DoorCard } from "@/components/door-card";
@@ -14,7 +15,16 @@ import { SiteHeader } from "@/components/site-header";
 import { WorldAround } from "@/components/world-around";
 import { getPerson } from "@/lib/api";
 import { hasStory } from "@/lib/moments";
+import { preview } from "@/lib/site";
 import { formatYear, parseYear } from "@/lib/years";
+
+export async function generateMetadata({ params }: PageProps<"/person/[slug]">): Promise<Metadata> {
+  const detail = await getPerson((await params).slug);
+  if (!detail) return {};
+  const { person } = detail;
+  const description = person.bioShort ?? `${person.occupation}, ${person.region}.`;
+  return { title: person.name, description, ...preview(person.name, description) };
+}
 
 /** A person in the world around them: who they were, what was happening, and who else was alive. */
 export default async function PersonPage({ params, searchParams }: PageProps<"/person/[slug]">) {

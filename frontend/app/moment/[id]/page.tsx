@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArtworkCredit, ArtworkImage } from "@/components/artwork-image";
 import { MomentExplorer } from "@/components/moment-explorer";
@@ -6,7 +7,15 @@ import { TrailOrigin } from "@/components/person-panel";
 import { SiteHeader } from "@/components/site-header";
 import { getMoment } from "@/lib/api";
 import { titleOf } from "@/lib/moments";
+import { preview } from "@/lib/site";
 import { formatYear } from "@/lib/years";
+
+export async function generateMetadata({ params }: PageProps<"/moment/[id]">): Promise<Metadata> {
+  const detail = await getMoment((await params).id);
+  if (!detail) return {};
+  const title = titleOf(detail.moment);
+  return { title, description: detail.moment.hook, ...preview(title, detail.moment.hook) };
+}
 
 export default async function MomentPage({ params }: PageProps<"/moment/[id]">) {
   const { id } = await params;
