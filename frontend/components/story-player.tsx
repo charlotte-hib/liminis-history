@@ -283,7 +283,7 @@ function Card({ card }: { card: StoryCard }) {
           <span>
             <span className={titleClass}>{person.name}</span>
             <span className="mt-1 block text-sm text-white/70">
-              {person.occupation}
+              {person.occupations[0]}
               {card.year && ` · ${ageText(person, card.year)} in ${formatYear(card.year)}`}
             </span>
           </span>

@@ -15,7 +15,7 @@ export function PersonHeader({ detail, className }: { detail: PersonDetail; clas
       <div className="grid gap-1">
         <h1 className="font-story text-4xl leading-tight font-medium">{person.name}</h1>
         <p className="text-sm text-muted-foreground">
-          {formatLifespan(person.birthYear, person.deathYear)} · {person.occupation} · {person.region}
+          {[formatLifespan(person.birthYear, person.deathYear), person.occupations.join(", "), person.region].filter(Boolean).join(" · ")}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary" className={cn(domain.soft, domain.text)}>{domain.title}</Badge>

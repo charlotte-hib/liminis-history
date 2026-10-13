@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import { BACKEND_URL } from "./lib/backend-url";
 
 /** The backend paths the browser calls (`lib/api-browser.ts` and `lib/analytics.ts`). */
-const BROWSER_API = ["/api/search", "/api/eras/:id", "/api/years/:year/people", "/api/events"];
+const BROWSER_API = ["/api/search", "/api/eras/:id", "/api/moments/:id/people", "/api/years/:year/people", "/api/events"];
 
 const nextConfig: NextConfig = {
   // A self-contained server (.next/standalone/server.js) for the Docker image.

@@ -28,7 +28,7 @@ export function EventDetails({ event }: { event: Event }) {
                     <span className="font-medium group-hover:underline">{person.name}</span>
                     <span className="text-sm text-arts">{role}</span>
                     <span className="text-xs text-muted-foreground">
-                      {person.occupation} · {ageText(person, event.year)} in {formatYear(event.year)}
+                      {[person.occupations[0], `${ageText(person, event.year)} in ${formatYear(event.year)}`].filter(Boolean).join(" · ")}
                     </span>
                     {person.bioShort && <span className="mt-1 text-sm text-foreground/80">{person.bioShort}</span>}
                   </span>

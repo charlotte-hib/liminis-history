@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: PageProps<"/person/[slug]">):
   const detail = await getPerson((await params).slug);
   if (!detail) return {};
   const { person } = detail;
-  const description = person.bioShort ?? `${person.occupation}, ${person.region}.`;
+  const description = person.bioShort ?? `${[person.occupations.join(", "), person.region].filter(Boolean).join(", ")}.`;
   return { title: person.name, description, ...preview(person.name, description) };
 }
 
