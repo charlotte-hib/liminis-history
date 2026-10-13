@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional
 import dev.wholivedwhen.domain.CardType
 import dev.wholivedwhen.domain.Moment
 import dev.wholivedwhen.domain.PublicationStatus.PUBLISHED
+import dev.wholivedwhen.repository.ConnectionRepository
 import dev.wholivedwhen.repository.DoorRepository
 import dev.wholivedwhen.repository.EraRepository
 import dev.wholivedwhen.repository.EventRepository
@@ -16,6 +17,7 @@ import dev.wholivedwhen.support.NotFoundException
 import dev.wholivedwhen.web.ApiMapper
 import dev.wholivedwhen.api.model.DoorDto
 import dev.wholivedwhen.api.model.MomentDetailDto
+import dev.wholivedwhen.api.model.MomentPeopleDto
 import dev.wholivedwhen.api.model.MomentSummaryDto
 import dev.wholivedwhen.api.model.StoryDto
 import kotlin.math.abs
@@ -30,6 +32,7 @@ class MomentService(
     private val people: PersonRepository,
     private val lives: LifeRepository,
     private val events: EventRepository,
+    private val connections: ConnectionRepository,
     private val mapper: ApiMapper,
 ) {
     fun list(): List<MomentSummaryDto> = summarize(published())
@@ -43,11 +46,23 @@ class MomentService(
             eras = eras.findByRegionCodeOrderByStartYearAscIdAsc(region)
                 .filter { it.startYear <= moment.endYear && it.endYear >= moment.startYear }
                 .map(mapper::toDto),
-            people = people.findAliveBetween(region, moment.startYear, moment.endYear).map(mapper::toDto),
+            people = people(moment, moment.focusYear, 0),
             lives = lives.findLivedBetween(region, moment.startYear, moment.endYear).map(mapper::toDto),
             events = events.findByEraRegionCodeAndYearBetweenOrderByYearAscIdAsc(region, moment.startYear, moment.endYear).map(mapper::toDto),
             doors = doorsFrom(moment),
         )
+    }
+
+    /** A draw of the people alive in [year] of the moment [id] (see [PeopleDraws]). */
+    fun people(id: String, year: Int, draw: Int): MomentPeopleDto = people(find(id), year, draw)
+
+    private fun people(moment: Moment, year: Int, draw: Int): MomentPeopleDto {
+        val related = connections.findConnectedIds() + events.findParticipantIds() +
+            cards.findByMomentIdOrderByPosition(moment.id).mapNotNull { it.person?.id }
+        val draws = PeopleDraws(people.findMomentCandidates(moment.region.code, year, moment.placeQid), related, seed = "${moment.id} $year")
+        val ids = draws.ids(draw)
+        val byId = people.findByIdIn(ids).associateBy { it.id }
+        return MomentPeopleDto(year, draw % draws.count, draws.count, ids.map { mapper.toDto(byId.getValue(it)) })
     }
 
     fun story(id: String): StoryDto {

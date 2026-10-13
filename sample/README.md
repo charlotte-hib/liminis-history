@@ -1,6 +1,6 @@
 # Sample release
 
-A small public release: about a hundred people written by hand, their eras, events and connections, and ten moments. The backend's tests, the API tests (`http/`), the end-to-end tests (`e2e/`), `./gradlew bootRun` and `docker compose up`, which mounts it into the backend's container, all use it. Production serves a private release in the same format, pinned in `release.lock`.
+A small public release: about a hundred people written by hand, their eras, events and connections, ten moments, and a slice of the fetched dataset from Wikidata and Wikipedia. The backend's tests, the API tests (`http/`), the end-to-end tests (`e2e/`), `./gradlew bootRun` and `docker compose up`, which mounts it into the backend's container, all use it. Production serves a private release in the same format, pinned in `release.lock`.
 
 At startup the backend reads the directory in `app.release.dir`, checks it (`ReleaseReader`, `FetchedDatasetReader`), compiles its people from the records and the dataset (`PeopleCompiler`), resolves its references and sets every life and event in its era (`ReleaseCompiler`, `ReleaseMapper`), then stores it.
 
@@ -18,7 +18,7 @@ At startup the backend reads the directory in `app.release.dir`, checks it (`Rel
 | `events.jsonl` | dated, sourced event, set in the era that covers its `year` | region, people |
 | `connections.jsonl` | two people, how they knew each other, when, and the source | people |
 | `moments/<id>.json` | moment: the world around it, its story cards and its doors, and the Wikidata id of its place (`placeQid`) | region, people, lives, events, moments |
-| `dataset/` (optional) | the fetched dataset, as the workbench's `wb export` writes it: `manifest.json`, then `people`, `articles`, `places` and `occupations` as gzipped JSON Lines. | |
+| `dataset/` (optional) | the fetched dataset, as the workbench's `wb export` writes it: `manifest.json`, then `people`, `articles`, `places` and `occupations` as gzipped JSON Lines. Here only a slice, written by `wb sample`: the people above, and the 30 most written about of each moment's place | |
 
 ## Rules
 

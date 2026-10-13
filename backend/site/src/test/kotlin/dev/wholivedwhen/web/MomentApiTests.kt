@@ -1,5 +1,6 @@
 package dev.wholivedwhen.web
 
+import com.jayway.jsonpath.JsonPath
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -8,6 +9,8 @@ import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import dev.wholivedwhen.testing.PostgresTestConfiguration
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** Runs against the release in the repository's `sample/`. */
 @SpringBootTest(properties = ["app.wikipedia.enrich=false"])
@@ -29,19 +32,44 @@ class MomentApiTests(@Autowired private val mockMvc: MockMvc) {
     }
 
     @Test
-    fun `a moment has the world around it, everyone in it, and its doors`() {
+    fun `a moment has the world around it, its people in its focus year, and its doors`() {
         mockMvc.get("/api/moments/paris-1870s").andExpect {
             status { isOk() }
             jsonPath("$.world.governs") { exists() }
             jsonPath("$.eras[?(@.id == 'fr-third-republic')]") { exists() }
-            jsonPath("$.people[?(@.slug == 'victor-hugo')]") { exists() }
-            jsonPath("$.people[?(@.slug == 'emperor-meiji')]") { doesNotExist() }
+            jsonPath("$.people.year") { value(1875) }
+            jsonPath("$.people.draw") { value(0) }
+            jsonPath("$.people.people.length()") { value(24) }
+            jsonPath("$.people.people[?(@.slug == 'victor-hugo')]") { exists() }
+            jsonPath("$.people.people[?(@.slug == 'emperor-meiji')]") { doesNotExist() }
             jsonPath("$.lives[?(@.id == 'a-washerwoman-on-the-seine')]") { exists() }
             jsonPath("$.events[?(@.id == 'carmen-premiere')].year") { value(1875) }
             jsonPath("$.doors[0].target.id") { value("tokyo-1870s") }
             jsonPath("$.doors[1].faces[0].slug") { value("emile-zola") }
             jsonPath("$.doors[1].faces[1].slug") { value("georges-clemenceau") }
         }
+    }
+
+    @Test
+    fun `a moment's people come in draws, the related first, then others, nobody twice before everyone is shown`() {
+        val draws = (0..2).map { draw ->
+            mockMvc.get("/api/moments/paris-1870s/people?year=1875&draw=$draw").andExpect { status { isOk() } }
+                .andReturn().response.contentAsString.let { JsonPath.read<List<String>>(it, "$.people[*].slug") }
+        }
+        val count = JsonPath.read<Int>(mockMvc.get("/api/moments/paris-1870s/people?year=1875").andReturn().response.contentAsString, "$.draws")
+
+        // Clemenceau is in the story, Zola in curated connections: both rank before anyone more written about.
+        assertTrue(draws[0].containsAll(listOf("georges-clemenceau", "emile-zola")))
+        assertEquals(2, count)
+        assertTrue(draws[1].none { it in draws[0] })
+        assertEquals(draws[0], draws[2], "the draw after the last starts over")
+    }
+
+    @Test
+    fun `a moment's people need a year and a draw from 0, of a moment that exists`() {
+        mockMvc.get("/api/moments/paris-1870s/people").andExpect { status { isBadRequest() } }
+        mockMvc.get("/api/moments/paris-1870s/people?year=1875&draw=-1").andExpect { status { isBadRequest() } }
+        mockMvc.get("/api/moments/atlantis/people?year=1875").andExpect { status { isNotFound() } }
     }
 
     @Test

@@ -67,6 +67,46 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/moments/{id}/people:
+    get:
+      tags: [moments]
+      operationId: listMomentPeople
+      summary: A moment's people in a year
+      description: |
+        A selection of the people alive in a year of a moment, from its region or tied to it by a place of their lives.
+        Draw 0 ranks them: those with documented relations first (the story's cast, curated connections, shared
+        events), then those tied to the moment's place, then the most written about. Each further draw picks others at
+        random, weighted the same way, never repeating one before every person has been drawn once; after the last,
+        draws start over. The same draw always picks the same people.
+      parameters:
+        - $ref: "#/components/parameters/MomentId"
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: draw
+          in: query
+          required: false
+          description: Which draw, from 0. Draws past the last start over.
+          schema:
+            type: integer
+            format: int32
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: The people of that draw.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MomentPeople"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/moments/{id}/story:
     get:
       tags: [moments]
@@ -122,7 +162,9 @@ paths:
       tags: [people]
       operationId: listAliveElsewhere
       summary: People alive elsewhere in a year
-      description: A few people alive in a year in each region but one, preferring those in the middle of their lives.
+      description: >-
+        A few people alive in a year in each region with eras but one: among the most written about of each, those in
+        the middle of their lives.
       parameters:
         - name: year
           in: path
@@ -175,7 +217,7 @@ paths:
             maxLength: 100
       responses:
         "200":
-          description: Names that start with the query first, then by birth.
+          description: Names that start with the query first, then the most famous in their time and place.
           content:
             application/json:
               schema:
@@ -190,7 +232,7 @@ paths:
       summary: Regions
       responses:
         "200":
-          description: The regions, by name.
+          description: The regions whose eras are written, by name. People come from other regions too.
           content:
             application/json:
               schema:
@@ -376,7 +418,7 @@ components:
 
     Person:
       type: object
-      required: [slug, name, birthYear, deathYear, datesApproximate, regionCode, region, domain, occupation, bioShort, portraitUrl]
+      required: [slug, name, birthYear, deathYear, datesApproximate, regionCode, region, domain, occupations, bioShort, portraitUrl]
       properties:
         slug:
           type: string
@@ -398,8 +440,11 @@ components:
           type: string
         domain:
           $ref: "#/components/schemas/Domain"
-        occupation:
-          type: string
+        occupations:
+          description: Up to three, the main one first. Empty when none is known.
+          type: array
+          items:
+            type: string
         bioShort:
           description: One or two sentences, hand-written or the lead of the Wikipedia article.
           type: string
@@ -504,7 +549,9 @@ components:
         era:
           $ref: "#/components/schemas/Era"
         people:
-          description: The people alive in the era, by domain (`POWER`, `ARTS`, `EVERYDAY`). Empty domains are left out.
+          description: >-
+            The people alive in the era, by domain (`POWER`, `ARTS`, `EVERYDAY`): the most written about, up to 12 each.
+            Empty domains are left out.
           type: object
           additionalProperties:
             type: array
@@ -589,7 +636,9 @@ components:
             $ref: "#/components/schemas/Person"
 
     MomentDetail:
-      description: Everything the moment page needs; scrubbing through its years happens in the browser.
+      description: >-
+        Everything the moment page needs to open on its focus year. Its people for other years come from
+        `/api/moments/{id}/people`.
       type: object
       required: [moment, world, eras, people, lives, events, doors]
       properties:
@@ -605,9 +654,9 @@ components:
           items:
             $ref: "#/components/schemas/Era"
         people:
-          type: array
-          items:
-            $ref: "#/components/schemas/Person"
+          description: The focus year's first draw of `/api/moments/{id}/people`.
+          allOf:
+            - $ref: "#/components/schemas/MomentPeople"
         lives:
           type: array
           items:
@@ -620,6 +669,27 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Door"
+
+    MomentPeople:
+      type: object
+      required: [year, draw, draws, people]
+      properties:
+        year:
+          type: integer
+          format: int32
+        draw:
+          description: The draw asked for, counted from 0 within `draws`.
+          type: integer
+          format: int32
+        draws:
+          description: How many different draws there are, 1 when everyone fits in one.
+          type: integer
+          format: int32
+        people:
+          description: At most 24, in rank order for draw 0.
+          type: array
+          items:
+            $ref: "#/components/schemas/Person"
 
     CardType:
       type: string
@@ -770,6 +840,7 @@ components:
           items:
             $ref: "#/components/schemas/Connection"
         aroundPeople:
+          description: People alive in their region that year, or tied to it by a place, the most written about first, up to 12.
           type: array
           items:
             $ref: "#/components/schemas/Person"

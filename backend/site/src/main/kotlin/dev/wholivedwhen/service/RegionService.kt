@@ -9,5 +9,5 @@ import dev.wholivedwhen.api.model.RegionDto
 @Service
 @Transactional(readOnly = true)
 class RegionService(private val regions: RegionRepository, private val mapper: ApiMapper) {
-    fun list(): List<RegionDto> = regions.findAllByOrderByName().map(mapper::toDto)
+    fun list(): List<RegionDto> = regions.findWithEras().map(mapper::toDto)
 }
