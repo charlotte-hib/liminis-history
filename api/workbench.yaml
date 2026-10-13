@@ -1,19 +1,19 @@
 openapi: 3.0.3
 info:
-  title: Who Lived When workbench API
+  title: Liminis workbench API
   version: 1.0.0
   description: |
     The curator's workbench, on the Mac only: claims (anything a careful reader could dispute) with their sources and
     the curator's decisions, and the runs that fetch, map and propose.
 
     It listens on 127.0.0.1 only and answers only requests addressed to `localhost` or `127.0.0.1`. Every request
-    needs the token the workbench writes on each start to `~/.config/who-lived-when/workbench-token`.
+    needs the token the workbench writes on each start to `~/.config/liminis/workbench-token`.
 
     People are Wikidata ids (Q-ids). Years are integers, negative for BCE. There is no year 0: 1 BCE is followed by
     1 CE.
   license:
     name: MIT
-    url: https://github.com/charlotte-hib/who-lived-when/blob/main/LICENSE
+    url: https://github.com/charlotte-hib/liminis-history/blob/main/LICENSE
 servers:
   - url: http://localhost:8090
     description: The workbench, on the curator's computer.
@@ -382,7 +382,7 @@ components:
     token:
       type: http
       scheme: bearer
-      description: The token in `~/.config/who-lived-when/workbench-token`, new on every start.
+      description: The token in `~/.config/liminis/workbench-token`, new on every start.
 
   headers:
     ETag:

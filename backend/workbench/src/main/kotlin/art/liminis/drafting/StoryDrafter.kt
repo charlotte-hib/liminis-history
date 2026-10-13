@@ -17,7 +17,7 @@ import art.liminis.domain.Moment
 class DraftingException(message: String) : RuntimeException(message)
 
 private val SYSTEM_PROMPT = """
-    You draft stories for Who Lived When, a history app where people step into a moment (one place over a few
+    You draft stories for Liminis, a history app where people step into a moment (one place over a few
     years) and meet the people who lived there, from rulers to washerwomen. A story is read one short card at a
     time over a painting of the period.
 

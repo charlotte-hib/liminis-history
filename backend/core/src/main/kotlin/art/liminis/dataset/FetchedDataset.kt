@@ -10,11 +10,11 @@ import java.time.Instant
  * media type each is pushed with. backend/workbench/wb and sample_dataset.py name them too: keep them in step.
  */
 enum class DatasetFile(val fileName: String, val mediaType: String) {
-    MANIFEST("manifest.json", "application/vnd.wholivedwhen.dataset.manifest.v1+json"),
-    PEOPLE("people.jsonl.gz", "application/vnd.wholivedwhen.dataset.people.v1.jsonl+gzip"),
-    ARTICLES("articles.jsonl.gz", "application/vnd.wholivedwhen.dataset.articles.v1.jsonl+gzip"),
-    PLACES("places.jsonl.gz", "application/vnd.wholivedwhen.dataset.places.v1.jsonl+gzip"),
-    OCCUPATIONS("occupations.jsonl.gz", "application/vnd.wholivedwhen.dataset.occupations.v1.jsonl+gzip"),
+    MANIFEST("manifest.json", "application/vnd.liminis.dataset.manifest.v1+json"),
+    PEOPLE("people.jsonl.gz", "application/vnd.liminis.dataset.people.v1.jsonl+gzip"),
+    ARTICLES("articles.jsonl.gz", "application/vnd.liminis.dataset.articles.v1.jsonl+gzip"),
+    PLACES("places.jsonl.gz", "application/vnd.liminis.dataset.places.v1.jsonl+gzip"),
+    OCCUPATIONS("occupations.jsonl.gz", "application/vnd.liminis.dataset.occupations.v1.jsonl+gzip"),
 }
 
 /** `manifest.json`: what the fetched dataset holds, and from which import. */

@@ -29,7 +29,7 @@ class WikipediaClientTests(
     @Test
     fun `reads the extract, thumbnail and page link of an article`() {
         server.expect(requestTo(summaryUrl))
-            .andExpect(header(HttpHeaders.USER_AGENT, "WhoLivedWhen/0.1 (https://github.com/charlotte-hib/who-lived-when)"))
+            .andExpect(header(HttpHeaders.USER_AGENT, "Liminis/0.1 (https://github.com/charlotte-hib/liminis-history)"))
             .andRespond(withSuccess(ZOLA, MediaType.APPLICATION_JSON))
 
         val summary = wikipedia.summary("Émile_Zola")

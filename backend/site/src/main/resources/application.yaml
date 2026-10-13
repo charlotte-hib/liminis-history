@@ -42,5 +42,5 @@ app:
   wikipedia:
     base-url: https://en.wikipedia.org/api/rest_v1
     # Wikimedia asks API clients for a contact in the User-Agent.
-    user-agent: WhoLivedWhen/0.1 (https://github.com/charlotte-hib/who-lived-when)
+    user-agent: Liminis/0.1 (https://github.com/charlotte-hib/liminis-history)
     enrich: true

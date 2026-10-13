@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Who Lived When API
+  title: Liminis API
   version: 1.0.0
   description: |
     The backend's public API: moments, people, eras and regions, read-only, and one endpoint that counts anonymous
@@ -12,7 +12,7 @@ info:
     Years are integers, negative for BCE. There is no year 0: 1 BCE is followed by 1 CE.
   license:
     name: MIT
-    url: https://github.com/charlotte-hib/who-lived-when/blob/main/LICENSE
+    url: https://github.com/charlotte-hib/liminis-history/blob/main/LICENSE
 servers:
   - url: /
     description: The backend (port 8080 on a local run), or the site, which forwards the paths the browser calls.
