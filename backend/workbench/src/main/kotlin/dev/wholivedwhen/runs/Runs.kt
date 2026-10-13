@@ -3,6 +3,7 @@ package dev.wholivedwhen.runs
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.DisposableBean
 import org.springframework.stereotype.Service
+import dev.wholivedwhen.curation.OccupationProposals
 import dev.wholivedwhen.curation.PersonFactsProposals
 import dev.wholivedwhen.dataset.DatasetExport
 import dev.wholivedwhen.dataset.DatasetMapping
@@ -30,6 +31,7 @@ class Runs(
     private val datasetMapping: DatasetMapping,
     private val datasetExport: DatasetExport,
     private val personFacts: PersonFactsProposals,
+    private val occupations: OccupationProposals,
     private val drafting: StoryDrafting,
     private val moments: MomentRepository,
 ) : DisposableBean {
@@ -77,6 +79,7 @@ class Runs(
         RunKindDto.DATASET_MAPPING -> datasetMapping.map().toString()
         RunKindDto.DATASET_EXPORT -> datasetExport.export().let { (dir, manifest) -> "${manifest.counts} of import ${manifest.import.run}, in $dir" }
         RunKindDto.PERSON_FACTS_CLAIMS -> personFacts.propose().toString()
+        RunKindDto.OCCUPATION_CLAIMS -> occupations.propose().toString()
         RunKindDto.STORY_DRAFT -> drafting.draft(run.moment!!)
     }
 

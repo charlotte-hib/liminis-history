@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * End-to-end tests of curate, the curator's review app, on the curator's computer only: never in CI, which runs no
  * workbench. Start the workbench on a throwaway copy of its database (it adds and decides claims), propose the claims
- * (`wb claims`), and curate against it, then: `npx playwright test --config curate.config.ts` (CURATE_URL, default
+ * (`wb claims`, `wb occupations`), and curate against it, then: `npx playwright test --config curate.config.ts` (CURATE_URL, default
  * http://127.0.0.1:3100).
  */
 export default defineConfig({

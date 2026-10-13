@@ -26,18 +26,20 @@ object ClaimRules {
         is Connection -> ClaimType.CONNECTION
         is Event -> ClaimType.EVENT
         is Anecdote -> ClaimType.ANECDOTE
+        is OccupationDomain -> ClaimType.OCCUPATION_DOMAIN
     }
 
     /**
      * A claim's id, from what it is about, so the same thing proposed again lands on the same claim:
      * `person-facts:Q535`, `connection:Q296|Q535:friends`, `event:FR:-52:vercingetorix-surrenders-at-alesia`,
-     * `anecdote:Q535:1851:` and the start of the text's SHA-256.
+     * `anecdote:Q535:1851:` and the start of the text's SHA-256, `occupation:Q1028181`.
      */
     fun idOf(payload: Payload): String = when (payload) {
         is PersonFacts -> "person-facts:${payload.person}"
         is Connection -> "connection:${payload.people.sorted().joinToString("|")}:${slugify(payload.kind)}"
         is Event -> "event:${payload.region}:${payload.year}:${slugify(payload.title)}"
         is Anecdote -> "anecdote:${payload.person}:${payload.year}:${sha256(payload.text.trim()).take(12)}"
+        is OccupationDomain -> "occupation:${payload.occupation}"
     }
 
     /** Whom or where a claim is about: an edit must not change it. */
@@ -46,14 +48,16 @@ object ClaimRules {
         is Connection -> payload.people.sorted().joinToString(" and ")
         is Event -> payload.region
         is Anecdote -> payload.person
+        is OccupationDomain -> payload.occupation
     }
 
     /**
-     * Checks a claim the curator adds by hand, and returns the flags it starts with. A person's facts only come from
-     * Wikidata; a claim resting on one source is flagged, for support to be looked for.
+     * Checks a claim the curator adds by hand, and returns the flags it starts with. A person's facts and the
+     * occupations to map only come from Wikidata; a claim resting on one source is flagged, for support to be looked for.
      */
     fun flagsOfNew(claim: NewClaim): List<FlagReason> {
         if (claim.payload is PersonFacts) invalid("A person's facts are fetched from Wikidata, not added by hand")
+        if (claim.payload is OccupationDomain) invalid("Occupations are proposed from the dataset, not added by hand")
         check(claim.payload)
         claim.sources.forEach(::check)
         return if (claim.sources.size == 1) listOf(ONE_SOURCE) else emptyList()
@@ -77,6 +81,7 @@ object ClaimRules {
             Verdict.NEEDS_WORK -> ClaimStatus.NEEDS_WORK
         }
         if (status != ClaimStatus.APPROVED && decision.note.isNullOrBlank()) invalid("Say why, in a note")
+        if (status == ClaimStatus.APPROVED && payload is OccupationDomain && payload.domain == null) invalid("Choose a domain, or none")
         return state.copy(status = status, payload = payload, flags = fetchedFlags(state.flags))
     }
 
@@ -113,6 +118,7 @@ object ClaimRules {
             is Connection -> listOf(payload.year)
             is Event -> listOf(payload.year)
             is Anecdote -> listOf(payload.year)
+            is OccupationDomain -> emptyList()
         }
         if (0 in years) invalid("There is no year 0: 1 BCE is followed by 1 CE")
         if (payload is Connection && payload.people.distinct().size != 2) invalid("A connection links two different people")
