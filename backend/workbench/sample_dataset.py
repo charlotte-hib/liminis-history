@@ -3,7 +3,8 @@
 The slice holds the people written by hand in sample/people.jsonl, and for each of its moments the people most written
 about who are tied to the moment's place and alive during it, so that the sample's lists are long enough to rank and
 draw from. With them: their Wikipedia articles, their places, and their occupations with three levels of classes.
-Lines are copied as the export wrote them; the same export makes the same files.
+Lines are copied as the export wrote them; the same export makes the same files. The file names are DatasetFile's
+(backend/core): keep them in step.
 
 Usage: python3 -I sample_dataset.py <export dir> <sample dir>
 """

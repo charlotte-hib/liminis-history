@@ -83,7 +83,8 @@ export_dataset() {
   manifest="$(<"$export_dir/manifest.json")"
   tag="$(json "$manifest" "f\"import-{d['import']['run']}-{d['import']['finishedAt'][:10].replace('-', '')}\"")"
   echo "Pushing $dataset_package:$tag"
-  # Created when the import finished, not now, so that the same files make the same manifest.
+  # Created when the import finished, not now, so that the same files make the same manifest. The files and their media
+  # types are DatasetFile's (backend/core).
   if ! digest="$(gh auth token | docker run --rm --interactive --volume "$export_dir:/workspace:ro" "$oras_image" push \
     --username "$(gh api user --jq .login)" --password-stdin \
     --artifact-type application/vnd.wholivedwhen.dataset.v1 \

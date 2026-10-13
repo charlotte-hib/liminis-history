@@ -4,6 +4,7 @@ import tools.jackson.core.JacksonException
 import tools.jackson.databind.DeserializationFeature
 import tools.jackson.module.kotlin.jacksonMapperBuilder
 import dev.wholivedwhen.dataset.ArticleRow
+import dev.wholivedwhen.dataset.DatasetFile
 import dev.wholivedwhen.dataset.DatasetManifest
 import dev.wholivedwhen.dataset.FetchedDataset
 import dev.wholivedwhen.dataset.OccupationRow
@@ -27,30 +28,33 @@ object FetchedDatasetReader {
     private val mapper = jacksonMapperBuilder().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build()
 
     fun read(dir: Path): FetchedDataset {
-        val manifest = parse("dataset/manifest.json") { mapper.readValue(file(dir, "manifest.json").toFile(), DatasetManifest::class.java) }
+        val manifest = parse(where(DatasetFile.MANIFEST)) {
+            mapper.readValue(file(dir, DatasetFile.MANIFEST).toFile(), DatasetManifest::class.java)
+        }
         if (manifest.format != FORMAT) {
-            throw InvalidReleaseException("dataset/manifest.json: format ${manifest.format}, this code reads format $FORMAT")
+            throw InvalidReleaseException("${where(DatasetFile.MANIFEST)}: format ${manifest.format}, this code reads format $FORMAT")
         }
         return FetchedDataset(
             manifest = manifest,
-            people = lines<PersonRow>(dir, "people"),
-            articles = lines<ArticleRow>(dir, "articles").filter { it.language == ENGLISH }.associateBy { it.person },
-            places = lines<PlaceRow>(dir, "places").associateBy { it.qid },
-            occupations = lines<OccupationRow>(dir, "occupations").associateBy { it.qid },
+            people = lines<PersonRow>(dir, DatasetFile.PEOPLE),
+            articles = lines<ArticleRow>(dir, DatasetFile.ARTICLES).filter { it.language == ENGLISH }.associateBy { it.person },
+            places = lines<PlaceRow>(dir, DatasetFile.PLACES).associateBy { it.qid },
+            occupations = lines<OccupationRow>(dir, DatasetFile.OCCUPATIONS).associateBy { it.qid },
         )
     }
 
-    private inline fun <reified T : Any> lines(dir: Path, name: String): List<T> {
-        val where = "dataset/$name.jsonl.gz"
-        return parse(where) {
-            GZIPInputStream(Files.newInputStream(file(dir, "$name.jsonl.gz"))).use { input ->
+    private inline fun <reified T : Any> lines(dir: Path, file: DatasetFile): List<T> =
+        parse(where(file)) {
+            GZIPInputStream(Files.newInputStream(file(dir, file))).use { input ->
                 mapper.readerFor(T::class.java).readValues<T>(input).use { it.readAll() }
             }
         }
-    }
 
-    private fun file(dir: Path, name: String): Path =
-        dir.resolve(name).takeIf { it.isRegularFile() } ?: throw InvalidReleaseException("dataset/$name is missing")
+    private fun file(dir: Path, file: DatasetFile): Path =
+        dir.resolve(file.fileName).takeIf { it.isRegularFile() } ?: throw InvalidReleaseException("${where(file)} is missing")
+
+    /** How errors name a file: under the release's dataset/. */
+    private fun where(file: DatasetFile) = "dataset/${file.fileName}"
 
     private inline fun <T> parse(where: String, read: () -> T): T =
         try {
