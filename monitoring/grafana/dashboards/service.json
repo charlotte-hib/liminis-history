@@ -1,9 +1,9 @@
 {
-  "uid": "who-lived-when-service",
+  "uid": "liminis-service",
   "title": "Service",
   "description": "Health of the Spring Boot backend: traffic, latency, errors and the JVM.",
   "tags": [
-    "who-lived-when"
+    "liminis"
   ],
   "editable": false,
   "graphTooltip": 1,

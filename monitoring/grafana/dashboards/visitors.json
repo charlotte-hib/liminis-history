@@ -1,9 +1,9 @@
 {
-  "uid": "who-lived-when-visitors",
+  "uid": "liminis-visitors",
   "title": "Visitors",
   "description": "How visitors use the site, from anonymous counters: no cookies, ids, IP addresses or URLs.",
   "tags": [
-    "who-lived-when"
+    "liminis"
   ],
   "editable": false,
   "graphTooltip": 1,
