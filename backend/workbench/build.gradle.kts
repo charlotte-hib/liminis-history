@@ -66,7 +66,7 @@ allOpen {
 }
 
 // The workbench's API contract, api/workbench.yaml at the repository root, generates the controller interfaces and the
-// models (dev.wholivedwhen.workbench.api), as for the site's.
+// models (art.liminis.workbench.api), as for the site's.
 val apiSpec = rootProject.layout.projectDirectory.file("../api/workbench.yaml")
 val generatedApi = layout.buildDirectory.dir("generated/openapi")
 
@@ -74,8 +74,8 @@ openApiGenerate {
 	generatorName = "kotlin-spring"
 	inputSpec = apiSpec
 	outputDir = generatedApi
-	apiPackage = "dev.wholivedwhen.workbench.api"
-	modelPackage = "dev.wholivedwhen.workbench.api.model"
+	apiPackage = "art.liminis.workbench.api"
+	modelPackage = "art.liminis.workbench.api.model"
 	modelNameSuffix = "Dto"
 	globalProperties = mapOf("apis" to "", "models" to "")
 	generateApiDocumentation = false

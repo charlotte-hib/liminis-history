@@ -11,6 +11,6 @@ plugins {
 }
 
 subprojects {
-	group = "dev.wholivedwhen"
+	group = "art.liminis"
 	version = "0.0.1-SNAPSHOT"
 }

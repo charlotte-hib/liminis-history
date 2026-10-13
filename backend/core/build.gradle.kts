@@ -81,6 +81,6 @@ tasks.test {
 tasks.register<JavaExec>("releaseSchema") {
 	description = "Writes the release format's JSON Schema, generated from its records, to sample/release.schema.json."
 	classpath = sourceSets.test.get().runtimeClasspath
-	mainClass = "dev.wholivedwhen.release.ReleaseSchemaKt"
+	mainClass = "art.liminis.release.ReleaseSchemaKt"
 	args(sample.resolve("release.schema.json").path)
 }
