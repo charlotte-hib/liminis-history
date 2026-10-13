@@ -39,7 +39,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
       <PageView page="person" />
       <SiteHeader />
       <TrailOrigin label={person.name} />
-      <main className="mx-auto grid w-full max-w-3xl gap-10 px-4 py-10">
+      <main className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-10 px-4 py-10">
         <FullPageTrail slug={person.slug} />
         <PersonHeader detail={detail} />
         <PersonAbout detail={detail} />

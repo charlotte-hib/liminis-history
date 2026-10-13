@@ -87,8 +87,10 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
   const oldest = here.reduce<Person | null>((a, b) => (!a || b.birthYear < a.birthYear ? b : a), null);
   const youngest = here.reduce<Person | null>((a, b) => (!a || b.birthYear > a.birthYear ? b : a), null);
 
+  // Every grid track here may shrink below its content's width (minmax(0, 1fr)): otherwise one long chip widens the
+  // whole page past a phone's screen.
   return (
-    <div className="grid gap-10">
+    <div className="grid grid-cols-1 gap-10">
       <section aria-label="Year" className="grid gap-3">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <p className="font-display text-7xl leading-none font-extrabold text-lamp tabular-nums sm:text-8xl" aria-live="polite">
@@ -149,7 +151,7 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
           const groupLives = domain === "EVERYDAY" ? livesHere : [];
           const count = group.length + groupLives.length;
           return (
-            <div key={domain} className="grid gap-3 py-4 sm:grid-cols-[11rem_1fr]">
+            <div key={domain} className="grid grid-cols-1 gap-3 py-4 sm:grid-cols-[11rem_minmax(0,1fr)]">
               <h3 className="text-sm font-semibold">
                 {DOMAINS[domain].title}
                 <span className="block font-mono text-xs font-normal text-muted-foreground">

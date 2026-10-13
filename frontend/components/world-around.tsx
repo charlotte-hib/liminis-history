@@ -22,7 +22,7 @@ export function WorldAround({ world, meanwhile, compact }: Props) {
   return (
     <dl className="grid gap-3">
       {ROWS.map(({ key, label, icon: Icon, color }) => (
-        <div key={key} className={cn("grid gap-x-3 gap-y-1", compact ? "grid-cols-[1.25rem_1fr]" : "grid-cols-[1.25rem_1fr] sm:grid-cols-[1.25rem_8rem_1fr]")}>
+        <div key={key} className={cn("grid gap-x-3 gap-y-1", compact ? "grid-cols-[1.25rem_minmax(0,1fr)]" : "grid-cols-[1.25rem_minmax(0,1fr)] sm:grid-cols-[1.25rem_8rem_minmax(0,1fr)]")}>
           <Icon aria-hidden className={cn("mt-1 size-4", color)} />
           <dt className={cn("pt-0.5 text-xs tracking-widest text-muted-foreground uppercase", compact && "sr-only")}>{label}</dt>
           <dd className={cn("col-start-2 font-story leading-snug", compact ? "text-base" : "text-lg sm:col-start-3")}>
