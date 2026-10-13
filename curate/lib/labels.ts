@@ -10,6 +10,7 @@ export const QUEUES: { type: ClaimType; name: string; hint: string; slug: string
   { type: "CONNECTION", name: "Connections", hint: "Two people, one sentence", slug: "connections" },
   { type: "EVENT", name: "Events", hint: "A region, a year", slug: "events" },
   { type: "ANECDOTE", name: "Anecdotes", hint: "A short story about one person", slug: "anecdotes" },
+  { type: "OCCUPATION_DOMAIN", name: "Occupations to map", hint: "The domain of the people who hold each occupation", slug: "occupations" },
 ];
 
 export const queueOf = (type: ClaimType) => QUEUES.find((queue) => queue.type === type)!;

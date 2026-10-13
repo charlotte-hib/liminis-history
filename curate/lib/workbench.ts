@@ -11,6 +11,7 @@ export type ClaimType = components["schemas"]["ClaimType"];
 export type Evidence = components["schemas"]["Evidence"];
 export type NewClaim = components["schemas"]["NewClaim"];
 export type NewDecision = components["schemas"]["NewDecision"];
+export type OccupationEvidence = components["schemas"]["OccupationEvidence"];
 export type Payload = components["schemas"]["Payload"];
 export type PersonSummary = components["schemas"]["PersonSummary"];
 export type Problem = components["schemas"]["Problem"];

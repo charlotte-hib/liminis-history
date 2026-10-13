@@ -155,6 +155,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/occupations/{qid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who holds an occupation
+         * @description An occupation, or a class of them, as the last mapping holds it: its labels, its classes, how many people hold
+         *     it among their first three occupations (directly or through a narrower one), and the best known of them.
+         */
+        get: operations["getOccupation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs": {
         parameters: {
             query?: never;
@@ -200,9 +221,10 @@ export interface components {
         /**
          * @description `PERSON_FACTS`: a person's facts as fetched, one claim per person. `CONNECTION`: two people linked at a date.
          *     `EVENT`: something that happened in a region in a year. `ANECDOTE`: a short story about one person.
+         *     `OCCUPATION_DOMAIN`: the domain of the people who hold an occupation, one claim per occupation or class.
          * @enum {string}
          */
-        ClaimType: "PERSON_FACTS" | "CONNECTION" | "EVENT" | "ANECDOTE";
+        ClaimType: "PERSON_FACTS" | "CONNECTION" | "EVENT" | "ANECDOTE" | "OCCUPATION_DOMAIN";
         /**
          * @description `CANDIDATE` waits for review; `NEEDS_WORK` was kept for later, with a note.
          * @enum {string}
@@ -258,7 +280,7 @@ export interface components {
             note?: string;
         };
         /** @description The record as it would ship, by claim type. */
-        Payload: components["schemas"]["PersonFacts"] | components["schemas"]["Connection"] | components["schemas"]["Event"] | components["schemas"]["Anecdote"];
+        Payload: components["schemas"]["PersonFacts"] | components["schemas"]["Connection"] | components["schemas"]["Event"] | components["schemas"]["Anecdote"] | components["schemas"]["OccupationDomain"];
         /**
          * @description A person's facts as Wikidata states them. Whether each statement has a reference shows in the claim's flags,
          *     not here: a reference added later does not change the facts.
@@ -348,6 +370,39 @@ export interface components {
             text: string;
         };
         /**
+         * @description The domain of the people who hold an occupation, or of a class of occupations (it then covers the narrower
+         *     ones not mapped themselves). Proposed without one: the curator chooses it. `NONE` says the occupation tells
+         *     nothing of a life's work ("aristocrat"), so a person's next occupation decides.
+         */
+        OccupationDomain: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "OCCUPATION_DOMAIN";
+            occupation: components["schemas"]["Qid"];
+            label: string;
+            labelFr?: string;
+            domain?: components["schemas"]["OccupationChoice"];
+        };
+        /** @enum {string} */
+        OccupationChoice: "POWER" | "ARTS" | "EVERYDAY" | "NONE";
+        OccupationEvidence: {
+            occupation: components["schemas"]["Qid"];
+            label: string;
+            labelFr?: string;
+            /** @description How many people hold it among their first three occupations, directly or through a narrower one. */
+            people: number;
+            /** @description The best known of them, at most 8. */
+            examples: components["schemas"]["PersonSummary"][];
+            /** @description The classes it belongs to, best rank first. */
+            parents: components["schemas"]["OccupationLabel"][];
+        };
+        OccupationLabel: {
+            occupation: components["schemas"]["Qid"];
+            label: string;
+        };
+        /**
          * @description What a claim rests on. `WIKIDATA`: an entity (`entity`, `revision`). `WIKIPEDIA`: an article (`language`,
          *     `title`, `revision`). `BOOK`: `title` and `page`. `WEB`: `url`. `MEDIA`: a podcast, a video or a documentary
          *     (`title`, `episode`, `minute`, `url`).
@@ -398,10 +453,11 @@ export interface components {
          * @description `WIKIDATA_IMPORT` fetches Wikidata's people, or resumes the import that stopped. `DATASET_MAPPING` maps the last
          *     finished import to the dataset's rows. `DATASET_EXPORT` writes those rows to the fetched dataset's files, in
          *     `backend/dataset-export/`. `PERSON_FACTS_CLAIMS` proposes the facts of the people of the release's moments.
-         *     `STORY_DRAFT` drafts a moment's story with Claude into `backend/drafts/`.
+         *     `OCCUPATION_CLAIMS` proposes a domain claim for every occupation the dataset's people hold, and their classes,
+         *     the most held first. `STORY_DRAFT` drafts a moment's story with Claude into `backend/drafts/`.
          * @enum {string}
          */
-        RunKind: "WIKIDATA_IMPORT" | "DATASET_MAPPING" | "DATASET_EXPORT" | "PERSON_FACTS_CLAIMS" | "STORY_DRAFT";
+        RunKind: "WIKIDATA_IMPORT" | "DATASET_MAPPING" | "DATASET_EXPORT" | "PERSON_FACTS_CLAIMS" | "OCCUPATION_CLAIMS" | "STORY_DRAFT";
         Run: {
             /** Format: int64 */
             id: number;
@@ -775,6 +831,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Evidence"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getOccupation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                qid: components["schemas"]["Qid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The occupation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OccupationEvidence"];
                 };
             };
             401: components["responses"]["Unauthorized"];

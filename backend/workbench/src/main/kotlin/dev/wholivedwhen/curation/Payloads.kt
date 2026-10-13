@@ -13,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
     JsonSubTypes.Type(Connection::class, name = "CONNECTION"),
     JsonSubTypes.Type(Event::class, name = "EVENT"),
     JsonSubTypes.Type(Anecdote::class, name = "ANECDOTE"),
+    JsonSubTypes.Type(OccupationDomain::class, name = "OCCUPATION_DOMAIN"),
 )
 sealed interface Payload
 
@@ -66,3 +67,12 @@ data class Participant(val person: String, val role: String)
 
 /** A short story about one person, at a date. */
 data class Anecdote(val person: String, val year: Int, val text: String) : Payload
+
+/**
+ * The domain of the people who hold an occupation, or a class of occupations (it then covers the narrower ones not
+ * mapped themselves). Proposed without one: the curator chooses it.
+ */
+data class OccupationDomain(val occupation: String, val label: String, val labelFr: String? = null, val domain: OccupationChoice? = null) : Payload
+
+/** A domain of the site's, or none: the occupation says nothing of a life's work, so the person's next one decides. */
+enum class OccupationChoice { POWER, ARTS, EVERYDAY, NONE }

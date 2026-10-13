@@ -25,6 +25,7 @@ Usage: wb <command>
   sample          write the public sample/'s slice of the last export into sample/dataset/: its people, and the
                   people most written about of its moments' places (no workbench needed)
   claims          propose the facts of the people of the release's moments for review
+  occupations     propose a domain to choose for every occupation the dataset's people hold, the most held first
   draft <moment>  draft a moment's story with Claude, into backend/drafts/
   runs [id]       the runs since the workbench started, or one of them
   queues          how many claims wait for review, by type and flag
@@ -112,6 +113,7 @@ case "${1:-}" in
   export) export_dataset ;;
   sample) python3 -I "$repo/backend/workbench/sample_dataset.py" "$export_dir" "$repo/sample" ;;
   claims) start '{"kind": "PERSON_FACTS_CLAIMS"}' ;;
+  occupations) start '{"kind": "OCCUPATION_CLAIMS"}' ;;
   draft)
     [[ -n "${2:-}" ]] || { usage >&2; exit 2; }
     start "{\"kind\": \"STORY_DRAFT\", \"moment\": \"$2\"}"

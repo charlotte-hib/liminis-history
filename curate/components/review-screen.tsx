@@ -8,6 +8,7 @@ import { History, PayloadView, Sources } from "@/components/claim-parts";
 import { AnecdoteForm, FactsForm } from "@/components/edit-forms";
 import { FactsTable } from "@/components/facts";
 import { Intros } from "@/components/intros";
+import { CHOICES, OccupationView } from "@/components/occupation";
 import type { components } from "@/lib/api-schema";
 import { describe, FLAG_STYLE, FLAGS, flagsOf, type QUEUES } from "@/lib/labels";
 import type { Review } from "@/lib/queue";
@@ -28,7 +29,7 @@ type Props = { queue: Queue; later: boolean; claims: ClaimSummary[]; current: Re
 
 /**
  * A queue's claims beside the one under review. Keys: A approve, E edit, R reject, N keep for later, S or J the next
- * claim, K the previous one, U undo the last decision.
+ * claim, K the previous one, U undo the last decision; for an occupation, 1 to 4 choose its domain and approve.
  */
 export function ReviewScreen({ queue, later, claims, current }: Props) {
   const router = useRouter();
@@ -152,7 +153,7 @@ type PanelProps = {
 
 /** One claim: its record against the evidence, and the keys to decide on it. */
 function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, onPrevious, onReload }: PanelProps) {
-  const { claim, evidence, person } = review;
+  const { claim, evidence, person, occupation } = review;
   const payload = claim.payload;
   const [mode, setMode] = useState<"view" | "edit" | "REJECT" | "NEEDS_WORK">("view");
   const [note, setNote] = useState("");
@@ -176,6 +177,9 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
         ArrowUp: onPrevious,
         u: onUndo,
       };
+      if (payload.type === "OCCUPATION_DOMAIN") {
+        for (const { choice, key } of CHOICES) action[key] = () => onDecide("APPROVE", { ...payload, domain: choice });
+      }
       const run = action[event.key];
       if (!run) return;
       event.preventDefault();
@@ -183,7 +187,7 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
-  }, [mode, pending, editable, onDecide, onNext, onPrevious, onUndo]);
+  }, [mode, pending, editable, payload, onDecide, onNext, onPrevious, onUndo]);
 
   const claimFlags = flagsOf(claim.flags, "claim");
   const { title } = titleOf(payload);
@@ -217,6 +221,8 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
           <AnecdoteForm payload={payload} pending={pending} onApprove={(p, n) => onDecide("APPROVE", p, n)} onCancel={() => setMode("view")} />
         ) : payload.type === "PERSON_FACTS" ? (
           <FactsTable facts={payload} evidence={evidence} flags={claim.flags} />
+        ) : payload.type === "OCCUPATION_DOMAIN" ? (
+          <OccupationView payload={payload} evidence={occupation} />
         ) : (
           <PayloadView payload={payload} person={person} />
         )}
@@ -257,7 +263,15 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
           </form>
         ) : mode === "view" ? (
           <>
-            <KeyButton keyName="A" label="Approve" primary disabled={pending} onClick={() => onDecide("APPROVE")} />
+            {payload.type === "OCCUPATION_DOMAIN" ? (
+              CHOICES.map(({ choice, key, label, hint }) => (
+                <span key={choice} title={hint}>
+                  <KeyButton keyName={key} label={label} primary disabled={pending} onClick={() => onDecide("APPROVE", { ...payload, domain: choice })} />
+                </span>
+              ))
+            ) : (
+              <KeyButton keyName="A" label="Approve" primary disabled={pending} onClick={() => onDecide("APPROVE")} />
+            )}
             <KeyButton keyName="E" label="Edit" disabled={pending || !editable} onClick={() => setMode("edit")} />
             <KeyButton keyName="R" label="Reject" disabled={pending} onClick={() => setMode("REJECT")} />
             <KeyButton keyName="N" label="Keep for later" disabled={pending} onClick={() => setMode("NEEDS_WORK")} />

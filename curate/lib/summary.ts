@@ -1,4 +1,5 @@
 import type { components } from "@/lib/api-schema";
+import { choiceLabel } from "@/components/occupation";
 import { year } from "@/lib/years";
 
 type Claim = components["schemas"]["Claim"];
@@ -18,6 +19,8 @@ export function titleOf(payload: Payload): { title: string; detail: string } {
       return { title: `${payload.people[0]} and ${payload.people[1]}`, detail: `${payload.kind} · ${year(payload.year)}` };
     case "EVENT":
       return { title: payload.title, detail: `${payload.region} · ${year(payload.year)}` };
+    case "OCCUPATION_DOMAIN":
+      return { title: payload.label, detail: choiceLabel(payload.domain) };
   }
 }
 

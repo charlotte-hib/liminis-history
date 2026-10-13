@@ -95,3 +95,17 @@ test("a request addressed to another name is refused", async ({ request }) => {
   const response = await request.get("/", { headers: { Host: "attacker.example" } });
   expect(response.status()).toBe(400);
 });
+
+// An occupation is mapped with one key, which chooses its domain and approves it; the people who hold it are shown.
+test("an occupation's domain is chosen with one key", async ({ page }) => {
+  await page.goto("/review/occupations");
+  const name = (await list(page).locator("[aria-current] span.font-medium").textContent())!;
+  await expect(page.getByText(/people, directly or through a narrower occupation/)).toBeVisible();
+
+  await page.keyboard.press("2");
+  await expect(page.getByRole("status")).toContainText(`Approved: ${name}`);
+  await page.keyboard.press("u");
+  await expect(page.getByRole("heading", { level: 2, name })).toBeVisible();
+  await page.getByText(/^History/).click();
+  await expect(page.getByText("curator: waiting → approved, edited")).toBeVisible();
+});

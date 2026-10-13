@@ -17,6 +17,7 @@ import dev.wholivedwhen.curation.Event
 import dev.wholivedwhen.curation.Flag
 import dev.wholivedwhen.curation.NewClaim
 import dev.wholivedwhen.curation.NewDecision
+import dev.wholivedwhen.curation.OccupationDomain
 import dev.wholivedwhen.curation.Payload
 import dev.wholivedwhen.curation.PersonFacts
 import dev.wholivedwhen.curation.Queue
@@ -31,6 +32,7 @@ import dev.wholivedwhen.workbench.api.model.EventDto
 import dev.wholivedwhen.workbench.api.model.FlagDto
 import dev.wholivedwhen.workbench.api.model.NewClaimDto
 import dev.wholivedwhen.workbench.api.model.NewDecisionDto
+import dev.wholivedwhen.workbench.api.model.OccupationDomainDto
 import dev.wholivedwhen.workbench.api.model.PayloadDto
 import dev.wholivedwhen.workbench.api.model.PersonFactsDto
 import dev.wholivedwhen.workbench.api.model.QueueDto
@@ -67,6 +69,7 @@ abstract class ClaimApiMapper {
     @SubclassMapping(source = Connection::class, target = ConnectionDto::class)
     @SubclassMapping(source = Event::class, target = EventDto::class)
     @SubclassMapping(source = Anecdote::class, target = AnecdoteDto::class)
+    @SubclassMapping(source = OccupationDomain::class, target = OccupationDomainDto::class)
     abstract fun toDto(payload: Payload): PayloadDto
 
     @Mapping(target = "type", constant = "PERSON_FACTS")
@@ -81,6 +84,9 @@ abstract class ClaimApiMapper {
     @Mapping(target = "type", constant = "ANECDOTE")
     abstract fun toDto(anecdote: Anecdote): AnecdoteDto
 
+    @Mapping(target = "type", constant = "OCCUPATION_DOMAIN")
+    abstract fun toDto(occupation: OccupationDomain): OccupationDomainDto
+
     abstract fun toModel(claim: NewClaimDto): NewClaim
 
     @Mapping(target = "verdict", source = "action")
@@ -90,6 +96,7 @@ abstract class ClaimApiMapper {
     @SubclassMapping(source = ConnectionDto::class, target = Connection::class)
     @SubclassMapping(source = EventDto::class, target = Event::class)
     @SubclassMapping(source = AnecdoteDto::class, target = Anecdote::class)
+    @SubclassMapping(source = OccupationDomainDto::class, target = OccupationDomain::class)
     abstract fun toModel(payload: PayloadDto): Payload
 
     abstract fun toModel(type: ClaimTypeDto): ClaimType

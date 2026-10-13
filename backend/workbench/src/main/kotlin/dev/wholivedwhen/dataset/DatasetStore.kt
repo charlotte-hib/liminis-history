@@ -301,6 +301,29 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
             DataClassRowMapper(PersonSummary::class.java), query, query, query, query, query, limit,
         )
 
+    /** Each person's first three occupations, the ones the site shows and takes their domain from, in order. */
+    fun firstOccupations(): Map<String, List<String>> =
+        grouped(
+            "person",
+            "select person, occupation from dataset.person_occupation where position < 3 order by person, position",
+            { rs, _ -> rs.getString("occupation") },
+        )
+
+    /** Those of [qids] in the dataset, the [limit] best known first. */
+    fun summaries(qids: Collection<String>, limit: Int): List<PersonSummary> =
+        jdbc.query(
+            """
+            select p.qid as person, p.label, p.label_fr, p.born, p.died,
+                (select o.label from dataset.person_occupation po join dataset.occupation o on o.qid = po.occupation
+                 where po.person = p.qid order by po.position limit 1) as occupation
+            from dataset.person p
+            where p.qid = any (?)
+            order by p.sitelinks desc, p.qid
+            limit ?
+            """.trimIndent(),
+            DataClassRowMapper(PersonSummary::class.java), qids.toTypedArray(), limit,
+        )
+
     /** The person's Wikipedia articles, by language. */
     fun articles(person: String): List<ArticleRow> =
         jdbc.query(
