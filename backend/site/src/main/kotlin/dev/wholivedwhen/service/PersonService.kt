@@ -1,5 +1,6 @@
 package dev.wholivedwhen.service
 
+import org.springframework.data.domain.Limit
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import dev.wholivedwhen.domain.Person
@@ -10,6 +11,7 @@ import dev.wholivedwhen.repository.EventRepository
 import dev.wholivedwhen.repository.LifeRepository
 import dev.wholivedwhen.repository.MomentRepository
 import dev.wholivedwhen.repository.PersonRepository
+import dev.wholivedwhen.repository.RegionRepository
 import dev.wholivedwhen.support.NotFoundException
 import dev.wholivedwhen.support.currentYear
 import dev.wholivedwhen.support.yearsBetween
@@ -26,6 +28,7 @@ private const val PRIME_AGE = 35
 @Transactional(readOnly = true)
 class PersonService(
     private val people: PersonRepository,
+    private val regions: RegionRepository,
     private val lives: LifeRepository,
     private val eras: EraRepository,
     private val events: EventRepository,
@@ -62,7 +65,7 @@ class PersonService(
                 mapper::toDto,
             ),
             connections = connectionsOf(person),
-            aroundPeople = people.findAliveBetween(region, ref, ref).filter { it.slug != slug }.map(mapper::toDto),
+            aroundPeople = people.findTiedAliveBetween(region, ref, ref, Limit.of(AROUND + 1)).filter { it.slug != slug }.take(AROUND).map(mapper::toDto),
             aroundLives = lives.findLivedBetween(region, ref, ref).map(mapper::toDto),
             elsewhere = aliveElsewhere(region, ref),
             moments = momentService.overlapping(region, person.birthYear, end),
@@ -86,15 +89,23 @@ class PersonService(
         return (curated + shared).sortedBy { it.year }
     }
 
-    /** A few people alive in [year] in each other region, preferring those in the middle of their lives. */
+    /**
+     * A few people alive in [year] in each other region with eras: among the most written about there, those in the
+     * middle of their lives.
+     */
     fun aliveElsewhere(region: String, year: Int, perRegion: Int = 2): List<PersonDto> =
-        people.findAliveElsewhere(region, year)
-            .groupBy { it.region.code }
-            .toSortedMap()
-            .flatMap { (_, group) -> group.sortedBy { abs(yearsBetween(it.birthYear, year) - MIDDLE_AGE) }.take(perRegion) }
+        regions.findWithEras().map { it.code }.filter { it != region }.sorted()
+            .flatMap { other ->
+                people.findOfRegionAlive(other, year, Limit.of(POOL))
+                    .sortedBy { abs(yearsBetween(it.birthYear, year) - MIDDLE_AGE) }
+                    .take(perRegion)
+            }
             .map(mapper::toDto)
 
     private companion object {
         const val MIDDLE_AGE = 40
+        const val AROUND = 12
+        /** How many of the most written about each region's few are picked from. */
+        const val POOL = 10
     }
 }

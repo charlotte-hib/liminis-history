@@ -25,6 +25,8 @@ class PersonApiTests(@Autowired private val mockMvc: MockMvc) {
             jsonPath("$.world.arts") { exists() }
             jsonPath("$.aroundPeople[?(@.slug == 'victor-hugo')]") { exists() }
             jsonPath("$.aroundPeople[?(@.slug == 'emile-zola')]") { doesNotExist() }
+            jsonPath("$.aroundPeople.length()") { value(12) }
+            jsonPath("$.person.occupations[0]") { value("novelist") }
             jsonPath("$.elsewhere[*].regionCode") { value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("FR"))) }
             jsonPath("$.moments[*].id") { value(org.hamcrest.Matchers.hasItems("paris-1870s", "paris-1890s")) }
         }
@@ -54,7 +56,7 @@ class PersonApiTests(@Autowired private val mockMvc: MockMvc) {
     fun `meanwhile lists people alive elsewhere that year`() {
         mockMvc.get("/api/years/1875/people?exclude=FR").andExpect {
             status { isOk() }
-            jsonPath("$[?(@.slug == 'emperor-meiji')]") { exists() }
+            jsonPath("$[?(@.regionCode == 'JP')]") { exists() }
             jsonPath("$[?(@.regionCode == 'FR')]") { isEmpty() }
         }
     }
@@ -138,6 +140,20 @@ class PersonApiTests(@Autowired private val mockMvc: MockMvc) {
             status { isOk() }
             jsonPath("$.people.POWER[?(@.slug == 'emperor-meiji')]") { exists() }
             jsonPath("$.people.ARTS[?(@.slug == 'claude-monet')]") { doesNotExist() }
+        }
+    }
+
+    @Test
+    fun `an era lists the most written about of each domain, up to 12`() {
+        mockMvc.get("/api/eras/fr-third-republic").andExpect {
+            jsonPath("$.people.ARTS.length()") { value(12) }
+        }
+    }
+
+    @Test
+    fun `regions are those with eras, not every country people come from`() {
+        mockMvc.get("/api/regions").andExpect {
+            jsonPath("$[*].code") { value(org.hamcrest.Matchers.contains("GB", "CN", "FR", "JP")) }
         }
     }
 
