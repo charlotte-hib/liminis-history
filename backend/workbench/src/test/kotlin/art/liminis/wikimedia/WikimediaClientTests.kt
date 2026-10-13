@@ -88,7 +88,7 @@ class WikimediaClientTests(@Autowired private val wikimedia: WikimediaClient) {
                 .withQueryParam("sitefilter", equalTo("enwiki|frwiki"))
                 .withQueryParam("maxlag", equalTo("60"))
                 .withQueryParam("format", equalTo("json"))
-                .withHeader("User-Agent", containing("WhoLivedWhen/"))
+                .withHeader("User-Agent", containing("Liminis/"))
                 .withHeader("Accept-Encoding", containing("gzip")),
         )
     }
@@ -121,7 +121,7 @@ class WikimediaClientTests(@Autowired private val wikimedia: WikimediaClient) {
                 .withQueryParam("maxlag", equalTo("5"))
                 .withQueryParam("format", equalTo("json"))
                 .withQueryParam("formatversion", equalTo("2"))
-                .withHeader("User-Agent", containing("WhoLivedWhen/")),
+                .withHeader("User-Agent", containing("Liminis/")),
         )
     }
 
@@ -134,7 +134,7 @@ class WikimediaClientTests(@Autowired private val wikimedia: WikimediaClient) {
             ),
         )
 
-        val revisions = wikimedia.pageRevisions("en", listOf("Sesostris III", "Amenemhat_III", "No such page for Who Lived When"))
+        val revisions = wikimedia.pageRevisions("en", listOf("Sesostris III", "Amenemhat_III", "No such page for Liminis"))
 
         // Sesostris III redirects to Senusret III.
         assertEquals(mapOf("Sesostris III" to 1377432851L, "Amenemhat_III" to 1378375224L), revisions)
@@ -142,7 +142,7 @@ class WikimediaClientTests(@Autowired private val wikimedia: WikimediaClient) {
             getRequestedFor(wikipedia)
                 .withQueryParam("action", equalTo("query"))
                 .withQueryParam("prop", equalTo("info"))
-                .withQueryParam("titles", equalTo("Sesostris III|Amenemhat_III|No such page for Who Lived When"))
+                .withQueryParam("titles", equalTo("Sesostris III|Amenemhat_III|No such page for Liminis"))
                 .withQueryParam("redirects", equalTo("1"))
                 .withQueryParam("maxlag", equalTo("5")),
         )
@@ -275,7 +275,7 @@ class WikimediaClientTests(@Autowired private val wikimedia: WikimediaClient) {
             getRequestedFor(sparql)
                 .withQueryParam("query", equalTo("SELECT ?person ?sitelinks WHERE { }"))
                 .withHeader("Accept", equalTo("application/sparql-results+json"))
-                .withHeader("User-Agent", containing("WhoLivedWhen/")),
+                .withHeader("User-Agent", containing("Liminis/")),
         )
 
         server.stubFor(get(sparql).willReturn(aResponse().withStatus(500).withBody("java.util.concurrent.TimeoutException")))

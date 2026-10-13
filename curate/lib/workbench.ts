@@ -20,7 +20,7 @@ export type Problem = components["schemas"]["Problem"];
 const WORKBENCH_URL = process.env.WORKBENCH_URL ?? "http://127.0.0.1:8090";
 
 /** The workbench writes a new token here on every start, so it is read again for every request. */
-const TOKEN_FILE = process.env.WORKBENCH_TOKEN_FILE ?? join(homedir(), ".config", "who-lived-when", "workbench-token");
+const TOKEN_FILE = process.env.WORKBENCH_TOKEN_FILE ?? join(homedir(), ".config", "liminis", "workbench-token");
 
 /** The browser never sees the token: only this server reads it, and sends it with each call. */
 const signIn: Middleware = {

@@ -14,7 +14,7 @@ import art.liminis.domain.Region
 import art.liminis.testing.PostgresTestConfiguration
 import kotlin.test.assertEquals
 
-/** The year-range queries behind "who lived when". Both ends of a lifespan are inclusive; no death year means alive. */
+/** The year-range queries: who was alive when. Both ends of a lifespan are inclusive; no death year means alive. */
 @DataJpaTest
 @Import(PostgresTestConfiguration::class)
 class LifespanQueryTests(

@@ -4,13 +4,13 @@
 set -euo pipefail
 
 url="${WB_URL:-http://localhost:8090}"
-token_file="${WB_TOKEN_FILE:-$HOME/.config/who-lived-when/workbench-token}"
+token_file="${WB_TOKEN_FILE:-$HOME/.config/liminis/workbench-token}"
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # Where the workbench writes the fetched dataset (app.dataset.export-dir, from backend/), and the private data
 # repository's clone, next to this one, where its pin goes.
 export_dir="${WB_EXPORT_DIR:-$repo/backend/dataset-export}"
-data_repo="${WB_DATA_REPO:-$(dirname "$repo")/who-lived-when-data}"
-dataset_package=ghcr.io/charlotte-hib/who-lived-when-dataset
+data_repo="${WB_DATA_REPO:-$(dirname "$repo")/liminis-history-data}"
+dataset_package=ghcr.io/charlotte-hib/liminis-history-dataset
 # The data repository's CI pushes its release bundles with the same version.
 oras_image=ghcr.io/oras-project/oras:v1.3.4@sha256:f7bc056d54d97baa399414ed5048ecc67c3371b750d4bbce1d871827a5758179
 
@@ -87,16 +87,16 @@ export_dataset() {
   # types are DatasetFile's (backend/core).
   if ! digest="$(gh auth token | docker run --rm --interactive --volume "$export_dir:/workspace:ro" "$oras_image" push \
     --username "$(gh api user --jq .login)" --password-stdin \
-    --artifact-type application/vnd.wholivedwhen.dataset.v1 \
+    --artifact-type application/vnd.liminis.dataset.v1 \
     --annotation "org.opencontainers.image.created=$(json "$manifest" "d['import']['finishedAt']")" \
-    --annotation "org.opencontainers.image.source=https://github.com/charlotte-hib/who-lived-when-data" \
+    --annotation "org.opencontainers.image.source=https://github.com/charlotte-hib/liminis-history-data" \
     --format go-template='{{.digest}}' \
     "$dataset_package:$tag" \
-    manifest.json:application/vnd.wholivedwhen.dataset.manifest.v1+json \
-    people.jsonl.gz:application/vnd.wholivedwhen.dataset.people.v1.jsonl+gzip \
-    articles.jsonl.gz:application/vnd.wholivedwhen.dataset.articles.v1.jsonl+gzip \
-    places.jsonl.gz:application/vnd.wholivedwhen.dataset.places.v1.jsonl+gzip \
-    occupations.jsonl.gz:application/vnd.wholivedwhen.dataset.occupations.v1.jsonl+gzip)"; then
+    manifest.json:application/vnd.liminis.dataset.manifest.v1+json \
+    people.jsonl.gz:application/vnd.liminis.dataset.people.v1.jsonl+gzip \
+    articles.jsonl.gz:application/vnd.liminis.dataset.articles.v1.jsonl+gzip \
+    places.jsonl.gz:application/vnd.liminis.dataset.places.v1.jsonl+gzip \
+    occupations.jsonl.gz:application/vnd.liminis.dataset.occupations.v1.jsonl+gzip)"; then
     echo "wb: the push failed. Is Docker running, and may gh push packages? (gh auth refresh -s write:packages)" >&2
     exit 1
   fi

@@ -25,7 +25,7 @@ async function download(url: string | null | undefined) {
   if (!url) return null;
   try {
     const response = await fetch(url, {
-      headers: { "User-Agent": `${SITE_NAME} link previews (https://github.com/charlotte-hib/who-lived-when)` },
+      headers: { "User-Agent": `${SITE_NAME} link previews (https://github.com/charlotte-hib/liminis-history)` },
       signal: AbortSignal.timeout(4000),
     });
     if (!response.ok || !response.headers.get("content-type")?.startsWith("image/")) return null;

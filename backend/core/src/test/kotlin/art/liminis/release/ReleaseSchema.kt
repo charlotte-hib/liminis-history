@@ -26,7 +26,7 @@ object ReleaseSchema {
         // dataset/ holds the workbench's export, in a format of its own (its manifest says which).
         config.forFields().withIgnoreCheck { it.declaringType.erasedType == Release::class.java && it.declaredName == "dataset" }
         val schema = SchemaGenerator(config.build()).generateSchema(Release::class.java)
-        schema.put("title", "Who Lived When release")
+        schema.put("title", "Liminis release")
         schema.put(
             "description",
             "A release as a whole. On disk, each array is a JSON Lines file of the same name and each moment a file " +
