@@ -46,6 +46,7 @@ interface ApiMapper {
 
     @Mapping(target = "regionCode", source = "region.code")
     @Mapping(target = "region", source = "region.name")
+    @Mapping(target = "occupation", expression = "java(person.getOccupations().isEmpty() ? \"\" : person.getOccupations().get(0))")
     fun toDto(person: Person): PersonDto
 
     fun toDto(participant: EventParticipant): ParticipantDto

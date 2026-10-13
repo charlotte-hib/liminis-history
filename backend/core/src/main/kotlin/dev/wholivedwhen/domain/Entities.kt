@@ -1,7 +1,9 @@
 package dev.wholivedwhen.domain
 
 import jakarta.persistence.CascadeType
+import jakarta.persistence.CollectionTable
 import jakarta.persistence.Column
+import jakarta.persistence.ElementCollection
 import jakarta.persistence.Embeddable
 import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
@@ -17,13 +19,18 @@ import jakarta.persistence.OneToMany
 import jakarta.persistence.OrderBy
 import jakarta.persistence.OrderColumn
 import org.hibernate.annotations.DynamicUpdate
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 
 enum class Domain { POWER, ARTS, EVERYDAY }
 
 /** Column length for prose and URLs, which outgrow the 255-character default. */
 const val LONG_TEXT = 2000
 
-/** A place, seen through today's borders, e.g. "FR" for France. Who governed it changes over time: see [Era]. */
+/**
+ * A place, seen through today's borders, e.g. "FR" for France. Who governed it changes over time: see [Era]. Only
+ * regions whose eras are written have pages; the others hold the people born there.
+ */
 @Entity
 class Region @Default constructor(
     @Id val code: String,
@@ -48,7 +55,10 @@ class Era @Default constructor(
 @Entity
 @DynamicUpdate
 class Person @Default constructor(
+    /** The id in `people.jsonl` for a person written by hand, else the Q-id. */
     @Id val id: String,
+    /** Wikidata's id, e.g. "Q535". */
+    @Column(unique = true) val qid: String?,
     @Column(unique = true) val slug: String,
     val name: String,
     val birthYear: Int,
@@ -57,7 +67,12 @@ class Person @Default constructor(
     val datesApproximate: Boolean,
     @ManyToOne(fetch = FetchType.LAZY) val region: Region,
     @Enumerated(EnumType.STRING) val domain: Domain,
-    val occupation: String,
+    /** One to three, the main one first, e.g. "painter". None when Wikidata states none. */
+    @JdbcTypeCode(SqlTypes.ARRAY) val occupations: List<String>,
+    /** How many Wikipedias and other Wikimedia sites have a page on them: how widely they are written about today. */
+    val sitelinks: Int,
+    /** Their percentile by [sitelinks] among the people of their region and century of birth, from 0 to 100. */
+    val fame: Int,
     val wikipediaTitle: String?,
     /** One or two sentences: hand-written, or the lead of the Wikipedia article. */
     @Column(length = LONG_TEXT) var bioShort: String? = null,
@@ -65,6 +80,26 @@ class Person @Default constructor(
     @Column(length = LONG_TEXT) var about: String? = null,
     @Column(length = LONG_TEXT) var wikipediaUrl: String? = null,
     @Column(length = LONG_TEXT) var portraitUrl: String? = null,
+) {
+    /** Where they were born, died, worked and lived, in that order: they tie them to moments beyond their own region. */
+    @ElementCollection
+    @CollectionTable(name = "person_place")
+    @OrderColumn(name = "position")
+    val places: MutableList<PersonPlace> = mutableListOf()
+}
+
+enum class PlaceKind { BIRTH, DEATH, WORK, RESIDENCE }
+
+/** One of a person's places, with the years they were there when known. */
+@Embeddable
+data class PersonPlace @Default constructor(
+    /** Wikidata's id of the place, e.g. "Q90" for Paris. */
+    val placeQid: String,
+    @Enumerated(EnumType.STRING) val kind: PlaceKind,
+    /** The region it lies in today, when known: any country, not only those with eras. */
+    val regionCode: String?,
+    val startYear: Int?,
+    val endYear: Int?,
 )
 
 /** A typical existence in an era, shown as representative of the period rather than as a real person. */
@@ -176,6 +211,8 @@ class Moment @Default constructor(
     @ManyToOne(fetch = FetchType.LAZY) val region: Region,
     /** Where, e.g. "Paris". */
     val place: String,
+    /** Wikidata's id of [place], e.g. "Q90": people tied to it come first. */
+    val placeQid: String?,
     /** When, as people say it, e.g. "1870s" or "c. 1000". */
     val period: String,
     val startYear: Int,

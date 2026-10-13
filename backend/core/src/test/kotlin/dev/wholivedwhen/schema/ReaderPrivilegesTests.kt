@@ -67,8 +67,8 @@ class ReaderPrivilegesTests {
                 .load().migrate()
             owner.execute("insert into $SCHEMA.region values ('FR', 'France')")
             owner.execute(
-                "insert into $SCHEMA.person (id, slug, name, birth_year, death_year, dates_approximate, region_code, domain, occupation) " +
-                    "values ('zola', 'emile-zola', 'Émile Zola', 1840, 1902, false, 'FR', 'ARTS', 'writer')"
+                "insert into $SCHEMA.person (id, slug, name, birth_year, death_year, dates_approximate, region_code, domain, occupations, sitelinks, fame) " +
+                    "values ('zola', 'emile-zola', 'Émile Zola', 1840, 1902, false, 'FR', 'ARTS', '{writer}', 120, 99)"
             )
         }
 

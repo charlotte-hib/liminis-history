@@ -19,11 +19,10 @@ import dev.wholivedwhen.domain.Person
 import dev.wholivedwhen.domain.Region
 import dev.wholivedwhen.domain.StoryCard
 import dev.wholivedwhen.domain.WorldAround
-import dev.wholivedwhen.support.slugify
 
 /**
  * Turns records into entities. MapStruct copies the fields; references are ids, which [References] turns into the
- * entities mapped before them. Every target field is mapped or ignored on purpose (`unmappedTargetPolicy`).
+ * entities mapped before them. People are compiled by [PeopleCompiler], from records and the fetched dataset. Every target field is mapped or ignored on purpose (`unmappedTargetPolicy`).
  */
 @Mapper(unmappedTargetPolicy = ReportingPolicy.ERROR)
 abstract class ReleaseMapper {
@@ -35,18 +34,6 @@ abstract class ReleaseMapper {
     @Mapping(target = "startYear", source = "start")
     @Mapping(target = "endYear", source = "end", defaultExpression = "java(dev.wholivedwhen.support.YearsKt.currentYear())")
     abstract fun era(record: EraRecord, @Context references: References): Era
-
-    @Mapping(target = "slug", source = "name", qualifiedByName = ["slug"])
-    @Mapping(target = "birthYear", source = "born")
-    @Mapping(target = "deathYear", source = "died")
-    @Mapping(target = "datesApproximate", source = "approximate")
-    @Mapping(target = "wikipediaTitle", source = "wikipedia", defaultExpression = "java(record.getName().replace(' ', '_'))")
-    @Mapping(target = "bioShort", source = "bio")
-    // Filled from Wikipedia after loading.
-    @Mapping(target = "about", ignore = true)
-    @Mapping(target = "wikipediaUrl", ignore = true)
-    @Mapping(target = "portraitUrl", ignore = true)
-    abstract fun person(record: PersonRecord, @Context references: References): Person
 
     @Mapping(target = "era", source = "record", qualifiedByName = ["eraOfLife"])
     @Mapping(target = "startYear", source = "start")
@@ -118,7 +105,4 @@ abstract class ReleaseMapper {
 
     @Named("second")
     protected fun second(people: List<String>, @Context references: References): Person = references.person(people[1])
-
-    @Named("slug")
-    protected fun slug(name: String): String = slugify(name)
 }

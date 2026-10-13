@@ -5,11 +5,13 @@ import dev.wholivedwhen.domain.CardType
 import dev.wholivedwhen.domain.Domain
 import dev.wholivedwhen.domain.LifeIcon
 import dev.wholivedwhen.domain.PublicationStatus
+import dev.wholivedwhen.dataset.FetchedDataset
 
 // The records of a release directory, one class per kind of line (see sample/README.md). Records point at each
-// other by id; ReleaseCompiler resolves them. Years are integers, negative for BCE.
+// other by id; ReleaseCompiler resolves them. Years are integers, negative for BCE. Wikidata's ids (Q-ids) tie them to
+// the fetched dataset in the directory's dataset/, when there is one.
 
-/** A line of `regions.jsonl`: a place seen through today's borders, e.g. "FR". */
+/** A line of `regions.jsonl`: a place seen through today's borders, e.g. "FR", whose eras are written. */
 data class RegionRecord(val id: String, val name: String)
 
 /** A line of `eras.jsonl`. Both years are inclusive; no end means it lasts until today. */
@@ -23,9 +25,13 @@ data class EraRecord(
     val end: Int? = null,
 )
 
-/** A line of `people.jsonl`. */
+/**
+ * A line of `people.jsonl`: a person written by hand. With a [qid] found in the fetched dataset, the person takes its
+ * places, sitelinks and Wikipedia article from there, and keeps everything written here.
+ */
 data class PersonRecord(
     val id: String,
+    val qid: String? = null,
     val name: String,
     val born: Int,
     val died: Int? = null,
@@ -78,11 +84,12 @@ data class ParticipantRecord(val person: String, val role: String)
 /** A line of `connections.jsonl`: two different people, how they were linked, when, and the source. */
 data class ConnectionRecord(val people: List<String>, val kind: String, val year: Int, val text: String, val source: String)
 
-/** A file in `moments/`, named after its id. */
+/** A file in `moments/`, named after its id. People tied to the place [placeQid] come first in its lists. */
 data class MomentRecord(
     val id: String,
     val region: String,
     val place: String,
+    val placeQid: String? = null,
     val period: String,
     val start: Int,
     val end: Int,
@@ -116,11 +123,20 @@ data class CardRecord(
 /** A way out of the moment into the moment [to], showing [faces] when it follows people. */
 data class DoorRecord(val to: String, val kind: String, val text: String, val faces: List<String> = emptyList())
 
+/**
+ * A line of `occupations.jsonl`: the domain of the people with this occupation (a Q-id), or none when it says nothing
+ * of a life's work, so that their next occupation decides.
+ */
+data class OccupationRecord(val id: String, val domain: Domain? = null)
+
 /** A release as read from its directory, before it is compiled. */
 data class Release(
     val regions: List<RegionRecord>,
     val eras: List<EraRecord>,
     val people: List<PersonRecord>,
+    val occupations: List<OccupationRecord> = emptyList(),
+    /** Facts from Wikidata and Wikipedia, for people beyond those written by hand. */
+    val dataset: FetchedDataset? = null,
     val lives: List<LifeRecord>,
     val events: List<EventRecord>,
     val connections: List<ConnectionRecord>,

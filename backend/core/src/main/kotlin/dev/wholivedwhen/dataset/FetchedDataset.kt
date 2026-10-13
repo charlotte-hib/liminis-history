@@ -139,3 +139,15 @@ private const val SENSITIVE = "SENSITIVE"
 
 /** A point on Earth, in degrees. */
 data class Coordinates(val latitude: Double, val longitude: Double)
+
+/**
+ * The fetched dataset as a release reads it: its people, and by Q-id their English Wikipedia articles (the site shows
+ * no other language yet), places and occupations.
+ */
+class FetchedDataset(
+    val manifest: DatasetManifest,
+    val people: List<PersonRow>,
+    val articles: Map<String, ArticleRow>,
+    val places: Map<String, PlaceRow>,
+    val occupations: Map<String, OccupationRow>,
+)

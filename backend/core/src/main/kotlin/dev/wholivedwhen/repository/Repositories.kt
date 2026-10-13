@@ -61,7 +61,8 @@ interface PersonRepository : JpaRepository<Person, String> {
     @EntityGraph(attributePaths = ["region"])
     override fun findAll(): List<Person>
 
-    fun findByWikipediaTitleIsNotNull(): List<Person>
+    /** People with an article to fetch: those the fetched dataset gave none, so with no link to it yet. */
+    fun findByWikipediaTitleIsNotNullAndWikipediaUrlIsNull(): List<Person>
 
     /**
      * People whose name contains [pattern], ignoring case and accents: names that start with it first, then in order of

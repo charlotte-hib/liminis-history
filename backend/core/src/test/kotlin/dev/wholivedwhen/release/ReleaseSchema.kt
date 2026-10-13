@@ -23,12 +23,15 @@ object ReleaseSchema {
             field.declaringType.erasedType.kotlin.primaryConstructor?.parameters
                 ?.firstOrNull { it.name == field.declaredName }?.isOptional == false
         }
+        // dataset/ holds the workbench's export, in a format of its own (its manifest says which).
+        config.forFields().withIgnoreCheck { it.declaringType.erasedType == Release::class.java && it.declaredName == "dataset" }
         val schema = SchemaGenerator(config.build()).generateSchema(Release::class.java)
         schema.put("title", "Who Lived When release")
         schema.put(
             "description",
             "A release as a whole. On disk, each array is a JSON Lines file of the same name and each moment a file " +
-                "in moments/: validate a line or a file against its record in \$defs. See sample/README.md.",
+                "in moments/: validate a line or a file against its record in \$defs. The fetched dataset in dataset/ is " +
+                "not described here. See sample/README.md.",
         )
         return schema.toPrettyString() + "\n"
     }

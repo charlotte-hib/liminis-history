@@ -27,4 +27,11 @@ class TextTests {
     fun `leadSentences removes the space Wikipedia leaves before punctuation`() {
         assertEquals("Zeami Motokiyo, also called Kanze Motokiyo, was a playwright.", leadSentences("Zeami Motokiyo , also called Kanze Motokiyo , was a playwright."))
     }
+
+    @Test
+    fun `dropHatnote removes the line pointing to someone else of the same name, and nothing else`() {
+        assertEquals("Amenemhat III was a pharaoh.", dropHatnote("See Amenemhat, for other individuals with this name.\nAmenemhat III was a pharaoh."))
+        assertEquals("Jacques de Billy was a Jesuit.", dropHatnote("For the abbot, see Jacques de Billy (abbot).\n\nJacques de Billy was a Jesuit."))
+        assertEquals("For decades he painted.\nThen he stopped.", dropHatnote("For decades he painted.\nThen he stopped."))
+    }
 }

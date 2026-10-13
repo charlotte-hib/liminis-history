@@ -32,7 +32,7 @@ class DraftSources(
 
         val peopleSources = people.findAliveBetween(region, start, end).mapNotNull { person ->
             val text = person.about ?: person.bioShort ?: return@mapNotNull null
-            Source("person:${person.slug}", "${person.name} (${person.birthYear}–${person.deathYear ?: ""}), ${person.occupation}", text, person.wikipediaUrl)
+            Source("person:${person.slug}", "${person.name} (${person.birthYear}–${person.deathYear ?: ""}), ${person.occupations.joinToString()}", text, person.wikipediaUrl)
         }
 
         val lifeSources = lives.findLivedBetween(region, start, end).map {

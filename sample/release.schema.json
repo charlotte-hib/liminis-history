@@ -262,6 +262,9 @@
         "place" : {
           "type" : "string"
         },
+        "placeQid" : {
+          "type" : "string"
+        },
         "region" : {
           "type" : "string"
         },
@@ -276,6 +279,19 @@
         }
       },
       "required" : [ "end", "focus", "hook", "id", "period", "place", "region", "start", "status" ],
+      "additionalProperties" : false
+    },
+    "OccupationRecord" : {
+      "type" : "object",
+      "properties" : {
+        "domain" : {
+          "$ref" : "#/$defs/Domain"
+        },
+        "id" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "id" ],
       "additionalProperties" : false
     },
     "ParticipantRecord" : {
@@ -316,6 +332,9 @@
           "type" : "string"
         },
         "occupation" : {
+          "type" : "string"
+        },
+        "qid" : {
           "type" : "string"
         },
         "region" : {
@@ -397,6 +416,12 @@
         "$ref" : "#/$defs/MomentRecord"
       }
     },
+    "occupations" : {
+      "type" : "array",
+      "items" : {
+        "$ref" : "#/$defs/OccupationRecord"
+      }
+    },
     "people" : {
       "type" : "array",
       "items" : {
@@ -413,5 +438,5 @@
   "required" : [ "connections", "eras", "events", "lives", "moments", "people", "regions" ],
   "additionalProperties" : false,
   "title" : "Who Lived When release",
-  "description" : "A release as a whole. On disk, each array is a JSON Lines file of the same name and each moment a file in moments/: validate a line or a file against its record in $defs. See sample/README.md."
+  "description" : "A release as a whole. On disk, each array is a JSON Lines file of the same name and each moment a file in moments/: validate a line or a file against its record in $defs. The fetched dataset in dataset/ is not described here. See sample/README.md."
 }

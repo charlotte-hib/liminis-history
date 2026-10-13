@@ -21,8 +21,8 @@ class ReleaseCompilerTests {
             EraRecord("fr-fifth-republic", "FR", "Fifth Republic", start = 1958),
         ),
         people = listOf(
-            PersonRecord("emile-zola", "Émile Zola", 1840, 1902, region = "FR", domain = Domain.ARTS, occupation = "novelist"),
-            PersonRecord("paul-cezanne", "Paul Cézanne", 1839, 1906, region = "FR", domain = Domain.ARTS, occupation = "painter", wikipedia = "Cézanne"),
+            PersonRecord("emile-zola", name = "Émile Zola", born = 1840, died = 1902, region = "FR", domain = Domain.ARTS, occupation = "novelist"),
+            PersonRecord("paul-cezanne", name = "Paul Cézanne", born = 1839, died = 1906, region = "FR", domain = Domain.ARTS, occupation = "painter", wikipedia = "Cézanne"),
         ),
         lives = listOf(LifeRecord("a-laundress", "FR", "A laundress", "Washes linen.", 1870, 1900)),
         events = listOf(
@@ -31,11 +31,11 @@ class ReleaseCompilerTests {
         connections = listOf(ConnectionRecord(listOf("paul-cezanne", "emile-zola"), "school friends", 1852, "Friends.", "https://example.org/friends")),
         moments = listOf(
             MomentRecord(
-                "paris-1870s", "FR", "Paris", "1870s", 1870, 1880, 1875, PublicationStatus.PUBLISHED, hook = "A republic.",
+                "paris-1870s", "FR", "Paris", period = "1870s", start = 1870, end = 1880, focus = 1875, status = PublicationStatus.PUBLISHED, hook = "A republic.",
                 cards = listOf(CardRecord(CardType.PERSON, person = "emile-zola"), CardRecord(CardType.LIFE, life = "a-laundress")),
                 doors = listOf(DoorRecord("paris-1890s", "follow", "Twenty years on", faces = listOf("emile-zola"))),
             ),
-            MomentRecord("paris-1890s", "FR", "Paris", "1890s", 1890, 1900, 1898, PublicationStatus.DRAFT, hook = "An affair."),
+            MomentRecord("paris-1890s", "FR", "Paris", period = "1890s", start = 1890, end = 1900, focus = 1898, status = PublicationStatus.DRAFT, hook = "An affair."),
         ),
     )
 

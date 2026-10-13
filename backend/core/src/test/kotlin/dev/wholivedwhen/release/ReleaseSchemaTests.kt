@@ -32,6 +32,7 @@ class ReleaseSchemaTests {
             "regions" to "RegionRecord",
             "eras" to "EraRecord",
             "people" to "PersonRecord",
+            "occupations" to "OccupationRecord",
             "lives" to "LifeRecord",
             "events" to "EventRecord",
             "connections" to "ConnectionRecord",

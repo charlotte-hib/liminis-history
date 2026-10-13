@@ -22,6 +22,8 @@ Usage: wb <command>
   map             map the last finished import to the dataset's rows
   export          export the dataset's rows to files, push them to a private package, and pin it in the data
                   repository's data/fetched.lock (needs Docker, and gh with write:packages)
+  sample          write the public sample/'s slice of the last export into sample/dataset/: its people, and the
+                  people most written about of its moments' places (no workbench needed)
   claims          propose the facts of the people of the release's moments for review
   draft <moment>  draft a moment's story with Claude, into backend/drafts/
   runs [id]       the runs since the workbench started, or one of them
@@ -108,6 +110,7 @@ case "${1:-}" in
   import) start '{"kind": "WIKIDATA_IMPORT"}' ;;
   map) start '{"kind": "DATASET_MAPPING"}' ;;
   export) export_dataset ;;
+  sample) python3 -I "$repo/backend/workbench/sample_dataset.py" "$export_dir" "$repo/sample" ;;
   claims) start '{"kind": "PERSON_FACTS_CLAIMS"}' ;;
   draft)
     [[ -n "${2:-}" ]] || { usage >&2; exit 2; }

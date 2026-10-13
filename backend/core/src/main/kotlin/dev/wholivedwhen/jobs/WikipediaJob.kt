@@ -14,7 +14,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 
 /**
- * Fills missing portraits, bios and article links from each person's Wikipedia article.
+ * Fills missing portraits, bios and article links from each person's Wikipedia article, for the people written by hand
+ * whom the release's fetched dataset does not cover (all of them, in a release without one).
  * Runs in the background so the API is up straight away; people are saved one by one as their article arrives.
  */
 @Component
@@ -28,7 +29,7 @@ class WikipediaJob(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun run(vararg args: String) {
-        Thread.ofVirtual().name("wikipedia-enrichment").start { enrich(people.findByWikipediaTitleIsNotNull()) }
+        Thread.ofVirtual().name("wikipedia-enrichment").start { enrich(people.findByWikipediaTitleIsNotNullAndWikipediaUrlIsNull()) }
     }
 
     /** Fills in whichever of [candidates] still miss something, and waits until done. Returns how many were updated. */
