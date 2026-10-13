@@ -24,7 +24,7 @@ type PersonChipProps = {
 
 export function PersonChip({ person, year, showPlace, replace }: PersonChipProps) {
   return (
-    <Link href={year === undefined ? `/person/${person.slug}` : `/person/${person.slug}?year=${year}`} replace={replace} title={person.occupation} className={cn(chipClass, "hover:border-lamp")}>
+    <Link href={year === undefined ? `/person/${person.slug}` : `/person/${person.slug}?year=${year}`} replace={replace} title={person.occupations.join(", ")} className={cn(chipClass, "hover:border-lamp")}>
       <PersonAvatar person={person} className="size-7" />
       {person.name}
       <span className="font-mono text-xs text-muted-foreground tabular-nums">

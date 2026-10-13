@@ -1,9 +1,9 @@
 "use client";
 
 import { Slider } from "@base-ui/react/slider";
-import { Play } from "lucide-react";
+import { Play, Shuffle } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { DoorCard } from "@/components/door-card";
 import { EraButton } from "@/components/era-panel";
 import { DetailPanel } from "@/components/detail-panel";
@@ -11,10 +11,10 @@ import { EventDetails } from "@/components/event-details";
 import { LifeChip } from "@/components/life";
 import { PersonChip } from "@/components/person-chip";
 import { WorldAround } from "@/components/world-around";
-import { fetchAliveElsewhere } from "@/lib/api-browser";
+import { fetchAliveElsewhere, fetchMomentPeople } from "@/lib/api-browser";
 import { DOMAIN_ORDER, DOMAINS } from "@/lib/domains";
 import { hasStory, titleOf } from "@/lib/moments";
-import type { Era, Event, MomentDetail, Person } from "@/lib/types";
+import type { Era, Event, MomentDetail, MomentPeople, Person } from "@/lib/types";
 import { ageText, formatYear, isAlive } from "@/lib/years";
 
 const DEBOUNCE_MS = 200;
@@ -39,18 +39,48 @@ function useAliveElsewhere(region: string, year: number) {
 }
 
 /**
- * One place over a few years, and everyone in it. A slider moves through the years; ages, who governs,
+ * A draw of the moment's people in [year], fetched shortly after the year stops changing. [initial], the focus year's
+ * first draw, comes with the page. Moving to another year starts again from its first draw.
+ */
+function useMomentPeople(momentId: string, initial: MomentPeople, year: number) {
+  const [fetched, setFetched] = useState<MomentPeople | null>(null);
+  const [draw, setDraw] = useState(0);
+  const [prevYear, setPrevYear] = useState(year);
+  if (year !== prevYear) {
+    setPrevYear(year);
+    setDraw(0);
+  }
+  const fromPage = year === initial.year && draw === 0;
+  useEffect(() => {
+    if (fromPage) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetchMomentPeople(momentId, year, draw, controller.signal).then(setFetched).catch(() => { /* aborted or offline */ });
+    }, DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [momentId, fromPage, year, draw]);
+  // Until a new year's draw arrives, the last one stays on screen, without those not alive in this year.
+  const shown = fromPage ? initial : fetched ?? initial;
+  const another = () => setDraw((shown.draw + 1) % shown.draws);
+  return { people: shown.people.filter((person) => isAlive(person, year)), draws: shown.draws, another };
+}
+
+/**
+ * One place over a few years, and a selection of the people in it. A slider moves through the years; ages, who governs,
  * and who is alive elsewhere follow it.
  */
 export function MomentExplorer({ detail }: { detail: MomentDetail }) {
-  const { moment, world, eras, people, lives, events, doors } = detail;
+  const { moment, world, eras, lives, events, doors } = detail;
   const [year, setYear] = useState(moment.focusYear);
+  const { people: here, draws, another } = useMomentPeople(moment.id, detail.people, year);
   const elsewhere = useAliveElsewhere(moment.regionCode, year);
   // The event stays set while its panel slides away.
   const [panelEvent, setPanelEvent] = useState<Event | null>(null);
   const [eventOpen, setEventOpen] = useState(false);
 
-  const here = useMemo(() => people.filter((person) => isAlive(person, year)), [people, year]);
   const livesHere = lives.filter((life) => life.startYear <= year && year <= life.endYear);
   const era = eraAt(eras, year);
 
@@ -107,7 +137,13 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
         </section>
       )}
 
-      <section aria-label="People" className="divide-y border-y">
+      <section aria-label="People" className="grid gap-2">
+        {draws > 1 && (
+          <button type="button" onClick={another} className="inline-flex items-center gap-2 justify-self-end rounded-full border px-3 py-1 text-sm hover:border-lamp">
+            <Shuffle className="size-4" /> Others alive in {formatYear(year)}
+          </button>
+        )}
+        <div className="divide-y border-y">
         {DOMAIN_ORDER.map((domain) => {
           const group = here.filter((person) => person.domain === domain);
           const groupLives = domain === "EVERYDAY" ? livesHere : [];
@@ -117,7 +153,7 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
               <h3 className="text-sm font-semibold">
                 {DOMAINS[domain].title}
                 <span className="block font-mono text-xs font-normal text-muted-foreground">
-                  {count} here in {formatYear(year)}
+                  {count} shown in {formatYear(year)}
                 </span>
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -128,6 +164,7 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
             </div>
           );
         })}
+        </div>
       </section>
 
       {events.length > 0 && (

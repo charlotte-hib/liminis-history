@@ -37,6 +37,24 @@ Accept: application/json
     });
 %}
 
+### A moment's people in a year, in draws of 24: the second shows others
+GET {{baseUrl}}/api/moments/paris-1870s/people?year=1875&draw=1
+Accept: application/json
+
+> {%
+    client.test("200 with JSON", () => {
+        client.assert(response.status === 200, `status ${response.status}`);
+        client.assert(response.contentType.mimeType === "application/json", `content type ${response.contentType.mimeType}`);
+    });
+    client.test("Draw 1 of several, 24 people at most, with their occupations", () => {
+        client.assert(response.body.year === 1875, `year ${response.body.year}`);
+        client.assert(response.body.draw === 1, `draw ${response.body.draw}`);
+        client.assert(response.body.draws > 1, `${response.body.draws} draws`);
+        client.assert(response.body.people.length > 0 && response.body.people.length <= 24, `${response.body.people.length} people`);
+        client.assert(Array.isArray(response.body.people[0].occupations), "no occupations list");
+    });
+%}
+
 ### Person in a year: Zola in 1875, in the world around him
 GET {{baseUrl}}/api/people/emile-zola?year=1875
 Accept: application/json

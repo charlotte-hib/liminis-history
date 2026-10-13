@@ -18,6 +18,7 @@ export type WorldAround = Schemas["WorldAround"];
 export type MomentSummary = Schemas["MomentSummary"];
 export type Door = Schemas["Door"];
 export type MomentDetail = Schemas["MomentDetail"];
+export type MomentPeople = Schemas["MomentPeople"];
 export type StoryCard = Schemas["StoryCard"];
 export type Story = Schemas["Story"];
 export type LifeLine = Schemas["LifeLine"];

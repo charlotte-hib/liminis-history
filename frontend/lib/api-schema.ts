@@ -44,6 +44,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/moments/{id}/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A moment's people in a year
+         * @description A selection of the people alive in a year of a moment, from its region or tied to it by a place of their lives.
+         *     Draw 0 ranks them: those with documented relations first (the story's cast, curated connections, shared
+         *     events), then those tied to the moment's place, then the most written about. Each further draw picks others at
+         *     random, weighted the same way, never repeating one before every person has been drawn once; after the last,
+         *     draws start over. The same draw always picks the same people.
+         */
+        get: operations["listMomentPeople"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/moments/{id}/story": {
         parameters: {
             query?: never;
@@ -94,7 +118,7 @@ export interface paths {
         };
         /**
          * People alive elsewhere in a year
-         * @description A few people alive in a year in each region but one, preferring those in the middle of their lives.
+         * @description A few people alive in a year in each region with eras but one: among the most written about of each, those in the middle of their lives.
          */
         get: operations["listAliveElsewhere"];
         put?: never;
@@ -270,7 +294,8 @@ export interface components {
             regionCode: string;
             region: string;
             domain: components["schemas"]["Domain"];
-            occupation: string;
+            /** @description Up to three, the main one first. Empty when none is known. */
+            occupations: string[];
             /** @description One or two sentences, hand-written or the lead of the Wikipedia article. */
             bioShort: string | null;
             portraitUrl: string | null;
@@ -326,7 +351,7 @@ export interface components {
         };
         EraDetail: {
             era: components["schemas"]["Era"];
-            /** @description The people alive in the era, by domain (`POWER`, `ARTS`, `EVERYDAY`). Empty domains are left out. */
+            /** @description The people alive in the era, by domain (`POWER`, `ARTS`, `EVERYDAY`): the most written about, up to 12 each. Empty domains are left out. */
             people: {
                 [key: string]: components["schemas"]["Person"][];
             };
@@ -374,15 +399,32 @@ export interface components {
             /** @description People to show on the door, when it follows someone. */
             faces: components["schemas"]["Person"][];
         };
-        /** @description Everything the moment page needs; scrubbing through its years happens in the browser. */
+        /** @description Everything the moment page needs to open on its focus year. Its people for other years come from `/api/moments/{id}/people`. */
         MomentDetail: {
             moment: components["schemas"]["MomentSummary"];
             world: components["schemas"]["WorldAround"] | null;
             eras: components["schemas"]["Era"][];
-            people: components["schemas"]["Person"][];
+            /** @description The focus year's first draw of `/api/moments/{id}/people`. */
+            people: components["schemas"]["MomentPeople"];
             lives: components["schemas"]["Life"][];
             events: components["schemas"]["Event"][];
             doors: components["schemas"]["Door"][];
+        };
+        MomentPeople: {
+            /** Format: int32 */
+            year: number;
+            /**
+             * Format: int32
+             * @description The draw asked for, counted from 0 within `draws`.
+             */
+            draw: number;
+            /**
+             * Format: int32
+             * @description How many different draws there are, 1 when everyone fits in one.
+             */
+            draws: number;
+            /** @description At most 24, in rank order for draw 0. */
+            people: components["schemas"]["Person"][];
         };
         /** @enum {string} */
         CardType: "SCENE" | "PERSON" | "LIFE" | "EVENT";
@@ -448,6 +490,7 @@ export interface components {
             lifeline: components["schemas"]["LifeLine"][];
             /** @description Sourced links to other people, curated ones first, then shared documented events. */
             connections: components["schemas"]["Connection"][];
+            /** @description People alive in their region that year, or tied to it by a place, the most written about first, up to 12. */
             aroundPeople: components["schemas"]["Person"][];
             aroundLives: components["schemas"]["Life"][];
             elsewhere: components["schemas"]["Person"][];
@@ -559,6 +602,35 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listMomentPeople: {
+        parameters: {
+            query: {
+                year: number;
+                /** @description Which draw, from 0. Draws past the last start over. */
+                draw?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The moment's id, e.g. `paris-1870s`. */
+                id: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The people of that draw. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MomentPeople"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getStory: {
         parameters: {
             query?: never;
@@ -650,7 +722,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Names that start with the query first, then by birth. */
+            /** @description Names that start with the query first, then the most famous in their time and place. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -671,7 +743,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The regions, by name. */
+            /** @description The regions whose eras are written, by name. People come from other regions too. */
             200: {
                 headers: {
                     [name: string]: unknown;

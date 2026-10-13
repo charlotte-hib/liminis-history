@@ -17,6 +17,10 @@ async function load<T>(request: Promise<{ data?: T; response: Response }>): Prom
 export const fetchAliveElsewhere = (region: string, year: number, signal?: AbortSignal) =>
   load(api.GET("/api/years/{year}/people", { params: { path: { year }, query: { exclude: region } }, signal }));
 
+/** A draw of the people alive in [year] of the moment [id]: 0 ranks them, later draws show others. */
+export const fetchMomentPeople = (id: string, year: number, draw: number, signal?: AbortSignal) =>
+  load(api.GET("/api/moments/{id}/people", { params: { path: { id }, query: { year, draw } }, signal }));
+
 export const fetchEra = (id: string, signal?: AbortSignal) =>
   load(api.GET("/api/eras/{id}", { params: { path: { id } }, signal }));
 
