@@ -95,9 +95,6 @@ private const val EARTH = "http://www.wikidata.org/entity/Q2"
 
 data class DataValue(val value: JsonNode)
 
-/** A point on Earth, in degrees. */
-data class Coordinates(val latitude: Double, val longitude: Double)
-
 /**
  * A point in time, as Wikidata writes it: `+1802-02-26T00:00:00Z` or `-0100-07-12T00:00:00Z`, with a precision. Years
  * count as the site does, with no year 0 (-100 is 100 BCE), so they are taken as they are.

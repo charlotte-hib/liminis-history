@@ -14,12 +14,6 @@ import java.util.zip.GZIPOutputStream
 @ConfigurationProperties("app.dataset")
 data class DatasetProperties(val exportDir: String)
 
-/** `manifest.json`: what the fetched dataset holds, and from which import. */
-data class DatasetManifest(val format: Int, val import: MappedImport, val counts: DatasetFileCounts)
-
-/** The lines of each of the fetched dataset's files. */
-data class DatasetFileCounts(val people: Int, val articles: Int, val places: Int, val occupations: Int)
-
 /**
  * Writes the schema `dataset` to the fetched dataset's files, the input of a release beside `data/`: `manifest.json`,
  * then `people`, `articles`, `places` and `occupations` as gzipped JSON Lines, one row per line, in Q-id order. The
