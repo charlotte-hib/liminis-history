@@ -54,16 +54,16 @@ class DatasetExport(
     private fun write(dir: Path): DatasetManifest {
         val import = checkNotNull(dataset.mappedImport()) { "Nothing is mapped yet: run a mapping first (wb map)" }
         val counts = DatasetFileCounts(
-            people = writeLines(dir.resolve("people.jsonl.gz"), pages { last: PersonRow? -> dataset.peopleAfter(last?.qid ?: "", BATCH) }),
+            people = writeLines(dir.resolve(DatasetFile.PEOPLE.fileName), pages { last: PersonRow? -> dataset.peopleAfter(last?.qid ?: "", BATCH) }),
             articles = writeLines(
-                dir.resolve("articles.jsonl.gz"),
+                dir.resolve(DatasetFile.ARTICLES.fileName),
                 pages { last: ArticleRow? -> dataset.articlesAfter((last?.person ?: "") to (last?.language ?: ""), BATCH) },
             ),
-            places = writeLines(dir.resolve("places.jsonl.gz"), sequenceOf(dataset.places())),
-            occupations = writeLines(dir.resolve("occupations.jsonl.gz"), sequenceOf(dataset.occupations())),
+            places = writeLines(dir.resolve(DatasetFile.PLACES.fileName), sequenceOf(dataset.places())),
+            occupations = writeLines(dir.resolve(DatasetFile.OCCUPATIONS.fileName), sequenceOf(dataset.occupations())),
         )
         return DatasetManifest(FORMAT, import, counts).also {
-            jsonMapper.writerWithDefaultPrettyPrinter().writeValue(dir.resolve("manifest.json").toFile(), it)
+            jsonMapper.writerWithDefaultPrettyPrinter().writeValue(dir.resolve(DatasetFile.MANIFEST.fileName).toFile(), it)
         }
     }
 
