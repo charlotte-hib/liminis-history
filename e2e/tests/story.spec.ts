@@ -102,3 +102,13 @@ test("the bars at the top jump to their card", async ({ page }) => {
   await expect(page).toHaveURL(storyUrl);
   await expect(page.getByRole("heading", { name: "Step through another door" })).toHaveCount(0);
 });
+
+// Every card names its moment and leads to the moment page, not only "Meet everyone in…" after the last card.
+test("any card of a story leads to its moment", async ({ page }) => {
+  await page.goto("/moment/paris-1870s/story");
+  await page.getByRole("button", { name: "Card 3 of", exact: false }).click();
+  await expect(page).toHaveURL(/#card=3$/);
+
+  await page.getByRole("link", { name: "Paris, 1870s", exact: true }).click();
+  await expect(page).toHaveURL(/\/moment\/paris-1870s$/);
+});
