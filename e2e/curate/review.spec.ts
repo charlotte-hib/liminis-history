@@ -104,8 +104,10 @@ test("an occupation's domain is chosen with one key", async ({ page }) => {
 
   await page.keyboard.press("2");
   await expect(page.getByRole("status")).toContainText(`Approved: ${name}`);
+  await expect(list(page).getByText(name, { exact: true })).toBeHidden();
   await page.keyboard.press("u");
   await expect(page.getByRole("heading", { level: 2, name })).toBeVisible();
   await page.getByText(/^History/).click();
-  await expect(page.getByText("curator: waiting → approved, edited")).toBeVisible();
+  // The same claim comes first again on the next run: its history grows, the last entries are this run's.
+  await expect(page.getByText("curator: waiting → approved, edited").last()).toBeVisible();
 });

@@ -165,7 +165,8 @@ export interface paths {
         /**
          * Who holds an occupation
          * @description An occupation, or a class of them, as the last mapping holds it: its labels, its classes, how many people hold
-         *     it among their first three occupations (directly or through a narrower one), and the best known of them.
+         *     it among their first three occupations (directly or through a narrower one) and as their first, and the best
+         *     known of them.
          */
         get: operations["getOccupation"];
         put?: never;
@@ -393,6 +394,8 @@ export interface components {
             labelFr?: string;
             /** @description How many people hold it among their first three occupations, directly or through a narrower one. */
             people: number;
+            /** @description How many people hold it as their first occupation, the one the site shows first. */
+            first: number;
             /** @description The best known of them, at most 8. */
             examples: components["schemas"]["PersonSummary"][];
             /** @description The classes it belongs to, best rank first. */
@@ -453,8 +456,8 @@ export interface components {
          * @description `WIKIDATA_IMPORT` fetches Wikidata's people, or resumes the import that stopped. `DATASET_MAPPING` maps the last
          *     finished import to the dataset's rows. `DATASET_EXPORT` writes those rows to the fetched dataset's files, in
          *     `backend/dataset-export/`. `PERSON_FACTS_CLAIMS` proposes the facts of the people of the release's moments.
-         *     `OCCUPATION_CLAIMS` proposes a domain claim for every occupation the dataset's people hold, and their classes,
-         *     the most held first. `STORY_DRAFT` drafts a moment's story with Claude into `backend/drafts/`.
+         *     `OCCUPATION_CLAIMS` proposes a domain claim for every occupation the dataset's people hold, and their classes:
+         *     those most held as a first occupation first, then the classes nobody holds directly. `STORY_DRAFT` drafts a moment's story with Claude into `backend/drafts/`.
          * @enum {string}
          */
         RunKind: "WIKIDATA_IMPORT" | "DATASET_MAPPING" | "DATASET_EXPORT" | "PERSON_FACTS_CLAIMS" | "OCCUPATION_CLAIMS" | "STORY_DRAFT";

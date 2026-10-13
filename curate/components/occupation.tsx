@@ -25,7 +25,8 @@ export function OccupationView({ payload, evidence }: { payload: OccupationDomai
         <>
           <dt className="text-muted">Held by</dt>
           <dd className="font-medium">
-            {evidence.people} {evidence.people === 1 ? "person" : "people"}, directly or through a narrower occupation
+            {evidence.people} {evidence.people === 1 ? "person" : "people"}, directly or through a narrower occupation;{" "}
+            {evidence.first} as their first
           </dd>
           <dt className="text-muted">Belongs to</dt>
           <dd>{evidence.parents.map((parent) => parent.label).join(", ") || "no class"}</dd>
