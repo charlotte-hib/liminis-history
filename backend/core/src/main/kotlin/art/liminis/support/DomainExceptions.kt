@@ -14,3 +14,6 @@ class ConflictException(message: String) : RuntimeException(message)
 
 /** What the request was based on changed since it was read: a claim decided on meanwhile. */
 class StaleException(message: String) : RuntimeException(message)
+
+/** Something the request needs elsewhere is missing or not answering: GitHub, or the settings to reach it. */
+class UnavailableException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)

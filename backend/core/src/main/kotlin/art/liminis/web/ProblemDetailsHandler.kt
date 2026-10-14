@@ -9,6 +9,7 @@ import art.liminis.support.ConflictException
 import art.liminis.support.InvalidRequestException
 import art.liminis.support.NotFoundException
 import art.liminis.support.StaleException
+import art.liminis.support.UnavailableException
 
 /**
  * Answers the services' exceptions (support/DomainExceptions.kt) with their HTTP status, as RFC 9457 Problem Details,
@@ -28,6 +29,9 @@ class ProblemDetailsHandler {
 
     @ExceptionHandler
     fun stale(e: StaleException): ErrorResponse = ErrorResponse.create(e, HttpStatus.PRECONDITION_FAILED, e.message!!)
+
+    @ExceptionHandler
+    fun unavailable(e: UnavailableException): ErrorResponse = ErrorResponse.create(e, HttpStatus.SERVICE_UNAVAILABLE, e.message!!)
 
     /** Two writes raced past the version check: the second one fails when Hibernate writes it, as if it were stale. */
     @ExceptionHandler

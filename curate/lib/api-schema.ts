@@ -215,6 +215,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/publication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a publish would change
+         * @description The approved claims as the files of `data/` that publishing writes whole (`data/occupations.jsonl`,
+         *     `data/corrections.jsonl`), compared with those files on the data repository's `main`: each record added,
+         *     changed or removed. Also the publish pull request open, if any, and the corrections for people written by hand
+         *     in `people.jsonl`, which the release gives no effect.
+         */
+        get: operations["previewPublication"];
+        put?: never;
+        /**
+         * Publish
+         * @description Commits the changes on the branch `publish` of the data repository, built on `main` at `base`, and opens its
+         *     pull request, or updates the one open. With nothing to change, closes the one open. Needs a passkey used in the
+         *     last 5 minutes: an older one is a 401 with `error="insufficient_user_authentication"` and `max_age` in
+         *     `WWW-Authenticate` (RFC 9470), for curate to ask for the passkey again.
+         */
+        post: operations["publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -525,6 +555,41 @@ export interface components {
             extract: string;
             thumbnailUrl?: string;
         };
+        Publication: {
+            /** @description The commit of the data repository's `main` the changes are counted from. Send it to publish. */
+            base: string;
+            /** @description The files publishing writes, with their changes, in the same order every time. */
+            files: components["schemas"]["FileChanges"][];
+            pullRequest?: components["schemas"]["PullRequest"];
+            /** @description People written by hand in `people.jsonl` with a correction, which their record overrides. */
+            withoutEffect: components["schemas"]["Qid"][];
+        };
+        FileChanges: {
+            /** @example data/occupations.jsonl */
+            path: string;
+            /** @description By the records' ids. */
+            changes: components["schemas"]["RecordChange"][];
+        };
+        RecordChange: {
+            /** @description The record's id, a Q-id. */
+            id: string;
+            /** @enum {string} */
+            change: "ADDED" | "CHANGED" | "REMOVED";
+            /** @description The record's line as `main` has it, JSON. None when added. */
+            before?: string;
+            /** @description The record's line as publishing writes it, JSON. None when removed. */
+            after?: string;
+        };
+        PullRequest: {
+            /** Format: int32 */
+            number: number;
+            /** @example https://github.com/charlotte-hib/liminis-history-data/pull/4 */
+            url: string;
+        };
+        NewPublication: {
+            /** @description The `base` of the changes the curator looked at. */
+            base: string;
+        };
         /** @example Q535 */
         Qid: string;
         /**
@@ -551,7 +616,10 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description No access token, or one that is expired, not signed by `auth`, or not for the workbench. */
+        /**
+         * @description No access token, or one that is expired, not signed by `auth`, or not for the workbench; or, to publish, one
+         *     whose passkey is too old.
+         */
         Unauthorized: {
             headers: {
                 [name: string]: unknown;
@@ -585,6 +653,15 @@ export interface components {
         };
         /** @description The claim changed since the version in `If-Match`. Read it again, then decide. */
         PreconditionFailed: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description No GitHub App is set up to publish with, or GitHub refused or did not answer. */
+        Unavailable: {
             headers: {
                 [name: string]: unknown;
             };
@@ -954,6 +1031,66 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    previewPublication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The changes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Publication"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPublication"];
+            };
+        };
+        responses: {
+            /** @description The changes published, with their pull request; none when there was nothing to publish. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Publication"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description The data repository's `main` moved since `base`. Look at the changes again, then publish. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            503: components["responses"]["Unavailable"];
         };
     };
 }
