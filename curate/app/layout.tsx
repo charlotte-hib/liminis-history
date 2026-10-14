@@ -27,6 +27,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               Add a claim
             </Link>
           </nav>
+          <form method="post" action="/auth/sign-out" className="ml-auto">
+            <button type="submit" className="text-muted hover:text-ink">
+              Sign out
+            </button>
+          </form>
         </header>
         {children}
       </body>

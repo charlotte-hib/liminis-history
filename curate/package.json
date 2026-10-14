@@ -10,8 +10,10 @@
     "api:types": "openapi-typescript ../api/workbench.yaml --output lib/api-schema.ts"
   },
   "dependencies": {
+    "jose": "6.2.12",
     "next": "16.4.0",
     "openapi-fetch": "0.17.0",
+    "openid-client": "6.8.8",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "0.0.1"
