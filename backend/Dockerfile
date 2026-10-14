@@ -4,8 +4,9 @@ COPY gradlew settings.gradle.kts build.gradle.kts ./
 COPY gradle gradle
 COPY core/build.gradle.kts core/
 COPY site/build.gradle.kts site/
-# The workbench is never in the image, but Gradle configures every project in settings.gradle.kts.
+# The workbench and auth are never in the image, but Gradle configures every project in settings.gradle.kts.
 COPY workbench/build.gradle.kts workbench/
+COPY auth/build.gradle.kts auth/
 RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon :core:dependencies :site:dependencies > /dev/null
 COPY core/src core/src
 COPY site/src site/src

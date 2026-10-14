@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: auth
+  threads:
+    virtual:
+      enabled: true
+  # Postgres: on ./gradlew :auth:bootRun, Spring Boot's Docker Compose support starts the workbench's (compose.workbench.yaml)
+  # and connects to it; tests run their own. The workbench may be using it too: never stop it on exit.
+  docker:
+    compose:
+      lifecycle-management: start-only
+  datasource:
+    hikari:
+      # Spring Security's JDBC stores name their tables without a schema.
+      schema: auth
+  flyway:
+    locations: classpath:db/auth
+    schemas: auth
+    default-schema: auth
+    create-schemas: true
+  security:
+    oauth2:
+      authorizationserver:
+        # Passkeys are bound to a name, and localhost is the only one a browser lets a site on plain HTTP use: never
+        # 127.0.0.1.
+        issuer: http://localhost:9000
+
+# On the curator's computer only, never on the network: curate, wb and the workbench call it there.
+server:
+  address: 127.0.0.1
+  port: 9000
+
+app:
+  auth:
+    # Where auth writes the clients' secrets, readable by the curator only: curate's and wb's.
+    secrets-dir: ${user.home}/.config/liminis
+    # curate, the one client that signs the curator in: where auth sends the browser back.
+    curate-url: http://localhost:3100
+    # Prints a one-time sign-in link even when a passkey exists, to register a new one: start with
+    # --app.auth.one-time-link=true.
+    one-time-link: false
+    signing-keys:
+      # A new key signs from then on; the older one stays published, for the tokens it signed.
+      rotate-after: 30d
+      keep-for: 60d
+      check-every: 1h
