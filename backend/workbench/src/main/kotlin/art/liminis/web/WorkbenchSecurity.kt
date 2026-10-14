@@ -34,6 +34,9 @@ class WorkbenchSecurity {
                 }
                 authorize("/api/runs", hasAuthority(RUNS))
                 authorize("/api/runs/*", hasAuthority(RUNS))
+                // Where Spring sends an unexpected failure to become a 500 Problem, which the rule below would turn
+                // into a 403.
+                authorize("/error", permitAll)
                 authorize(anyRequest, denyAll)
             }
             oauth2ResourceServer { jwt { } }
