@@ -174,16 +174,27 @@ export function refreshed(value: Session): Promise<Session> {
       .then((configuration) => oidc.refreshTokenGrant(configuration, value.refresh))
       .then((tokens) => session(tokens, value.signedInAt, value.idToken));
     refreshes.set(value.refresh, refresh);
+    // A failure is not kept: auth may only have been restarting, and the next request tries again.
+    refresh.catch(() => refreshes.delete(value.refresh));
     setTimeout(() => refreshes.delete(value.refresh), 60_000);
   }
   return refresh;
 }
 
+/** Whether auth refused the session itself (expired, revoked, already used), rather than failing to answer. */
+export const refused = (error: unknown) => error instanceof oidc.ResponseBodyError && error.error === "invalid_grant";
+
 /** Revokes the refresh token, then where to send the browser for auth to end its own session too. */
 export async function signOut(value: Session | undefined): Promise<URL> {
   const signedOut = new URL("/auth/signed-out", CURATE_URL);
   if (!value) return signedOut;
-  const configuration = await client();
-  await oidc.tokenRevocation(configuration, value.refresh);
-  return oidc.buildEndSessionUrl(configuration, { id_token_hint: value.idToken, post_logout_redirect_uri: signedOut.href });
+  try {
+    const configuration = await client();
+    await oidc.tokenRevocation(configuration, value.refresh);
+    return oidc.buildEndSessionUrl(configuration, { id_token_hint: value.idToken, post_logout_redirect_uri: signedOut.href });
+  } catch (error) {
+    // auth is not answering: curate's session ends all the same, and its own lapses within 8 hours.
+    console.error("curate: could not end the session at auth", error);
+    return signedOut;
+  }
 }

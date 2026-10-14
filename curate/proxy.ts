@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { CURATE_URL, expiring, readSession, refreshed, SESSION_COOKIE, sessionCookie } from "@/lib/auth";
+import { CURATE_URL, expiring, readSession, refreshed, refused, SESSION_COOKIE, sessionCookie } from "@/lib/auth";
 
 /** The names this computer answers to: nothing else may reach it, even through a name that points here. */
 const LOCAL = new Set(["localhost", "127.0.0.1"]);
@@ -29,8 +29,10 @@ export async function proxy(request: NextRequest) {
     response.cookies.set(cookie);
     return response;
   } catch (error) {
+    if (refused(error)) return signIn(request);
+    // auth is not answering, perhaps restarting: keep the session, and try again on the next request.
     console.error("curate: could not refresh the session", error);
-    return signIn(request);
+    return new NextResponse("auth does not answer: is it running? Reload in a moment.\n", { status: 503 });
   }
 }
 
