@@ -44,11 +44,17 @@ class PeopleCompilerTests {
     private val zola = row("Q504", "Émile Zola", 1840, 150, paris, "Q36180")
     private val leonardo = row("Q762", "Leonardo da Vinci", 1452, 300, rome, "Q1028181", "Q81096", "Q36180", "Q483501")
 
-    private fun release(people: List<PersonRow>, articles: List<ArticleRow> = emptyList(), mapped: List<OccupationRecord> = emptyList()) = Release(
+    private fun release(
+        people: List<PersonRow>,
+        articles: List<ArticleRow> = emptyList(),
+        mapped: List<OccupationRecord> = emptyList(),
+        corrections: List<CorrectionRecord> = emptyList(),
+    ) = Release(
         regions = listOf(RegionRecord("FR", "France")),
         eras = emptyList(),
         people = listOf(PersonRecord("emile-zola", qid = "Q504", name = "Émile Zola", born = 1840, died = 1902, region = "FR", domain = Domain.ARTS, occupation = "novelist")),
         occupations = mapped,
+        corrections = corrections,
         dataset = FetchedDataset(
             DatasetManifest(1, MappedImport(1, Instant.EPOCH, Instant.EPOCH), DatasetFileCounts(people.size, articles.size, 3, occupations.size)),
             people,
@@ -100,6 +106,31 @@ class PeopleCompilerTests {
         // aristocrat is mapped to none: its class politician is not looked at, and writer is not mapped.
         assertEquals(Domain.EVERYDAY, people.getValue("Q5").domain)
         assertEquals(Domain.EVERYDAY, people.getValue("Q6").domain)
+    }
+
+    @Test
+    fun `corrections replace the fields they name, and the occupations in their order`() {
+        val mapped = listOf(OccupationRecord("Q483501", Domain.ARTS), OccupationRecord("Q82955", Domain.POWER))
+        val corrections = listOf(
+            CorrectionRecord("Q762", name = "Leonardo", born = 1451, approximate = true, occupations = listOf("Q81096", "Q82955", "Q1028181")),
+        )
+        val person = ReleaseCompiler.compile(release(listOf(zola, leonardo), mapped = mapped, corrections = corrections)).people.single { it.id == "Q762" }
+
+        assertEquals("Leonardo", person.name)
+        assertEquals(1451, person.birthYear)
+        assertEquals(1512, person.deathYear)
+        assertEquals(true, person.datesApproximate)
+        // writer is removed; politician is added, and is the first one mapped.
+        assertEquals(listOf("engineer", "politician", "painter"), person.occupations)
+        assertEquals(Domain.POWER, person.domain)
+    }
+
+    @Test
+    fun `a correction changes nothing for someone written by hand, nor for a Q-id the dataset does not hold`() {
+        val corrections = listOf(CorrectionRecord("Q504", name = "Zola", born = 1841), CorrectionRecord("Q999", name = "Nobody"))
+        val people = ReleaseCompiler.compile(release(listOf(zola), corrections = corrections)).people
+
+        assertEquals(listOf("Émile Zola" to 1840), people.map { it.name to it.birthYear })
     }
 
     @Test

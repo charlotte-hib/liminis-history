@@ -49,6 +49,19 @@ class ReleaseReaderTests {
     }
 
     @Test
+    fun `corrections are optional, and read by Q-id when there are some`() {
+        assertEquals(emptyList(), read().corrections)
+
+        files["corrections.jsonl"] = """
+            {"id":"Q504","born":1841,"occupations":["Q36180"]}
+            {"id":"Q762","name":"Leonardo","approximate":false}
+        """
+        val corrections = read().corrections
+
+        assertEquals(listOf(CorrectionRecord("Q504", born = 1841, occupations = listOf("Q36180")), CorrectionRecord("Q762", name = "Leonardo", approximate = false)), corrections)
+    }
+
+    @Test
     fun `records must be sorted by id`() {
         files["people.jsonl"] = files.getValue("people.jsonl").lines().reversed().joinToString("\n")
         assertEquals("people.jsonl:2: emile-zola is out of order", problem())

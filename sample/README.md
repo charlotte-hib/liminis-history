@@ -14,6 +14,7 @@ At startup the backend reads the directory in `app.release.dir`, checks it (`Rel
 | `eras.jsonl` | who governed a region, from `start` to `end` (no `end`: until today) | region |
 | `people.jsonl` | person written by hand, with their Wikidata id (`qid`) when they have one | region |
 | `occupations.jsonl` (optional) | occupation, by its Wikidata id: the `domain` of the people who hold it, or none (no `domain`) when it says nothing of a life's work | |
+| `corrections.jsonl` (optional) | person of the dataset, by their Wikidata id: the fields the curator corrected (`name`, `nameFr`, `born`, `died`, `approximate`, and `occupations`, Wikidata ids in order), the others left out. Written by the workbench's publish, never by hand | |
 | `lives.jsonl` | typical life, set in the era that covers its `start`, drawn with a public-domain `art` (`url`, `credit`, `source`, and optionally `position`, two percentages as in CSS `object-position`, and `fit`, `COVER` or `CONTAIN`) or else an `icon` | region |
 | `events.jsonl` | dated, sourced event, set in the era that covers its `year` | region, people |
 | `connections.jsonl` | two people, how they knew each other, when, and the source | people |
@@ -34,5 +35,6 @@ Consecutive eras share their boundary year; the one that starts later wins it. A
 
 - **Written by hand**, a person keeps every field of their record. With a `qid` found in the dataset, they also take its places, sitelinks and English Wikipedia article (bio, portrait, link); without one, the backend fetches their article from Wikipedia after loading.
 - **Every other person of the dataset** comes in when their birthplace lies in a country today (by its coordinates, else by Wikidata's country), which becomes their region. A region that `regions.jsonl` does not list holds people but has no eras and no page.
+- **Corrections** apply to the people of the dataset only: someone written by hand keeps their record, and a correction for a Wikidata id the dataset does not hold changes nothing.
 - **Occupations**: up to three, in Wikidata's order. The domain is that of the first occupation `occupations.jsonl` maps, directly or through its classes up to three levels up; none at all means `EVERYDAY`.
 - **Fame**: a person's percentile by sitelinks among the people of their region and century of birth, from 0 to 100.

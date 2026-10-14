@@ -2,6 +2,7 @@ package art.liminis.release
 
 import art.liminis.dataset.ArticleRow
 import art.liminis.dataset.OccupationRow
+import art.liminis.dataset.PersonOccupation
 import art.liminis.dataset.PersonRow
 import art.liminis.dataset.PlaceProperty
 import art.liminis.dataset.PlaceRow
@@ -19,14 +20,16 @@ import kotlin.math.roundToInt
 
 /**
  * The people of a release: those written by hand in `people.jsonl`, then every other person of the fetched dataset
- * whose region is known (the others wait for a correction). Someone written by hand keeps everything written there;
- * with a Q-id found in the dataset, they also take its places, sitelinks and English Wikipedia article.
+ * whose region is known (the others wait for a correction), with the curator's corrections from `corrections.jsonl`.
+ * Someone written by hand keeps everything written there, whatever the corrections; with a Q-id found in the dataset,
+ * they also take its places, sitelinks and English Wikipedia article.
  */
 internal class PeopleCompiler(private val release: Release) {
 
     private val dataset = release.dataset
     private val rows = dataset?.people.orEmpty().associateBy { it.qid }
     private val domains = OccupationDomains(release.occupations, dataset?.occupations.orEmpty())
+    private val corrections = release.corrections.associateBy { it.id }
 
     init {
         release.people.mapNotNull { it.qid }.groupBy { it }.values.firstOrNull { it.size > 1 }?.let {
@@ -36,9 +39,13 @@ internal class PeopleCompiler(private val release: Release) {
 
     private val writtenQids = release.people.mapNotNull { it.qid }.toSet()
 
-    /** The dataset's people not written by hand, each with their region: the country their birthplace lies in today. */
+    /**
+     * The dataset's people not written by hand, with the curator's corrections, each with their region: the country
+     * their birthplace lies in today.
+     */
     private val fetched: List<Pair<PersonRow, String>> = dataset?.people.orEmpty()
         .filter { it.qid !in writtenQids }
+        .map { row -> corrections[row.qid]?.let { row.corrected(it) } ?: row }
         .mapNotNull { row -> homeRegion(row)?.let { row to it } }
 
     /** The regions fetched people come from that `regions.jsonl` does not list, named in English. They have no eras. */
@@ -120,6 +127,19 @@ internal class PeopleCompiler(private val release: Release) {
             regionCode = dataset!!.places[it.place]?.let(::country),
             startYear = it.startYear,
             endYear = it.endYear,
+        )
+    }
+
+    /** The row with each field the curator corrected; occupations they removed are gone, the others reordered. */
+    private fun PersonRow.corrected(correction: CorrectionRecord): PersonRow {
+        val held = occupations.associateBy { it.occupation }
+        return copy(
+            label = correction.name ?: label,
+            labelFr = correction.nameFr ?: labelFr,
+            born = correction.born ?: born,
+            died = correction.died ?: died,
+            datesApproximate = correction.approximate ?: datesApproximate,
+            occupations = correction.occupations?.map { held[it] ?: PersonOccupation(it, referenced = false) } ?: occupations,
         )
     }
 
