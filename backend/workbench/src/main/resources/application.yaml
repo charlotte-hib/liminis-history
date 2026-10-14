@@ -64,9 +64,10 @@ app:
     max-age: 5m
     github:
       api: https://api.github.com
-      # The App's client id, from its settings page on GitHub; its private key, converted to PKCS#8 once:
+      # The App's client id (Liminis publish charlotte-hib, installed on the data repository only); its private key,
+      # converted to PKCS#8 once:
       # openssl pkcs8 -topk8 -nocrypt -in <downloaded>.pem -out ~/.config/liminis/github-app.pem && chmod 600 ...
-      client-id: ""
+      client-id: Iv23lijPeswCZ6TAmjpn
       private-key: ${user.home}/.config/liminis/github-app.pem
   drafting:
     model: claude-opus-5-5
