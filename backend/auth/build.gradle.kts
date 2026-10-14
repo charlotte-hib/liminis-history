@@ -19,6 +19,8 @@ dependencies {
 	// Passkeys (WebAuthn), through webauthn4j.
 	implementation("org.springframework.security:spring-security-webauthn")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
+	// Its pages (sign in, the one-time link, passkeys), in curate's look.
+	implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
 	// Clients, authorizations, passkeys, one-time tokens and signing keys in schema auth of the workbench's Postgres.
 	implementation("org.springframework.boot:spring-boot-starter-jdbc")
 	implementation("org.springframework.boot:spring-boot-starter-flyway")

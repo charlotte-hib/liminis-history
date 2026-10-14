@@ -24,10 +24,10 @@ setup("the curator registers a passkey with the one-time link, then signs in to 
   await expect(page.getByRole("button", { name: "Sign in with a passkey" })).toBeVisible();
 
   await page.goto(oneTimeLink());
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.getByLabel("Passkey Label").fill(`e2e, ${new Date().toISOString()}`);
-  await page.getByRole("button", { name: "Register" }).click();
-  await expect(page.getByText("Success!")).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByLabel("A name for this one").fill(`e2e, ${new Date().toISOString()}`);
+  await page.getByRole("button", { name: "Register a passkey" }).click();
+  await expect(page.getByRole("status")).toContainText("Registered");
 
   // The one-time link alone is not enough for curate: auth asks for the passkey.
   await page.goto("/");
