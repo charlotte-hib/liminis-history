@@ -41,13 +41,15 @@ access_token=""
 signed_in_at=0
 
 # Gets an access token of wb's own from auth, valid 10 minutes, and again once it is 5 minutes old: a run is followed
-# for hours. Called before api, never inside $(...), whose subshell would forget the token.
+# for hours. Called before api, never inside $(...), whose subshell would forget the token. The secret and the token
+# reach curl on its standard input (printf is a builtin), never in its arguments, which any user's ps shows.
 sign_in() {
   [[ -n "$access_token" && $((SECONDS - signed_in_at)) -lt 300 ]] && return
   [[ -r "$secret_file" ]] || { echo "wb: no secret in $secret_file. Has auth started once?" >&2; exit 1; }
   local response
-  response="$(curl --silent --show-error --write-out '\n%{http_code}' --user "wb:$(<"$secret_file")" \
-    --data grant_type=client_credentials --data-urlencode 'scope=curation:read runs' "$auth_url/oauth2/token")" ||
+  response="$(printf 'user = "wb:%s"\n' "$(<"$secret_file")" | curl --config - --silent --show-error \
+    --write-out '\n%{http_code}' --data grant_type=client_credentials --data-urlencode 'scope=curation:read runs' \
+    "$auth_url/oauth2/token")" ||
     { echo "wb: auth does not answer at $auth_url" >&2; exit 1; }
   [[ "${response##*$'\n'}" == 200 ]] || { echo "wb: auth refused to sign wb in: ${response%$'\n'*}" >&2; exit 1; }
   access_token="$(json "${response%$'\n'*}" "d['access_token']")"
@@ -56,11 +58,11 @@ sign_in() {
 
 api() {
   local method="$1" path="$2" body="${3:-}"
-  local args=(--silent --show-error --write-out '\n%{http_code}' --request "$method"
-    --header "Authorization: Bearer $access_token")
+  local args=(--config - --silent --show-error --write-out '\n%{http_code}' --request "$method")
   [[ -n "$body" ]] && args+=(--header 'Content-Type: application/json' --data "$body")
   local response
-  response="$(curl "${args[@]}" "$url$path")" || { echo "wb: the workbench does not answer at $url" >&2; exit 1; }
+  response="$(printf 'header = "Authorization: Bearer %s"\n' "$access_token" | curl "${args[@]}" "$url$path")" ||
+    { echo "wb: the workbench does not answer at $url" >&2; exit 1; }
   local status="${response##*$'\n'}"
   response="${response%$'\n'*}"
   if [[ "$status" -ge 400 ]]; then
