@@ -2,6 +2,8 @@ package art.liminis.auth
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterProperties
+import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
@@ -50,8 +52,9 @@ import java.net.URI
 @Configuration
 class AuthSecurity {
 
+    /** First, as in Spring Boot's own setup: it only takes the authorization server's endpoints. */
     @Bean
-    @Order(1)
+    @Order(Ordered.HIGHEST_PRECEDENCE)
     fun authorizationServer(http: HttpSecurity): SecurityFilterChain {
         http.oauth2AuthorizationServer { server ->
             http.securityMatcher(server.endpointsMatcher)
@@ -81,8 +84,9 @@ class AuthSecurity {
         return http.build()
     }
 
+    /** Everything else, at the order of Spring Boot's own default chain. */
     @Bean
-    @Order(2)
+    @Order(SecurityFilterProperties.BASIC_AUTH_ORDER)
     fun signIn(http: HttpSecurity, settings: AuthorizationServerSettings): SecurityFilterChain {
         val issuer = URI(settings.issuer!!)
         http {
