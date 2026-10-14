@@ -89,10 +89,11 @@ class GitHub(builder: RestClient.Builder, private val properties: PublishPropert
     /** The commit [branch] points at, or nothing when there is no such branch. */
     fun head(branch: String): String? = call { getOrNull("$repo/git/ref/heads/$branch")?.path("object")?.path("sha")?.asString() }
 
-    /** The text of the file at [path] in [commit], or nothing when it has no such file. */
+    /** The text of the file at [path] in [commit], or nothing when it has no such file (see [getOrNull]). */
     fun file(path: String, commit: String): String? = call {
+        val token = installationToken()
         try {
-            rest.get().uri("$repo/contents/$path?ref={ref}", commit).headers(::authorized)
+            rest.get().uri("$repo/contents/$path?ref={ref}", commit).headers { it.setBearerAuth(token) }
                 .header(HttpHeaders.ACCEPT, "application/vnd.github.raw+json").retrieve().body<String>().orEmpty()
         } catch (_: HttpClientErrorException.NotFound) {
             null
@@ -142,12 +143,18 @@ class GitHub(builder: RestClient.Builder, private val properties: PublishPropert
 
     private fun get(path: String): JsonNode = rest.get().uri(path).headers(::authorized).retrieve().body<JsonNode>()!!
 
-    private fun getOrNull(path: String): JsonNode? =
-        try {
-            get(path)
+    /**
+     * Nothing when [path] is not there. The token comes first, outside the catch: an App not installed on the
+     * repository answers 404 too, and must not pass for a missing branch or file.
+     */
+    private fun getOrNull(path: String): JsonNode? {
+        val token = installationToken()
+        return try {
+            rest.get().uri(path).headers { it.setBearerAuth(token) }.retrieve().body<JsonNode>()!!
         } catch (_: HttpClientErrorException.NotFound) {
             null
         }
+    }
 
     private fun post(path: String, body: Any): JsonNode = send(rest.post().uri(path), body)
 

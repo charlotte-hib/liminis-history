@@ -50,7 +50,9 @@ class Publishing(private val dataFiles: DataFiles, private val github: GitHub, p
             return publication.copy(pullRequest = null)
         }
         val summary = summary(publication)
-        val commit = github.commit(base, files.mapKeys { it.key.path }.mapValues { it.value.text() }, "$TITLE\n\n$summary")
+        // Only the files that change: GitHub refuses to remove a file that is not there, as an emptied one may not be.
+        val changed = publication.files.filter { it.changes.isNotEmpty() }.associate { it.file.path to files.getValue(it.file).text() }
+        val commit = github.commit(base, changed, "$TITLE\n\n$summary")
         github.moveBranch(properties.branch, commit)
         val body = "$summary\n\n$ABOUT"
         val pullRequest = open?.also { github.updatePullRequest(it.number, TITLE, body) }

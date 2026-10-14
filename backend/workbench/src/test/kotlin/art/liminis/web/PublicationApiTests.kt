@@ -46,6 +46,7 @@ import art.liminis.curation.Payload
 import art.liminis.curation.PersonFacts
 import art.liminis.publishing.GitHub
 import art.liminis.publishing.PublishProperties
+import art.liminis.support.UnavailableException
 import art.liminis.testing.PostgresTestConfiguration
 import java.nio.file.Files
 import java.nio.file.Path
@@ -55,6 +56,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.Base64
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
@@ -235,6 +237,17 @@ class PublicationApiTests(
     }
 
     @Test
+    fun `leaves out of the commit a file that does not change, even one with no records that main does not have`() {
+        approve(OccupationDomain("Q36180", "writer"), OccupationDomain("Q36180", "writer", domain = OccupationChoice.ARTS))
+        file("data/corrections.jsonl", null)
+        stubWrites()
+        publish().andExpect { status { isOk() } }
+        val tree = github.findAll(postRequestedFor(urlPathEqualTo("$repo/git/trees"))).single().bodyAsString
+        assertTrue("data/occupations.jsonl" in tree)
+        assertTrue("data/corrections.jsonl" !in tree, tree)
+    }
+
+    @Test
     fun `with nothing left to publish, closes the open pull request and commits nothing`() {
         file("data/corrections.jsonl", null)
         stubWrites(openPullRequest = true)
@@ -253,6 +266,15 @@ class PublicationApiTests(
             status { isServiceUnavailable() }
             jsonPath("$.detail") { value(containsString("Resource not accessible")) }
         }
+    }
+
+    @Test
+    fun `an App not installed on the data repository says so, rather than passing for a missing branch`() {
+        // A fresh client: the one of the context keeps its installation token.
+        val notInstalled = GitHub(RestClient.builder(), properties)
+        github.stubFor(get("$repo/installation").willReturn(aResponse().withStatus(404).withBody("""{"message": "Not Found"}""")))
+        val problem = assertFailsWith<UnavailableException> { notInstalled.head("main") }
+        assertTrue("404" in problem.message!!, problem.message)
     }
 
     @Test
