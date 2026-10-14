@@ -1,9 +1,9 @@
 import "server-only";
-import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import createClient, { type Middleware } from "openapi-fetch";
 import type { components, paths } from "@/lib/api-schema";
+import { readSession, SESSION_COOKIE } from "@/lib/auth";
 
 export type Claim = components["schemas"]["Claim"];
 export type ClaimDetail = components["schemas"]["ClaimDetail"];
@@ -19,15 +19,15 @@ export type Problem = components["schemas"]["Problem"];
 /** The workbench, on this computer only (`./gradlew :workbench:bootRun`). */
 const WORKBENCH_URL = process.env.WORKBENCH_URL ?? "http://127.0.0.1:8090";
 
-/** The workbench writes a new token here on every start, so it is read again for every request. */
-const TOKEN_FILE = process.env.WORKBENCH_TOKEN_FILE ?? join(homedir(), ".config", "liminis", "workbench-token");
-
-/** The browser never sees the token: only this server reads it, and sends it with each call. */
+/**
+ * Sends the curator's access token from the session cookie, which only this server can decrypt: the browser never
+ * sees the token. The proxy has already refreshed it if it was about to expire.
+ */
 const signIn: Middleware = {
   async onRequest({ request }) {
-    // A file outside the project, read at run time: nothing to trace into the build.
-    const token = (await readFile(/* turbopackIgnore: true */ TOKEN_FILE, "utf8")).trim();
-    request.headers.set("Authorization", `Bearer ${token}`);
+    const session = await readSession((await cookies()).get(SESSION_COOKIE)?.value);
+    if (!session) redirect("/auth/sign-in");
+    request.headers.set("Authorization", `Bearer ${session.access}`);
     return request;
   },
 };
