@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # wb: the workbench's command line. Starts runs on the workbench (./gradlew :workbench:bootRun, in backend/) and follows
-# them, or shows what waits for review. Sends the token the workbench wrote on its last start.
+# them, or shows what waits for review. Signs in to auth (./gradlew :auth:bootRun, in backend/) as the wb client, with
+# the secret auth wrote on its first start.
 set -euo pipefail
 
 url="${WB_URL:-http://localhost:8090}"
-token_file="${WB_TOKEN_FILE:-$HOME/.config/liminis/workbench-token}"
+auth_url="${WB_AUTH_URL:-http://localhost:9000}"
+secret_file="${WB_SECRET_FILE:-$HOME/.config/liminis/wb-client-secret}"
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # Where the workbench writes the fetched dataset (app.dataset.export-dir, from backend/), and the private data
 # repository's clone, next to this one, where its pin goes.
@@ -35,11 +37,27 @@ A run is followed until it ends; Ctrl-C stops following, not the run.
 EOF
 }
 
+access_token=""
+signed_in_at=0
+
+# Gets an access token of wb's own from auth, valid 10 minutes, and again once it is 5 minutes old: a run is followed
+# for hours. Called before api, never inside $(...), whose subshell would forget the token.
+sign_in() {
+  [[ -n "$access_token" && $((SECONDS - signed_in_at)) -lt 300 ]] && return
+  [[ -r "$secret_file" ]] || { echo "wb: no secret in $secret_file. Has auth started once?" >&2; exit 1; }
+  local response
+  response="$(curl --silent --show-error --write-out '\n%{http_code}' --user "wb:$(<"$secret_file")" \
+    --data grant_type=client_credentials --data-urlencode 'scope=curation:read runs' "$auth_url/oauth2/token")" ||
+    { echo "wb: auth does not answer at $auth_url" >&2; exit 1; }
+  [[ "${response##*$'\n'}" == 200 ]] || { echo "wb: auth refused to sign wb in: ${response%$'\n'*}" >&2; exit 1; }
+  access_token="$(json "${response%$'\n'*}" "d['access_token']")"
+  signed_in_at=$SECONDS
+}
+
 api() {
   local method="$1" path="$2" body="${3:-}"
-  [[ -r "$token_file" ]] || { echo "wb: no token in $token_file. Is the workbench running?" >&2; exit 1; }
   local args=(--silent --show-error --write-out '\n%{http_code}' --request "$method"
-    --header "Authorization: Bearer $(<"$token_file")")
+    --header "Authorization: Bearer $access_token")
   [[ -n "$body" ]] && args+=(--header 'Content-Type: application/json' --data "$body")
   local response
   response="$(curl "${args[@]}" "$url$path")" || { echo "wb: the workbench does not answer at $url" >&2; exit 1; }
@@ -63,11 +81,13 @@ show_run() {
 
 start() {
   local run id
+  sign_in
   run="$(api POST /api/runs "$1")"
   show_run "$run"
   id="$(json "$run" "d['id']")"
   while [[ "$(json "$run" "d['status']")" == RUNNING ]]; do
     sleep 2
+    sign_in
     run="$(api GET "/api/runs/$id")"
   done
   show_run "$run"
@@ -121,6 +141,7 @@ case "${1:-}" in
     start "{\"kind\": \"STORY_DRAFT\", \"moment\": \"$2\"}"
     ;;
   runs)
+    sign_in
     if [[ -n "${2:-}" ]]; then
       show_run "$(api GET "/api/runs/$2")"
     else
@@ -128,6 +149,7 @@ case "${1:-}" in
     fi
     ;;
   queues)
+    sign_in
     json "$(api GET /api/queues)" "'\n'.join(f\"{q['type']}: {q['candidates']} waiting, {q['needsWork']} kept for later\" + ''.join(f\"\n  {f}: {n}\" for f, n in q['flags'].items()) for q in d) or 'Nothing waits'"
     ;;
   ""|-h|--help|help) usage ;;
