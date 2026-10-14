@@ -82,7 +82,7 @@ export ANTHROPIC_API_KEY=...   # for story drafts only
 ./gradlew :workbench:bootRun   # in another
 ```
 
-The workbench has a Postgres of its own (`compose.workbench.yaml`, at the repository's root, with a named volume), which Spring Boot's Docker Compose support starts and stops with it; `auth` keeps its tables in the same database, in schema `auth`, and starts it too when it starts first, but never stops it. It loads `sample/` into it and fills in the Wikipedia leads of its people (about a minute). Then, from another terminal:
+The workbench has a Postgres of its own (`compose.workbench.yaml`, at the repository's root, with a named volume), which Spring Boot's Docker Compose support starts with it; `auth` keeps its tables in the same database, in schema `auth`, and starts it too when it starts first. Neither stops it on exit, as the other may still use it: `docker compose -f compose.workbench.yaml stop` does. It loads `sample/` into it and fills in the Wikipedia leads of its people (about a minute). Then, from another terminal:
 
 ```sh
 backend/workbench/wb import            # fetch Wikidata's people (hours), or resume
