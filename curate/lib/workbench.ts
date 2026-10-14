@@ -15,6 +15,7 @@ export type OccupationEvidence = components["schemas"]["OccupationEvidence"];
 export type Payload = components["schemas"]["Payload"];
 export type PersonSummary = components["schemas"]["PersonSummary"];
 export type Problem = components["schemas"]["Problem"];
+export type Publication = components["schemas"]["Publication"];
 
 /** The workbench, on this computer only (`./gradlew :workbench:bootRun`). */
 const WORKBENCH_URL = process.env.WORKBENCH_URL ?? "http://127.0.0.1:8090";
