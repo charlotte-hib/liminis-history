@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// Last, as the other tests share its session: signing out revokes it.
+// Run last, by its own project (curate.config.ts): signing out revokes the session the other tests share.
 test("signing out ends the session in curate and at auth", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Sign out" }).click();
