@@ -31,6 +31,9 @@ const val CURATOR = "curator"
 /** The API the access tokens are for: the workbench checks that it is in their audience. */
 const val AUDIENCE = "workbench"
 
+/** The claim of an access token that says when the curator last used their passkey, in seconds since 1970. */
+const val AUTH_TIME = "auth_time"
+
 /** What the workbench API lets a token do, endpoint by endpoint. */
 object Scopes {
     /** Queues, claims, people and their evidence. */
@@ -41,4 +44,7 @@ object Scopes {
 
     /** Starting runs (imports, mappings, exports, proposals, drafts) and following them. */
     const val RUNS = "runs"
+
+    /** Publishing the decisions to the data repository: the workbench also asks for a recent passkey. */
+    const val PUBLISH = "publish"
 }

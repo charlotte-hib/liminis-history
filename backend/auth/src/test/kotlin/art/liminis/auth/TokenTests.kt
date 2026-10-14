@@ -20,11 +20,15 @@ import org.springframework.web.util.UriComponentsBuilder
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 import java.net.URI
+import java.time.Duration
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.security.MessageDigest
 import java.util.Base64
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** The tokens auth issues: to wb on its own, and to curate for the curator, after a passkey. */
@@ -36,10 +40,10 @@ class TokenTests(@Autowired private val mockMvc: MockMvc, @Autowired private val
     private val challenge = Base64.getUrlEncoder().withoutPadding()
         .encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()))
 
-    /** The curator, as signing in with a passkey leaves them. */
-    private val passkeySignIn = WebAuthnAuthentication(
+    /** The curator, as signing in with a passkey at [at] leaves them. */
+    private fun passkeySignIn(at: Instant = Instant.now()) = WebAuthnAuthentication(
         ImmutablePublicKeyCredentialUserEntity.builder().name(CURATOR).id(Bytes.random()).displayName(CURATOR).build(),
-        listOf(FactorGrantedAuthority.fromAuthority(FactorGrantedAuthority.WEBAUTHN_AUTHORITY)),
+        listOf(FactorGrantedAuthority.withAuthority(FactorGrantedAuthority.WEBAUTHN_AUTHORITY).issuedAt(at).build()),
     )
 
     private fun ResultActionsDsl.json(): JsonNode = jsonMapper.readTree(andReturn().response.contentAsString)
@@ -50,21 +54,26 @@ class TokenTests(@Autowired private val mockMvc: MockMvc, @Autowired private val
     }
 
     /** curate's authorization request, its parameters in the query string, where the authorization endpoint reads them. */
-    private fun authorizationRequest(pkce: Boolean = true): String = UriComponentsBuilder.fromPath("/oauth2/authorize")
+    private fun authorizationRequest(pkce: Boolean = true, maxAge: Int? = null): String = UriComponentsBuilder.fromPath("/oauth2/authorize")
         .queryParam("response_type", "code")
         .queryParam("client_id", "curate")
-        .queryParam("scope", "openid curation:read curation:write")
+        .queryParam("scope", "openid curation:read curation:write publish")
+        .apply { maxAge?.let { queryParam("max_age", it) } }
         .queryParam("redirect_uri", callback)
         .queryParam("state", "some-state")
         .queryParam("nonce", "some-nonce")
         .apply { if (pkce) queryParam("code_challenge", challenge).queryParam("code_challenge_method", "S256") }
         .encode().build().toUriString()
 
-    private fun authorize(pkce: Boolean = true) = mockMvc.get(URI(authorizationRequest(pkce))) { with(authentication(passkeySignIn)) }
+    private fun authorize(pkce: Boolean = true, maxAge: Int? = null, signedIn: Instant = Instant.now()) =
+        mockMvc.get(URI(authorizationRequest(pkce, maxAge))) {
+            header(HttpHeaders.ACCEPT, "text/html")
+            with(authentication(passkeySignIn(signedIn)))
+        }
 
-    /** The code curate gets back, after the curator signed in with a passkey. */
-    private fun code(): String {
-        val location = authorize().andExpect { status { is3xxRedirection() } }.andReturn().response.getHeader(HttpHeaders.LOCATION)!!
+    /** The code curate gets back, after the curator signed in with a passkey at [signedIn]. */
+    private fun code(signedIn: Instant = Instant.now(), maxAge: Int? = null): String {
+        val location = authorize(maxAge = maxAge, signedIn = signedIn).andExpect { status { is3xxRedirection() } }.andReturn().response.getHeader(HttpHeaders.LOCATION)!!
         val query = UriComponentsBuilder.fromUriString(location).build().queryParams
         assertEquals("some-state", query.getFirst("state"))
         return assertNotNull(query.getFirst("code"), location)
@@ -80,6 +89,7 @@ class TokenTests(@Autowired private val mockMvc: MockMvc, @Autowired private val
         assertEquals(listOf(AUDIENCE), jwt.jwtClaimsSet.audience)
         assertEquals("http://localhost:9000", jwt.jwtClaimsSet.issuer)
         assertEquals(setOf("curation:read", "runs"), jwt.jwtClaimsSet.getStringListClaim("scope").toSet())
+        assertNull(jwt.jwtClaimsSet.getClaim(AUTH_TIME))
         assertTrue(answer["expires_in"].asInt() in 598..600)
     }
 
@@ -109,11 +119,30 @@ class TokenTests(@Autowired private val mockMvc: MockMvc, @Autowired private val
         val access = mockMvc.verified(answer["access_token"].asString()).jwtClaimsSet
         assertEquals(CURATOR, access.subject)
         assertEquals(listOf(AUDIENCE), access.audience)
-        assertEquals(setOf("openid", "curation:read", "curation:write"), access.getStringListClaim("scope").toSet())
+        assertEquals(setOf("openid", "curation:read", "curation:write", "publish"), access.getStringListClaim("scope").toSet())
         val id = mockMvc.verified(answer["id_token"].asString()).jwtClaimsSet
         assertEquals(listOf("curate"), id.audience)
         assertEquals("some-nonce", id.getStringClaim("nonce"))
         assertNotNull(answer["refresh_token"])
+    }
+
+    @Test
+    fun `says in curate's access tokens when the passkey was used, and keeps it on refresh`() {
+        val signedIn = Instant.now().minus(Duration.ofMinutes(20)).truncatedTo(ChronoUnit.SECONDS)
+        val first = token("curate", "grant_type" to "authorization_code", "code" to code(signedIn), "redirect_uri" to callback, "code_verifier" to verifier)
+            .json()
+        assertEquals(signedIn.epochSecond, mockMvc.verified(first["access_token"].asString()).jwtClaimsSet.getLongClaim(AUTH_TIME))
+        val refreshed = token("curate", "grant_type" to "refresh_token", "refresh_token" to first["refresh_token"].asString()).json()
+        assertEquals(signedIn.epochSecond, mockMvc.verified(refreshed["access_token"].asString()).jwtClaimsSet.getLongClaim(AUTH_TIME))
+    }
+
+    @Test
+    fun `asks for the passkey again when it is older than the request's max_age`() {
+        authorize(maxAge = 300, signedIn = Instant.now().minus(Duration.ofMinutes(6)))
+            .andExpect { header { string(HttpHeaders.LOCATION, containsString("/login")) } }
+        code(Instant.now().minus(Duration.ofMinutes(4)), maxAge = 300)
+        // max_age=0 would never pass right after the passkey: a passkey of the last minute does.
+        code(Instant.now().minusSeconds(5), maxAge = 0)
     }
 
     @Test

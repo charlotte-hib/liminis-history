@@ -10,9 +10,14 @@ import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcOperations
 import org.springframework.security.authentication.ott.JdbcOneTimeTokenService
 import org.springframework.security.authentication.ott.OneTimeTokenService
+import org.springframework.security.authorization.AllRequiredFactorsAuthorizationManager
+import org.springframework.security.authorization.AuthorizationManager
+import org.springframework.security.authorization.AuthorizationResult
+import org.springframework.security.authorization.RequiredFactor
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configurers.ott.OneTimeTokenLoginConfigurer
 import org.springframework.security.config.annotation.web.invoke
+import org.springframework.security.core.Authentication
 import org.springframework.security.core.authority.FactorGrantedAuthority
 import org.springframework.security.core.userdetails.User
 import org.springframework.security.jackson.SecurityJacksonModules
@@ -29,6 +34,7 @@ import org.springframework.security.oauth2.server.authorization.token.JwtEncodin
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer
 import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler
 import org.springframework.security.web.authentication.ott.OneTimeTokenGenerationSuccessHandler
@@ -43,6 +49,8 @@ import org.springframework.security.web.webauthn.management.JdbcUserCredentialRe
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator
 import java.net.URI
+import java.time.Duration
+import java.util.function.Supplier
 
 /**
  * Two filter chains. The authorization server's endpoints (authorize, token, revoke, JWKS, OpenID discovery and
@@ -70,7 +78,7 @@ class AuthSecurity {
         http {
             authorizeHttpRequests {
                 // The one-time link signs in with FACTOR_OTT only: enough to register a passkey, never for a code.
-                authorize("/oauth2/authorize", hasAuthority(FactorGrantedAuthority.WEBAUTHN_AUTHORITY))
+                authorize("/oauth2/authorize", RecentPasskey)
                 authorize(anyRequest, authenticated)
             }
             // The OpenID userinfo endpoint reads the access token.
@@ -135,12 +143,13 @@ class AuthSecurity {
 
     /**
      * Each authorization keeps who signed in as JSON, read back by type name from an allowlist. Spring Security leaves
-     * passkey sign-ins out of it, so a refresh after one would fail: added here.
+     * passkey sign-ins out of it, so a refresh after one would fail: added here. So is the type of an access token's
+     * `auth_time`, a number of seconds.
      */
     @Bean
     fun authorizations(jdbc: JdbcOperations, clients: RegisteredClientRepository): JdbcOAuth2AuthorizationService {
         val passkeys = WebauthnJacksonModule()
-        val types = BasicPolymorphicTypeValidator.builder().also(passkeys::configurePolymorphicTypeValidator)
+        val types = BasicPolymorphicTypeValidator.builder().also(passkeys::configurePolymorphicTypeValidator).allowIfSubType(java.lang.Long::class.java)
         val json = JsonMapper.builder().addModules(SecurityJacksonModules.getModules(javaClass.classLoader, types)).addModule(passkeys).build()
         return JdbcOAuth2AuthorizationService(jdbc, clients).apply {
             setAuthorizationRowMapper(JdbcOAuth2AuthorizationService.JsonMapperOAuth2AuthorizationRowMapper(clients, json))
@@ -161,11 +170,37 @@ class AuthSecurity {
     @Bean
     fun jwtEncoder(keys: SigningKeys) = NimbusJwtEncoder(keys).apply { setJwkSelector(keys::newest) }
 
-    /** Every token signed with ES256; access tokens are for the workbench, whichever client asked for them. */
+    /**
+     * Every token signed with ES256; access tokens are for the workbench, whichever client asked for them, and say when
+     * the curator last used their passkey (`auth_time`, in seconds), for the workbench to ask for a recent one before a
+     * publish. A refresh keeps the sign-in's time; wb's tokens have none.
+     */
     @Bean
     fun tokens() = OAuth2TokenCustomizer<JwtEncodingContext> { context ->
         context.jwsHeader.algorithm(SignatureAlgorithm.ES256)
-        if (context.tokenType == OAuth2TokenType.ACCESS_TOKEN) context.claims.audience(listOf(AUDIENCE))
+        if (context.tokenType == OAuth2TokenType.ACCESS_TOKEN) {
+            context.claims.audience(listOf(AUDIENCE))
+            context.getPrincipal<Authentication>()?.authorities.orEmpty()
+                .firstNotNullOfOrNull { (it as? FactorGrantedAuthority)?.takeIf { it.authority == FactorGrantedAuthority.WEBAUTHN_AUTHORITY } }
+                ?.let { context.claims.claim(AUTH_TIME, it.issuedAt.epochSecond) }
+        }
+    }
+
+    /**
+     * A code only after a passkey, and, when the request asks for one with OpenID Connect's `max_age` (curate does,
+     * before a publish), after a passkey used within that many seconds: an older one sends the curator to sign in
+     * again, and the request goes on once they have.
+     */
+    private object RecentPasskey : AuthorizationManager<RequestAuthorizationContext> {
+        override fun authorize(authentication: Supplier<out Authentication?>, context: RequestAuthorizationContext): AuthorizationResult {
+            val maxAge = context.request.getParameter("max_age")?.toLongOrNull()
+            val passkey = RequiredFactor.withAuthority(FactorGrantedAuthority.WEBAUTHN_AUTHORITY)
+                // Never under a minute: the request comes back right after the passkey, which must then pass.
+                .apply { maxAge?.let { validDuration(Duration.ofSeconds(it).coerceAtLeast(Duration.ofMinutes(1))) } }
+                .build()
+            return AllRequiredFactorsAuthorizationManager.builder<RequestAuthorizationContext>().requireFactor(passkey).build()
+                .authorize(authentication, context)
+        }
     }
 
     /** Only requests addressed to this computer: a page that rebinds its own name to 127.0.0.1 still sends that name. */
