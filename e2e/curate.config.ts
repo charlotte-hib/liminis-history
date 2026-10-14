@@ -25,6 +25,8 @@ export default defineConfig({
   },
   projects: [
     { name: "sign-in", testMatch: /sign-in\.setup\.ts/ },
-    { name: "curate", dependencies: ["sign-in"], use: { storageState: SIGNED_IN } },
+    { name: "curate", dependencies: ["sign-in"], testIgnore: /sign-out/, use: { storageState: SIGNED_IN } },
+    // Last, whatever the files are called: signing out revokes the session the other tests share.
+    { name: "sign-out", dependencies: ["curate"], testMatch: /sign-out\.spec\.ts/, use: { storageState: SIGNED_IN } },
   ],
 });
