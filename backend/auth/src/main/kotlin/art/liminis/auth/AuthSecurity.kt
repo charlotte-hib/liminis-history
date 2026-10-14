@@ -3,6 +3,7 @@ package art.liminis.auth
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.annotation.Order
+import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcOperations
 import org.springframework.security.authentication.ott.JdbcOneTimeTokenService
@@ -29,6 +30,7 @@ import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler
 import org.springframework.security.web.authentication.ott.OneTimeTokenGenerationSuccessHandler
+import org.springframework.security.web.authentication.ui.DefaultResourcesFilter
 import org.springframework.security.web.firewall.HttpStatusRequestRejectedHandler
 import org.springframework.security.web.firewall.RequestRejectedHandler
 import org.springframework.security.web.firewall.StrictHttpFirewall
@@ -87,18 +89,25 @@ class AuthSecurity {
             authorizeHttpRequests {
                 authorize("/", permitAll)
                 authorize("/login", permitAll)
+                authorize(HttpMethod.GET, "/login/ott", permitAll)
+                authorize("/auth.css", permitAll)
                 authorize(anyRequest, authenticated)
             }
             webAuthn {
                 rpName = "Liminis"
                 rpId = issuer.host
                 allowedOrigins = setOf(issuer.toString())
+                // Ours, in curate's look (AuthPages).
+                disableDefaultRegistrationPage = true
             }
             exceptionHandling { authenticationEntryPoint = LoginUrlAuthenticationEntryPoint("/login") }
         }
+        // Spring Security's passkey script, which it serves only with its own pages.
+        http.addFilter(DefaultResourcesFilter.webauthn())
         http.oneTimeTokenLogin { ott: OneTimeTokenLoginConfigurer<HttpSecurity> ->
-            // Our own sign-in page, which offers passkeys only: the default one would also offer to send a link.
+            // Our own pages (AuthPages): the default sign-in page would also offer to send a link.
             ott.loginPage("/login")
+            ott.showDefaultSubmitPage(false)
             // Or it would take the sign-in page's address too.
             ott.loginProcessingUrl("/login/ott")
             // Links are made by auth itself on start (FirstSignIn), never on request.

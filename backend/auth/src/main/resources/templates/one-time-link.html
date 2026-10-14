@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{page :: head('Register a passkey')}"></head>
+<body>
+<header th:replace="~{page :: bar}"></header>
+<main>
+  <h1>Register a passkey</h1>
+  <form class="card" method="post" action="/login/ott">
+    <p class="muted">This link lets you in once, to register a passkey. From then on, you sign in with the passkey.</p>
+    <input type="hidden" name="token" th:value="${token}">
+    <input type="hidden" th:name="${csrf.parameterName}" th:value="${csrf.token}">
+    <button type="submit">Continue</button>
+  </form>
+</main>
+</body>
+</html>

@@ -1,6 +1,7 @@
 package art.liminis.auth
 
 import org.hamcrest.Matchers.containsString
+import org.hamcrest.Matchers.not
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
@@ -10,6 +11,7 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.security.authentication.ott.GenerateOneTimeTokenRequest
 import org.springframework.security.authentication.ott.OneTimeTokenService
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
@@ -31,9 +33,30 @@ class SignInTests(
         mockMvc.get("/login").andExpect {
             status { isOk() }
             content { string(containsString("Sign in with a passkey")) }
-            content { string(containsString("setupLogin({\"X-CSRF-TOKEN\":")) }
+            content { string(containsString("setupLogin({ \"X-CSRF-TOKEN\": \"")) }
+            content { string(not(containsString("one-time token"))) }
         }
         mockMvc.get("/login/webauthn.js").andExpect { status { isOk() } }
+        mockMvc.get("/auth.css").andExpect { status { isOk() } }
+    }
+
+    @Test
+    fun `asks before using up a one-time link`() {
+        mockMvc.get("/login/ott?token=some-token").andExpect {
+            status { isOk() }
+            content { string(containsString("""name="token" value="some-token"""")) }
+            content { string(containsString("""action="/login/ott"""")) }
+        }
+    }
+
+    @Test
+    fun `lists the curator's passkeys, beside a way to register one`() {
+        mockMvc.get("/webauthn/register") { with(user(CURATOR)) }.andExpect {
+            status { isOk() }
+            content { string(containsString("Register a passkey")) }
+            content { string(containsString("setupRegistration(")) }
+        }
+        mockMvc.get("/webauthn/register").andExpect { redirectedUrl("/login") }
     }
 
     @Test

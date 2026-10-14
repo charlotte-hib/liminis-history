@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{page :: head('Passkeys')}"></head>
+<body>
+<header th:replace="~{page :: bar}"></header>
+<main class="wide">
+  <h1>Your passkeys</h1>
+  <form class="card" action="#" onsubmit="return false">
+    <div id="success" class="alert ok" role="status">Registered. <a th:href="${curateUrl}">Go to curate</a> and sign in with it.</div>
+    <div id="error" class="alert error" role="alert"></div>
+    <label>
+      A name for this one, to tell it apart
+      <input type="text" id="label" name="label" placeholder="This Mac" required autofocus>
+    </label>
+    <button id="register" type="submit">Register a passkey</button>
+  </form>
+  <div class="card" th:unless="${passkeys.isEmpty()}">
+    <table>
+      <thead><tr><th>Name</th><th>Registered</th><th>Last used</th><th></th></tr></thead>
+      <tbody>
+        <tr th:each="passkey : ${passkeys}">
+          <td th:text="${passkey.label}">This Mac</td>
+          <td th:text="${passkey.registered}">14 Oct 2026</td>
+          <td th:text="${passkey.lastUsed}">14 Oct 2026, 20:30</td>
+          <td>
+            <form class="delete-form inline" method="post" th:action="@{/webauthn/register/{id}(id=${passkey.id})}">
+              <input type="hidden" name="method" value="delete">
+              <button class="quiet" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p><a th:href="${curateUrl}">Back to curate</a></p>
+</main>
+<script src="/login/webauthn.js"></script>
+<script th:inline="javascript">
+  // Spring Security's own script registers and deletes passkeys, and reloads this page on success.
+  const ui = {
+    getRegisterButton: () => document.getElementById("register"),
+    getSuccess: () => document.getElementById("success"),
+    getError: () => document.getElementById("error"),
+    getLabelInput: () => document.getElementById("label"),
+    getDeleteForms: () => Array.from(document.getElementsByClassName("delete-form")),
+  };
+  document.addEventListener("DOMContentLoaded", () =>
+    setupRegistration({ [[${csrf.headerName}]]: [[${csrf.token}]] }, "", ui));
+</script>
+</body>
+</html>
