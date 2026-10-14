@@ -13,6 +13,8 @@ spring:
     hikari:
       # Spring Security's JDBC stores name their tables without a schema.
       schema: auth
+      # The workbench's Postgres takes 20 connections, the workbench's pool 10: a few sign-ins a day need no more.
+      maximum-pool-size: 3
   flyway:
     locations: classpath:db/auth
     schemas: auth
