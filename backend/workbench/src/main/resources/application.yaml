@@ -12,7 +12,10 @@ spring:
     virtual:
       enabled: true
   # Postgres: on ./gradlew :workbench:bootRun, Spring Boot's Docker Compose support starts it (compose.workbench.yaml,
-  # at the repository's root) and connects to it; tests run their own.
+  # at the repository's root) and connects to it; tests run their own. auth uses it too: never stop it on exit.
+  docker:
+    compose:
+      lifecycle-management: start-only
   jpa:
     open-in-view: false
     hibernate:
