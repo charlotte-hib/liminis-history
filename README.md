@@ -59,7 +59,7 @@ Outside CI they drive the installed Google Chrome; CI installs Playwright's Chro
 
 Spring Boot 4 and Kotlin, JPA entities, MapStruct for DTOs, and MockMvc API tests that run against `sample/`.
 
-Three Gradle projects: `core` holds the model every app shares (JPA entities, repositories, small helpers), the release compiler and loader, and the Wikipedia enrichment; `site` the public API, the only project in the production image; and `workbench` the curator's tools, never in an image (today, story drafting and the Wikidata import, below).
+Four Gradle projects: `core` holds the model every app shares (JPA entities, repositories, small helpers), the release compiler and loader, and the Wikipedia enrichment; `site` the public API, the only project in the production image; `workbench` the curator's tools, never in an image (today, story drafting and the Wikidata import, below); and `auth`, the curator's sign-in to the workbench, never in an image either.
 
 The data is a **release**: a directory of JSON Lines files, described in [`sample/README.md`](sample/README.md). At startup the site reads the release in `app.release.dir` (Jackson), checks it and maps it to entities (MapStruct, `ReleaseMapper`), then stores it in Postgres. Its JSON Schema, `sample/release.schema.json`, is generated from the record classes (`./gradlew :core:releaseSchema`); the tests check it is current and that `sample/` matches it. `./gradlew bootRun` and the tests load `sample/`. The Docker image holds no data: Compose mounts the release read-only at `/app/release`, `sample/` locally and in CI. Production serves a private release instead: the curator's data lives in a private repository, whose CI checks it on the site and packs it into a private package on GHCR; `release.lock` pins that package by digest, and the deploy job pulls it and sends it to the server.
 
@@ -73,15 +73,16 @@ Next.js 16 App Router with server components for data. Calls to the backend go t
 
 ## The workbench
 
-The curator's tools run on the curator's machine only, never in an image: the workbench, a server on `127.0.0.1:8090`, and `wb`, its command line. Start the workbench, with Docker running, and leave it running:
+The curator's tools run on the curator's machine only, never in an image: the workbench, a server on `127.0.0.1:8090`, `wb`, its command line, and `auth`, which signs them in. Start both servers, with Docker running, and leave them running:
 
 ```sh
 cd backend
+./gradlew :auth:bootRun        # in one terminal
 export ANTHROPIC_API_KEY=...   # for story drafts only
-./gradlew :workbench:bootRun
+./gradlew :workbench:bootRun   # in another
 ```
 
-It has a Postgres of its own (`compose.workbench.yaml`, at the repository's root, with a named volume), which Spring Boot's Docker Compose support starts and stops with it. It loads `sample/` into it and fills in the Wikipedia leads of its people (about a minute). Then, from another terminal:
+The workbench has a Postgres of its own (`compose.workbench.yaml`, at the repository's root, with a named volume), which Spring Boot's Docker Compose support starts and stops with it; `auth` keeps its tables in the same database, in schema `auth`, and starts it too when it starts first, but never stops it. It loads `sample/` into it and fills in the Wikipedia leads of its people (about a minute). Then, from another terminal:
 
 ```sh
 backend/workbench/wb import            # fetch Wikidata's people (hours), or resume
@@ -94,7 +95,18 @@ backend/workbench/wb draft edo-1830s   # draft a moment's story with Claude
 backend/workbench/wb queues            # what waits for review
 ```
 
-Each command starts a run in the background, one at a time, and follows it; `wb runs` lists them. `wb export` writes the fetched dataset (the mapped rows, facts only, no decisions) to `backend/dataset-export/`: `manifest.json`, then people, their Wikipedia articles, places and occupations as gzipped JSON Lines in Q-id order, about 41 MB for 58,500 people. The same rows make the same bytes. It pushes them with ORAS (run in Docker) to a private package on GHCR, with the token of `gh` (which needs `write:packages`), and writes its digest to `data/fetched.lock` in the private data repository's clone next to this one, for a pull request there. Its API is `api/workbench.yaml`, spec first like the site's. Every request needs the token the workbench writes on each start to `~/.config/liminis/workbench-token` (readable by the curator only), and must be addressed to `localhost` or `127.0.0.1`: a web page open in the curator's browser can send requests to localhost, but cannot read that file. An authorization server with passkeys will replace the token.
+Each command starts a run in the background, one at a time, and follows it; `wb runs` lists them. `wb export` writes the fetched dataset (the mapped rows, facts only, no decisions) to `backend/dataset-export/`: `manifest.json`, then people, their Wikipedia articles, places and occupations as gzipped JSON Lines in Q-id order, about 41 MB for 58,500 people. The same rows make the same bytes. It pushes them with ORAS (run in Docker) to a private package on GHCR, with the token of `gh` (which needs `write:packages`), and writes its digest to `data/fetched.lock` in the private data repository's clone next to this one, for a pull request there. Its API is `api/workbench.yaml`, spec first like the site's. Every request needs an access token from `auth` with the scope of its endpoint, and must be addressed to `localhost` or `127.0.0.1`: a web page open in the curator's browser can send requests to localhost, but has no token to send.
+
+### Signing in: `auth`
+
+`auth` is an OAuth 2.1 and OpenID Connect authorization server on `localhost:9000` (Spring Authorization Server, part of Spring Security), on the curator's computer only. The curator signs in with a passkey: Touch ID, nothing to remember, nothing to leak. It issues access tokens to two clients, registered from its code on every start:
+
+- **curate**, for the curator: authorization code with PKCE, after a passkey, then refresh tokens, each used once. Scopes `curation:read` and `curation:write`. The session lasts 8 hours from the sign-in.
+- **wb**, on its own: client credentials, scopes `curation:read` and `runs`. `wb` asks for a token on each command, and again every 5 minutes while it follows a run.
+
+Access tokens are JWTs signed with ES256, for the audience `workbench`, valid 10 minutes. The workbench checks each one against the keys `auth` publishes (`/oauth2/jwks`), its issuer, audience, expiry and the scope its endpoint asks for: `curation:read` to read queues, claims, people and evidence; `curation:write` to add claims, decide and undo; `runs` to start and follow runs. An endpoint with no rule is refused to everyone, and a test fails until it has one. The signing key lives in schema `auth`; every 30 days a new one signs, and the old one stays published 30 days more, so nobody is signed out and nothing restarts. Each client's secret is written once, readable by the curator only, to `~/.config/liminis/curate-client-secret` and `wb-client-secret`; `auth` keeps only a hash, and makes a new secret when its file is gone.
+
+The first start has no passkey: `auth` prints a one-time sign-in link in its log, valid 5 minutes and once. It leads to a page that registers a passkey; curate then asks for that passkey, as the link alone gives no access to the workbench. To register another passkey later (a new computer), start `auth` with `--args=--app.auth.one-time-link=true`.
 
 ### Claims
 
@@ -105,12 +117,12 @@ Anything a careful reader could dispute is a claim in the workbench's schema `cu
 `curate/` is the curator's review app, a Next.js app on the curator's computer only, never in an image. With the workbench running:
 
 ```bash
-cd curate && npm ci && npm run dev   # http://127.0.0.1:3100
+cd curate && npm ci && npm run dev   # http://localhost:3100
 ```
 
 The inbox counts what waits in each queue and why. A queue lists its claims, conflicts first, then the other flagged ones, beside the claim under review: a person's facts field by field against every statement Wikidata holds (with how many references name a source) and the person's Wikipedia intros (`GET /api/people/{qid}/evidence`). Keys: `A` approve, `E` edit (then `⌘⏎` to approve as edited), `R` reject, `N` keep for later, each with an optional note, `S` or `J` the next claim, `K` the previous one, `U` undo the last decision. A decision carries the version the claim was read at (`If-Match`): when it changed meanwhile, in another tab, the workbench refuses and curate offers to read it again. "Add a claim" adds an anecdote about one of the fetched people (found by name, `GET /api/people`), with where it was heard or read.
 
-Only curate's server talks to the workbench: it reads the workbench's token from its file for every call (`WORKBENCH_TOKEN_FILE`, `WORKBENCH_URL` to point it elsewhere), so the browser never holds it. Like the workbench, it answers only requests addressed to `localhost` or `127.0.0.1`. Its end-to-end tests (`e2e/curate/`, `npx playwright test --config curate.config.ts`) decide on claims, so they run against a workbench on a throwaway copy of its database, never in CI.
+Only curate's server talks to `auth` and the workbench, as a backend-for-frontend: it signs the curator in through `auth` (`openid-client`), keeps the tokens in an encrypted, `HttpOnly` cookie (`jose`, with a key it makes in `~/.config/liminis/curate-cookie-key`), refreshes them in `proxy.ts` before they expire, and sends the access token with each call to the workbench (`WORKBENCH_URL`, `AUTH_URL` and `LIMINIS_SECRETS_DIR` to point it elsewhere). The browser never holds a token. "Sign out" revokes the refresh token and ends the session at `auth` too. Like the workbench, it answers only requests addressed to `localhost` or `127.0.0.1`, and sends `127.0.0.1` on to `localhost`, the name `auth` sends the browser back to. Its end-to-end tests (`e2e/curate/`) sign in with a passkey (Chrome's virtual authenticator) and decide on claims, so they run against `auth` and a workbench on a throwaway copy of its database, never in CI: `AUTH_LOG=<auth's output> npx playwright test --config curate.config.ts`.
 
 ## Drafting a story with Claude
 
