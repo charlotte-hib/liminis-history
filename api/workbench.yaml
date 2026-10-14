@@ -459,9 +459,9 @@ paths:
       summary: Publish
       description: |
         Commits the changes on the branch `publish` of the data repository, built on `main` at `base`, and opens its
-        pull request, or updates the one open. With nothing to change, closes the one open. Needs a passkey used in the
-        last 5 minutes: an older one is a 401 with `error="insufficient_user_authentication"` and `max_age` in
-        `WWW-Authenticate` (RFC 9470), for curate to ask for the passkey again.
+        pull request, or updates the one open. With nothing to change, closes the one open. Needs a passkey used within
+        the publication's `maxAge` seconds: an older one is a 401 with `error="insufficient_user_authentication"` and
+        `max_age` in `WWW-Authenticate` (RFC 9470), for curate to ask for the passkey again.
       requestBody:
         required: true
         content:
@@ -1138,7 +1138,7 @@ components:
 
     Publication:
       type: object
-      required: [base, files, withoutEffect]
+      required: [base, files, withoutEffect, maxAge]
       properties:
         base:
           type: string
@@ -1156,6 +1156,11 @@ components:
           description: People written by hand in `people.jsonl` with a correction, which their record overrides.
           items:
             $ref: "#/components/schemas/Qid"
+        maxAge:
+          type: integer
+          format: int32
+          description: How recently, in seconds, the curator must have used their passkey to publish.
+          example: 300
 
     FileChanges:
       type: object

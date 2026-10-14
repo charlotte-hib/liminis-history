@@ -156,6 +156,7 @@ class PublicationApiTests(
         mockMvc.get("/api/publication") { signedIn() }.andExpect {
             status { isOk() }
             jsonPath("$.base") { value(base) }
+            jsonPath("$.maxAge") { value(300) }
             jsonPath("$.files[0].path") { value("data/occupations.jsonl") }
             jsonPath("$.files[0].changes.length()") { value(2) }
             jsonPath("$.files[0].changes[0].id") { value("Q2478141") }

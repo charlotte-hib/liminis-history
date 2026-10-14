@@ -30,6 +30,7 @@ export default async function PublishPage() {
           base={preview.data.base}
           unchanged={unchanged(preview.data)}
           open={preview.data.pullRequest !== undefined}
+          maxAge={preview.data.maxAge}
           {...passkey(session)}
         />
       )}

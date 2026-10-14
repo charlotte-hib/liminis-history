@@ -4,32 +4,31 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { publish } from "@/app/actions";
 
-/** The passkey the workbench wants for a publish: used in the last 5 minutes. */
-const MAX_AGE = 300;
+/** A minute short of the workbench's limit, so that a passkey shown as fresh enough still is when the button is pressed. */
+const MARGIN = 60;
 
-/** Less than that, so that a passkey shown as fresh enough still is when the button is pressed. */
-const FRESH = MAX_AGE - 60;
+/** Where auth asks for the passkey again unless it was used within [fresh] seconds, then sends the curator back here. */
+const stepUp = (fresh: number) => `/auth/sign-in?to=${encodeURIComponent("/publish")}&max_age=${fresh}`;
 
-/** Where auth asks for the passkey again, then sends the curator back here. */
-const STEP_UP = `/auth/sign-in?to=${encodeURIComponent("/publish")}&max_age=${MAX_AGE}`;
-
-type Props = { base: string; unchanged: boolean; open: boolean; secondsAgo: number; mayPublish: boolean };
+type Props = { base: string; unchanged: boolean; open: boolean; maxAge: number; secondsAgo: number; mayPublish: boolean };
 
 /**
  * Publishes after a recent passkey: the button when the passkey is fresh, else a link to use it again. A publish the
  * workbench still finds too old, or refused, sends the curator to the passkey too. With nothing to change, it closes
  * the publish left open, if any.
  */
-export function PublishButton({ base, unchanged, open, secondsAgo, mayPublish }: Props) {
+export function PublishButton({ base, unchanged, open, maxAge, secondsAgo, mayPublish }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [problem, setProblem] = useState<string>();
   const [published, setPublished] = useState<{ number: number; url: string } | null>();
 
+  // The window the link asks auth for is the one the button checks: a wider one would bring back a passkey too old.
+  const fresh = maxAge - MARGIN;
   if (unchanged && !open && published === undefined) return null;
-  if (!mayPublish || secondsAgo >= FRESH) {
+  if (!mayPublish || secondsAgo >= fresh) {
     return (
-      <a href={STEP_UP} className="self-start rounded-md bg-ink px-4 py-3 text-bar">
+      <a href={stepUp(fresh)} className="self-start rounded-md bg-ink px-4 py-3 text-bar">
         Use your passkey to publish
       </a>
     );
@@ -44,7 +43,7 @@ export function PublishButton({ base, unchanged, open, secondsAgo, mayPublish }:
         router.refresh();
       } else if (result.status === 401 || result.status === 403) {
         // A whole page load: the sign-in leaves for auth, another server.
-        window.location.assign(new URL(STEP_UP, window.location.origin).href);
+        window.location.assign(new URL(stepUp(fresh), window.location.origin).href);
       } else if (result.status === 412) {
         setProblem("The data repository changed since this page loaded. Look again, then publish.");
         router.refresh();

@@ -234,9 +234,9 @@ export interface paths {
         /**
          * Publish
          * @description Commits the changes on the branch `publish` of the data repository, built on `main` at `base`, and opens its
-         *     pull request, or updates the one open. With nothing to change, closes the one open. Needs a passkey used in the
-         *     last 5 minutes: an older one is a 401 with `error="insufficient_user_authentication"` and `max_age` in
-         *     `WWW-Authenticate` (RFC 9470), for curate to ask for the passkey again.
+         *     pull request, or updates the one open. With nothing to change, closes the one open. Needs a passkey used within
+         *     the publication's `maxAge` seconds: an older one is a 401 with `error="insufficient_user_authentication"` and
+         *     `max_age` in `WWW-Authenticate` (RFC 9470), for curate to ask for the passkey again.
          */
         post: operations["publish"];
         delete?: never;
@@ -563,6 +563,12 @@ export interface components {
             pullRequest?: components["schemas"]["PullRequest"];
             /** @description People written by hand in `people.jsonl` with a correction, which their record overrides. */
             withoutEffect: components["schemas"]["Qid"][];
+            /**
+             * Format: int32
+             * @description How recently, in seconds, the curator must have used their passkey to publish.
+             * @example 300
+             */
+            maxAge: number;
         };
         FileChanges: {
             /** @example data/occupations.jsonl */

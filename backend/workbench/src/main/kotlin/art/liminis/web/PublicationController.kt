@@ -32,12 +32,15 @@ class PublicationController(
     private val mapper: PublicationApiMapper,
 ) : PublicationApi {
 
-    override fun previewPublication(): PublicationDto = mapper.toDto(publishing.preview())
+    override fun previewPublication(): PublicationDto = mapper.toDto(publishing.preview(), maxAge())
 
     override fun publish(newPublicationDto: NewPublicationDto): PublicationDto {
         requireRecentPasskey()
-        return mapper.toDto(publishing.publish(newPublicationDto.base))
+        return mapper.toDto(publishing.publish(newPublicationDto.base), maxAge())
     }
+
+    /** The passkey's age limit, said in each answer, so that curate asks auth for the one the workbench checks. */
+    private fun maxAge() = properties.maxAge.toSeconds().toInt()
 
     private fun requireRecentPasskey() {
         val token = (SecurityContextHolder.getContext().authentication as JwtAuthenticationToken).token
@@ -62,7 +65,7 @@ class PublicationController(
 /** Publications to the API's models. Every target field is mapped or ignored on purpose. */
 @Mapper(unmappedTargetPolicy = ReportingPolicy.ERROR)
 interface PublicationApiMapper {
-    fun toDto(publication: Publication): PublicationDto
+    fun toDto(publication: Publication, maxAge: Int): PublicationDto
 
     @Mapping(target = "path", source = "file.path")
     fun toDto(changes: FileChanges): FileChangesDto
