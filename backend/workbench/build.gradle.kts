@@ -25,7 +25,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-jackson")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
-	// Every request needs a bearer token: the workbench's own until the authorization server (auth) issues JWTs.
+	// Every request needs an access token from auth (backend/auth), a JWT with the endpoint's scope.
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
@@ -126,8 +126,6 @@ tasks.test {
 	inputs.file(compose).withPropertyName("compose").withPathSensitivity(PathSensitivity.RELATIVE)
 	systemProperty("app.release.dir", sample.path)
 	systemProperty("compose.file", compose.path)
-	// Not the curator's own token file, which a running workbench may be using.
-	systemProperty("app.workbench.token-file", temporaryDir.resolve("workbench-token").path)
 }
 
 // Run from backend/, so story drafts land in backend/drafts as before. Its Postgres is compose.workbench.yaml, at the

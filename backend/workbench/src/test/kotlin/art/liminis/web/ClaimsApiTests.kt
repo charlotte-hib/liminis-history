@@ -17,8 +17,6 @@ import org.springframework.test.web.servlet.post
 import art.liminis.curation.CurationFixtures
 import art.liminis.dataset.DatasetStore
 import art.liminis.testing.PostgresTestConfiguration
-import java.nio.file.Files
-import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
 import kotlin.test.assertEquals
@@ -35,15 +33,11 @@ class ClaimsApiTests(
     @Autowired private val jdbc: JdbcTemplate,
 ) {
 
-    private val token = Files.readString(Path.of(System.getProperty("app.workbench.token-file")))
-
     @BeforeEach
     fun setUp() {
         CurationFixtures.clearClaims(jdbc)
         CurationFixtures.map(dataset)
     }
-
-    private fun MockHttpServletRequestDsl.signedIn() = header(HttpHeaders.AUTHORIZATION, "Bearer $token")
 
     private fun MockHttpServletRequestDsl.ifMatch(etag: String) = header(HttpHeaders.IF_MATCH, etag)
 

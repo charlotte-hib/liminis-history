@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
-import org.springframework.http.HttpHeaders
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.web.servlet.MockHttpServletRequestDsl
 import org.springframework.test.web.servlet.MockMvc
@@ -19,8 +18,6 @@ import art.liminis.dataset.NaturalEarthFixtures
 import art.liminis.dataset.RecordedImport
 import art.liminis.testing.PostgresTestConfiguration
 import art.liminis.wikidata.RawStore
-import java.nio.file.Files
-import java.nio.file.Path
 
 /** Finding people and reading their evidence, on what an import of the 28 people born from 2000 to 1901 BCE stored. */
 @SpringBootTest(
@@ -41,8 +38,6 @@ class PeopleApiTests(
     @Autowired private val jsonMapper: JsonMapper,
 ) {
 
-    private val token = Files.readString(Path.of(System.getProperty("app.workbench.token-file")))
-
     @BeforeEach
     fun importAndMap() {
         RecordedImport(raw, jdbc, jsonMapper).apply {
@@ -51,8 +46,6 @@ class PeopleApiTests(
         }
         mapping.map()
     }
-
-    private fun MockHttpServletRequestDsl.signedIn() = header(HttpHeaders.AUTHORIZATION, "Bearer $token")
 
     @Test
     fun `finds people by a part of their name, those it starts with first, then the best known`() {

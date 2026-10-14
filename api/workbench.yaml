@@ -7,7 +7,8 @@ info:
     the curator's decisions, and the runs that fetch, map and propose.
 
     It listens on 127.0.0.1 only and answers only requests addressed to `localhost` or `127.0.0.1`. Every request
-    needs the token the workbench writes on each start to `~/.config/liminis/workbench-token`.
+    needs an access token from `auth` (on `localhost:9000`) with the scope its operation names: curate gets one for the
+    curator, signed in with a passkey; `wb` gets its own.
 
     People are Wikidata ids (Q-ids). Years are integers, negative for BCE. There is no year 0: 1 BCE is followed by
     1 CE.
@@ -17,8 +18,6 @@ info:
 servers:
   - url: http://localhost:8090
     description: The workbench, on the curator's computer.
-security:
-  - token: []
 tags:
   - name: claims
     description: What the curator approves, edits or rejects, with its sources and the decisions taken.
@@ -34,6 +33,8 @@ paths:
     get:
       tags: [claims]
       operationId: listQueues
+      security:
+        - auth: ["curation:read"]
       summary: Waiting claims, per type
       description: How many claims of each type wait for the curator, and how many of them carry each flag.
       responses:
@@ -47,11 +48,15 @@ paths:
                   $ref: "#/components/schemas/Queue"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /api/claims:
     get:
       tags: [claims]
       operationId: listClaims
+      security:
+        - auth: ["curation:read"]
       summary: Claims
       description: Claims in the order they were proposed, a page at a time.
       parameters:
@@ -94,9 +99,13 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     post:
       tags: [claims]
       operationId: addClaim
+      security:
+        - auth: ["curation:write"]
       summary: Add a claim by hand
       description: |
         A connection, an event or an anecdote the curator found, from a podcast, a book or anywhere else, with at least
@@ -121,6 +130,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
 
@@ -128,6 +139,8 @@ paths:
     get:
       tags: [claims]
       operationId: getClaim
+      security:
+        - auth: ["curation:read"]
       summary: A claim
       description: A claim with its sources and every decision taken on it. Its `ETag` is the version to send back in
         `If-Match` when deciding on it or undoing a decision.
@@ -145,6 +158,8 @@ paths:
                 $ref: "#/components/schemas/ClaimDetail"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -152,6 +167,8 @@ paths:
     post:
       tags: [claims]
       operationId: decide
+      security:
+        - auth: ["curation:write"]
       summary: Decide on a claim
       description: |
         Approve (with an edited payload, if given), reject, or keep for later. A rejection and keeping for later need a
@@ -180,6 +197,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "412":
@@ -191,6 +210,8 @@ paths:
     post:
       tags: [claims]
       operationId: undo
+      security:
+        - auth: ["curation:write"]
       summary: Undo the last decision
       description: |
         Puts back the status and payload from before the curator's last decision on this claim, and logs it. Needs the
@@ -210,6 +231,8 @@ paths:
                 $ref: "#/components/schemas/ClaimDetail"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -223,6 +246,8 @@ paths:
     get:
       tags: [people]
       operationId: findPeople
+      security:
+        - auth: ["curation:read"]
       summary: Find people by name
       description: |
         The fetched people whose English or French label contains `q`, ignoring case, those it starts with first, then
@@ -255,11 +280,15 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /api/people/{qid}/evidence:
     get:
       tags: [people]
       operationId: getEvidence
+      security:
+        - auth: ["curation:read"]
       summary: What the sources say about a person
       description: |
         Every statement of the person's dates, occupations and places as the last import fetched it from Wikidata,
@@ -280,6 +309,8 @@ paths:
                 $ref: "#/components/schemas/Evidence"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -287,6 +318,8 @@ paths:
     get:
       tags: [occupations]
       operationId: getOccupation
+      security:
+        - auth: ["curation:read"]
       summary: Who holds an occupation
       description: |
         An occupation, or a class of them, as the last mapping holds it: its labels, its classes, how many people hold
@@ -307,6 +340,8 @@ paths:
                 $ref: "#/components/schemas/OccupationEvidence"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -314,6 +349,8 @@ paths:
     get:
       tags: [runs]
       operationId: listRuns
+      security:
+        - auth: ["runs"]
       summary: Runs since the workbench started
       responses:
         "200":
@@ -326,9 +363,13 @@ paths:
                   $ref: "#/components/schemas/Run"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     post:
       tags: [runs]
       operationId: startRun
+      security:
+        - auth: ["runs"]
       summary: Start a run
       description: Starts the run in the background. Only one runs at a time.
       requestBody:
@@ -348,6 +389,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
 
@@ -355,6 +398,8 @@ paths:
     get:
       tags: [runs]
       operationId: getRun
+      security:
+        - auth: ["runs"]
       summary: A run
       parameters:
         - name: id
@@ -374,15 +419,31 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
 components:
   securitySchemes:
-    token:
-      type: http
-      scheme: bearer
-      description: The token in `~/.config/liminis/workbench-token`, new on every start.
+    auth:
+      type: oauth2
+      description: |
+        Access tokens from `auth`, the curator's authorization server: JWTs signed with ES256, for the audience
+        `workbench`, valid 10 minutes. The workbench checks them against the keys `auth` publishes.
+      flows:
+        authorizationCode:
+          authorizationUrl: http://localhost:9000/oauth2/authorize
+          tokenUrl: http://localhost:9000/oauth2/token
+          refreshUrl: http://localhost:9000/oauth2/token
+          scopes:
+            curation:read: Read queues, claims, people and their evidence.
+            curation:write: Add claims, decide on them and undo a decision.
+        clientCredentials:
+          tokenUrl: http://localhost:9000/oauth2/token
+          scopes:
+            curation:read: Read queues, claims, people and their evidence.
+            runs: Start runs and follow them.
 
   headers:
     ETag:
@@ -419,7 +480,9 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
     Unauthorized:
-      description: No token, or not the workbench's current one.
+      description: No access token, or one that is expired, not signed by `auth`, or not for the workbench.
+    Forbidden:
+      description: The access token lacks the operation's scope.
     NotFound:
       description: Nothing has this id.
       content:
