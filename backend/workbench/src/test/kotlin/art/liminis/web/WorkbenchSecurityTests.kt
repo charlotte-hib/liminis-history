@@ -12,18 +12,15 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.test.web.servlet.request
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping
 import art.liminis.testing.PostgresTestConfiguration
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.attribute.PosixFilePermissions
+import art.liminis.web.WorkbenchSecurity.Companion.CURATION_READ
+import art.liminis.web.WorkbenchSecurity.Companion.CURATION_WRITE
+import art.liminis.web.WorkbenchSecurity.Companion.RUNS
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
-/** Every endpoint needs the workbench's token, and answers only requests addressed to localhost. */
+/** Every endpoint needs an access token with its own scope, and answers only requests addressed to localhost. */
 @SpringBootTest(properties = ["app.wikipedia.enrich=false"])
 @AutoConfigureMockMvc
 @Import(PostgresTestConfiguration::class)
@@ -32,45 +29,69 @@ class WorkbenchSecurityTests(
     @Autowired @Qualifier("requestMappingHandlerMapping") private val mappings: RequestMappingHandlerMapping,
 ) {
 
-    private val tokenFile = Path.of(System.getProperty("app.workbench.token-file"))
-    private val token = Files.readString(tokenFile)
+    /** The scope each endpoint asks for: a new endpoint fails the test below until it is added here. */
+    private val scopes = mapOf(
+        "GET /api/queues" to CURATION_READ,
+        "GET /api/claims" to CURATION_READ,
+        "GET /api/claims/{id}" to CURATION_READ,
+        "GET /api/people" to CURATION_READ,
+        "GET /api/people/{qid}/evidence" to CURATION_READ,
+        "GET /api/occupations/{qid}" to CURATION_READ,
+        "POST /api/claims" to CURATION_WRITE,
+        "POST /api/claims/{id}/decisions" to CURATION_WRITE,
+        "POST /api/claims/{id}/undo" to CURATION_WRITE,
+        "GET /api/runs" to RUNS,
+        "POST /api/runs" to RUNS,
+        "GET /api/runs/{id}" to RUNS,
+    )
 
-    /** Every endpoint of the API, with its path variables filled in. */
+    /** Every endpoint of the API, as "METHOD /path". */
     private fun endpoints() = mappings.handlerMethods.keys.flatMap { info ->
-        info.methodsCondition.methods.flatMap { method ->
-            info.patternValues.map { HttpMethod.valueOf(method.name) to it.replace("{id}", "1").replace("{qid}", "Q1") }
+        info.methodsCondition.methods.flatMap { method -> info.patternValues.map { "${method.name} $it" } }
+    }.toSet()
+
+    /** The endpoint's method and path, its path variables filled in. */
+    private fun call(endpoint: String) = endpoint.split(" ").let { (method, path) ->
+        HttpMethod.valueOf(method) to path.replace("{id}", "1").replace("{qid}", "Q1")
+    }
+
+    @Test
+    fun `every endpoint has its scope`() {
+        assertEquals(scopes.keys, endpoints())
+    }
+
+    @Test
+    fun `every endpoint answers 401 without a token or with a bad one`() {
+        for (endpoint in endpoints()) {
+            val (method, path) = call(endpoint)
+            mockMvc.request(method, path).andExpect {
+                status { isUnauthorized() }
+                header { string(HttpHeaders.WWW_AUTHENTICATE, startsWith("Bearer")) }
+            }
+            mockMvc.request(method, path) { header(HttpHeaders.AUTHORIZATION, "Bearer not-a-token") }.andExpect {
+                status { isUnauthorized() }
+                header { string(HttpHeaders.WWW_AUTHENTICATE, containsString("invalid_token")) }
+            }
         }
     }
 
     @Test
-    fun `writes a new token on start, that only the curator can read`() {
-        assertEquals(43, token.length)
-        assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(tokenFile)))
-    }
-
-    @Test
-    fun `every endpoint answers 401 without the token or with another one`() {
-        val endpoints = endpoints()
-        assertTrue(endpoints.size >= 9, "Found only $endpoints")
-        for ((method, path) in endpoints) {
-            mockMvc.perform(request(method, path))
-                .andExpect(status().isUnauthorized)
-                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, startsWith("Bearer")))
-            mockMvc.perform(request(method, path).header(HttpHeaders.AUTHORIZATION, "Bearer not-the-token"))
-                .andExpect(status().isUnauthorized)
-                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, containsString("invalid_token")))
+    fun `every endpoint answers 403 to a token without its scope, and lets its scope through`() {
+        for ((endpoint, scope) in scopes) {
+            val (method, path) = call(endpoint)
+            mockMvc.request(method, path) { signedIn(ALL_SCOPES - scope) }.andExpect {
+                status { isForbidden() }
+                header { string(HttpHeaders.WWW_AUTHENTICATE, containsString("insufficient_scope")) }
+            }
+            val status = mockMvc.request(method, path) { signedIn(listOf(scope)) }.andReturn().response.status
+            assert(status != 401 && status != 403) { "$endpoint answered $status with $scope" }
         }
     }
 
     @Test
-    fun `answers with the token`() {
-        mockMvc.get("/api/queues") { header(HttpHeaders.AUTHORIZATION, "Bearer $token") }.andExpect { status { isOk() } }
-    }
-
-    @Test
-    fun `turns away a request addressed to another host, even with the token`() {
+    fun `turns away a request addressed to another host, even signed in`() {
         mockMvc.get("/api/queues") {
-            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            signedIn()
             with { it.serverName = "rebound.example"; it }
         }.andExpect { status { isBadRequest() } }
     }
@@ -78,8 +99,8 @@ class WorkbenchSecurityTests(
     @Test
     fun `sets no cookie and allows no cross-origin call`() {
         mockMvc.get("/api/queues") {
-            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
-            header(HttpHeaders.ORIGIN, "http://localhost:3002")
+            signedIn()
+            header(HttpHeaders.ORIGIN, "http://localhost:3100")
         }.andExpect {
             header { doesNotExist(HttpHeaders.SET_COOKIE) }
             header { doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN) }

@@ -1,79 +1,46 @@
 package art.liminis.web
 
-import org.slf4j.LoggerFactory
-import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod.GET
+import org.springframework.http.HttpMethod.POST
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.invoke
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.core.context.SecurityContextHolder
-import org.springframework.security.oauth2.server.resource.introspection.BadOpaqueTokenException
-import org.springframework.security.oauth2.server.resource.introspection.OAuth2IntrospectionAuthenticatedPrincipal
-import org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.firewall.HttpStatusRequestRejectedHandler
 import org.springframework.security.web.firewall.RequestRejectedHandler
 import org.springframework.security.web.firewall.StrictHttpFirewall
-import org.springframework.stereotype.Component
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.attribute.PosixFilePermissions
-import java.security.MessageDigest
-import java.security.SecureRandom
-import java.util.Base64
-
-@ConfigurationProperties("app.workbench")
-data class WorkbenchProperties(
-    /** Where the workbench writes its token on every start, readable by the curator only. */
-    val tokenFile: Path,
-)
 
 /**
- * The token every request needs until the authorization server (`auth`) issues JWTs: random, new on every start, and
- * written to a file only the curator can read, for `wb` and `curate` to send. A web page open in the curator's browser
- * can send requests to localhost, but it cannot read the file.
- */
-@Component
-class WorkbenchToken(properties: WorkbenchProperties) {
-
-    private val log = LoggerFactory.getLogger(javaClass)
-    private val value = ByteArray(32).also(SecureRandom()::nextBytes).let(Base64.getUrlEncoder().withoutPadding()::encodeToString)
-
-    init {
-        val file = properties.tokenFile.toAbsolutePath()
-        Files.createDirectories(file.parent, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")))
-        Files.deleteIfExists(file)
-        Files.createFile(file, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")))
-        Files.writeString(file, value)
-        log.info("Wrote the workbench's token to {}", file)
-    }
-
-    fun matches(candidate: String): Boolean = MessageDigest.isEqual(candidate.toByteArray(), value.toByteArray())
-}
-
-/**
- * Every request needs the workbench's token as a bearer token, and must be addressed to localhost: a page that
- * rebinds its own domain to 127.0.0.1 still sends its own name. No sessions, no cookies, so no CSRF to guard against.
+ * Every request needs an access token from auth (a JWT, checked against auth's published keys, its issuer, its audience
+ * and its expiry) with the scope its endpoint asks for, and must be addressed to localhost: a page that rebinds its own
+ * domain to 127.0.0.1 still sends its own name. An endpoint left out of the rules below is refused to everyone. No
+ * sessions, no cookies, so no CSRF to guard against.
  */
 @Configuration
 class WorkbenchSecurity {
 
     @Bean
-    fun filterChain(http: HttpSecurity, introspector: OpaqueTokenIntrospector): SecurityFilterChain {
+    fun filterChain(http: HttpSecurity): SecurityFilterChain {
         http {
-            authorizeHttpRequests { authorize(anyRequest, authenticated) }
-            oauth2ResourceServer { opaqueToken { this.introspector = introspector } }
+            authorizeHttpRequests {
+                for (path in listOf("/api/queues", "/api/claims", "/api/claims/*", "/api/people", "/api/people/*/evidence", "/api/occupations/*")) {
+                    authorize(GET, path, hasAuthority(CURATION_READ))
+                }
+                for (path in listOf("/api/claims", "/api/claims/*/decisions", "/api/claims/*/undo")) {
+                    authorize(POST, path, hasAuthority(CURATION_WRITE))
+                }
+                authorize("/api/runs", hasAuthority(RUNS))
+                authorize("/api/runs/*", hasAuthority(RUNS))
+                authorize(anyRequest, denyAll)
+            }
+            oauth2ResourceServer { jwt { } }
             sessionManagement { sessionCreationPolicy = SessionCreationPolicy.STATELESS }
             csrf { disable() }
         }
         return http.build()
-    }
-
-    @Bean
-    fun introspector(token: WorkbenchToken) = OpaqueTokenIntrospector { candidate ->
-        if (!token.matches(candidate)) throw BadOpaqueTokenException("Not the workbench's token")
-        OAuth2IntrospectionAuthenticatedPrincipal(CURATOR, mapOf("sub" to CURATOR), emptyList())
     }
 
     @Bean
@@ -84,10 +51,16 @@ class WorkbenchSecurity {
     fun requestRejectedHandler(): RequestRejectedHandler = HttpStatusRequestRejectedHandler()
 
     companion object {
-        /** Who the token stands for, until each client signs in on its own. */
-        const val CURATOR = "curator"
+        /** Queues, claims, people and their evidence: curate, and wb's queues. */
+        const val CURATION_READ = "SCOPE_curation:read"
 
-        /** Who sent the current request, for the decision log. */
+        /** Adding claims, deciding, undoing: curate. */
+        const val CURATION_WRITE = "SCOPE_curation:write"
+
+        /** Starting and following runs: wb. */
+        const val RUNS = "SCOPE_runs"
+
+        /** Who sent the current request, for the decision log: the curator signed in to curate, or the wb client. */
         fun currentActor(): String = SecurityContextHolder.getContext().authentication!!.name
     }
 }

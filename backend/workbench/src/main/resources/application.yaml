@@ -28,6 +28,17 @@ spring:
       # For every RestClient but WikimediaClient's, which set their own: a slow article must not hold up enrichment.
       connect-timeout: 5s
       read-timeout: 5s
+  # Every request carries an access token from auth (backend/auth, on localhost:9000): a JWT the workbench checks against
+  # auth's published keys, fetched on the first request and again whenever a token names a key it does not know (after
+  # a rotation), so auth may start after the workbench.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:9000
+          jwk-set-uri: http://localhost:9000/oauth2/jwks
+          audiences: workbench
+          jws-algorithms: ES256
 
 # On the curator's computer only, never on the network: wb and curate call it there.
 server:
@@ -35,8 +46,6 @@ server:
   port: 8090
 
 app:
-  workbench:
-    token-file: ${user.home}/.config/liminis/workbench-token
   curation:
     # The people of each moment whose facts are proposed for review (wb claims), the best known first.
     people-per-moment: 50
