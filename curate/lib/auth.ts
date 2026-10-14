@@ -99,6 +99,16 @@ async function client(): Promise<oidc.Configuration> {
   return configuration;
 }
 
+/**
+ * [to] if it is a page of curate's, else the inbox. Comparing origins, not prefixes: `/\evil.com` starts with one
+ * slash, yet a browser reads it as `//evil.com`, another site.
+ */
+export function pageOfCurate(to: string | null): string {
+  if (!to || !URL.canParse(to, CURATE_URL)) return "/";
+  const url = new URL(to, CURATE_URL);
+  return url.origin === CURATE_URL.origin ? url.pathname + url.search : "/";
+}
+
 /** Where to send the browser to sign in, and the cookie that remembers what to check when it comes back. */
 export async function startSignIn(returnTo: string): Promise<{ url: URL; cookie: string; expiresAt: number }> {
   const signIn: SignIn = { verifier: oidc.randomPKCECodeVerifier(), state: oidc.randomState(), nonce: oidc.randomNonce(), returnTo };
@@ -124,7 +134,7 @@ export async function finishSignIn(callback: URL, signInCookie: string | undefin
     expectedNonce: signIn.nonce,
     idTokenExpected: true,
   });
-  return { session: session(tokens, now()), returnTo: signIn.returnTo };
+  return { session: session(tokens, now()), returnTo: pageOfCurate(signIn.returnTo) };
 }
 
 function session(tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers, signedInAt: number, idToken?: string): Session {
