@@ -3,7 +3,8 @@ import { expect, test } from "@playwright/test";
 import { PASSKEY } from "../curate.config.js";
 
 // Publishing asks for a passkey used minutes ago, not the morning's sign-in: curate signs in again with max_age, and
-// auth asks for the passkey only when it is older than that.
+// auth asks for the passkey only when it is older than that. Publishing itself needs GitHub: the workbench's tests
+// cover it, against a fake one.
 test("a sign-in with max_age asks for the passkey again only once it is older", async ({ page, context }) => {
   test.setTimeout(150_000);
   const cdp = await context.newCDPSession(page);

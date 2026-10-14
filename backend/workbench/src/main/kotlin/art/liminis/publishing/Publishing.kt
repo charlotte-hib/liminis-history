@@ -38,8 +38,10 @@ class Publishing(private val dataFiles: DataFiles, private val github: GitHub, p
 
     /**
      * Commits what [preview] showed on [base], on the publish branch, and opens its pull request or updates the one
-     * open. Refused when the data repository moved since the preview, so that what is published is what was seen.
-     * With nothing to change, closes the pull request left open, if any.
+     * open. Refused when the data repository moved since the preview. Claims decided since (in another tab) go out
+     * with the rest: the pull request shows them before they merge. With nothing to change, closes the pull request
+     * left open, if any. Two publishes at once could both open a pull request, and the second fail: the one curator
+     * presses one button, disabled while it publishes.
      */
     fun publish(base: String): Publication {
         if (base() != base) throw StaleException("The data repository changed since you looked: look again, then publish")
@@ -66,12 +68,16 @@ class Publishing(private val dataFiles: DataFiles, private val github: GitHub, p
     /** What the approved claims change in [base]'s files, and those files as publishing would write them. */
     private fun compare(base: String): Pair<Publication, Map<DataFile, Lines>> {
         val files = dataFiles.build()
-        val changes = files.map { (file, lines) -> FileChanges(file, changes(dataFiles.read(github.file(file.path, base)), lines)) }
+        val changes = files.map { (file, lines) -> FileChanges(file, changes(dataFiles.read(file.path, github.file(file.path, base)), lines)) }
         val byHand = dataFiles.qids(github.file(PEOPLE, base))
         val withoutEffect = files.getValue(DataFile.CORRECTIONS).keys.filter { it in byHand }
         return Publication(base, changes, github.openPullRequest(properties.branch), withoutEffect) to files
     }
 
+    /**
+     * Records compared line for line, as JSON text: the workbench writes these files whole, in one format, so a line
+     * changes only when its record does.
+     */
     private fun changes(before: Lines, after: Lines): List<RecordChange> =
         (before.keys + after.keys).toSortedSet().mapNotNull { id ->
             val old = before[id]

@@ -12,6 +12,7 @@ import art.liminis.curation.PersonFacts
 import art.liminis.domain.Domain
 import art.liminis.release.CorrectionRecord
 import art.liminis.release.OccupationRecord
+import art.liminis.support.UnavailableException
 
 /** The files of the data repository that publishing writes, whole, from the approved claims. Nothing else is touched. */
 enum class DataFile(val path: String) {
@@ -29,7 +30,8 @@ fun Lines.text(): String? = if (isEmpty()) null else values.joinToString("\n", p
  * What the approved claims make of [DataFile]s: the domain of each occupation mapped, and the curator's corrections to
  * people's facts. A correction holds only the fields approved otherwise than Wikidata proposed them; facts approved as
  * proposed need none. Corrections for people written by hand in `people.jsonl` are written too, though the release
- * gives them no effect: they are the curator's decisions all the same.
+ * gives them no effect: they are the curator's decisions all the same. A correction can set a field, not clear it: a
+ * French name removed in curate, and a date's precision, which the release does not use, are not published.
  */
 @Component
 class DataFiles(private val claims: ClaimRepository, jsonMapper: JsonMapper) {
@@ -44,8 +46,10 @@ class DataFiles(private val claims: ClaimRepository, jsonMapper: JsonMapper) {
             .associate { it.id to lineMapper.writeValueAsString(it) },
     ).mapValues { (_, lines) -> lines.toSortedMap() }
 
-    /** The lines of [text], a file of the release format, by their records' ids. */
-    fun read(text: String?): Lines = records(text).associateBy { lineMapper.readTree(it)["id"].asString() }.toSortedMap()
+    /** The lines of [text], the file at [path] in the release format, by their records' ids. */
+    fun read(path: String, text: String?): Lines = records(text).associateBy { line ->
+        lineMapper.readTree(line)["id"]?.asString() ?: throw UnavailableException("$path holds a line without an id: $line")
+    }.toSortedMap()
 
     /** The Q-ids of the people of [text], `people.jsonl`: those written by hand who have one. */
     fun qids(text: String?): Set<String> = records(text).mapNotNull { lineMapper.readTree(it)["qid"]?.asString() }.toSet()

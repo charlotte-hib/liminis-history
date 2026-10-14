@@ -180,8 +180,8 @@ class AuthSecurity {
         context.jwsHeader.algorithm(SignatureAlgorithm.ES256)
         if (context.tokenType == OAuth2TokenType.ACCESS_TOKEN) {
             context.claims.audience(listOf(AUDIENCE))
-            context.getPrincipal<Authentication>()?.authorities.orEmpty()
-                .firstNotNullOfOrNull { (it as? FactorGrantedAuthority)?.takeIf { it.authority == FactorGrantedAuthority.WEBAUTHN_AUTHORITY } }
+            context.getPrincipal<Authentication>()?.authorities.orEmpty().filterIsInstance<FactorGrantedAuthority>()
+                .firstOrNull { it.authority == FactorGrantedAuthority.WEBAUTHN_AUTHORITY }
                 ?.let { context.claims.claim(AUTH_TIME, it.issuedAt.epochSecond) }
         }
     }

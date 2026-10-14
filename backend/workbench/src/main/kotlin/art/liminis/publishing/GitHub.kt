@@ -6,7 +6,6 @@ import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.crypto.RSASSASigner
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
-import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.security.converter.RsaKeyConverters
@@ -18,33 +17,10 @@ import org.springframework.web.client.body
 import tools.jackson.databind.JsonNode
 import art.liminis.support.UnavailableException
 import java.nio.file.Files
-import java.nio.file.Path
 import java.security.interfaces.RSAPrivateKey
 import java.time.Duration
 import java.time.Instant
 import java.util.Date
-
-@ConfigurationProperties("app.publish")
-data class PublishProperties(
-    /** The private data repository, as `owner/name`. */
-    val repository: String,
-    /** The branch the release is made from. */
-    val baseBranch: String,
-    /** The branch of the publish pull request: one at a time, rebuilt on [baseBranch] by every publish. */
-    val branch: String,
-    /** How recently the curator must have used their passkey to publish. */
-    val maxAge: Duration,
-    val github: GitHubProperties,
-)
-
-data class GitHubProperties(
-    /** GitHub's REST API. */
-    val api: String,
-    /** The GitHub App's client id, which signs in as the app. None until the App is made. */
-    val clientId: String = "",
-    /** The App's private key, PKCS#8 PEM: on the curator's computer, readable by them only, never in a repository. */
-    val privateKey: Path,
-)
 
 /** A file of a new tree, with its text. */
 private data class Blob(val path: String, val content: String, val mode: String = FILE, val type: String = "blob")
