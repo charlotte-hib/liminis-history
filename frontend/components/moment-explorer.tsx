@@ -4,6 +4,7 @@ import { Slider } from "@base-ui/react/slider";
 import { Play, Shuffle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ArtworkImage } from "@/components/artwork-image";
 import { DoorCard } from "@/components/door-card";
 import { EraButton } from "@/components/era-panel";
 import { DetailPanel } from "@/components/detail-panel";
@@ -207,12 +208,19 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
         <h2 id="next-title" className="text-xs tracking-widest text-muted-foreground uppercase">Where next?</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {hasStory(moment) && (
-            <Link href={`/moment/${moment.id}/story`} className="flex min-h-40 flex-col justify-end gap-1 rounded-2xl border border-lamp bg-lamp/10 p-4 hover:bg-lamp/20">
-              <span className="text-[11px] font-medium tracking-widest text-lamp uppercase">The story</span>
-              <span className="flex items-center gap-2 font-story text-xl font-medium">
-                <Play className="size-5" /> Play {titleOf(moment)}
-              </span>
-              <span className="text-sm text-muted-foreground">{moment.storyCards} cards</span>
+            <Link
+              href={`/moment/${moment.id}/story`}
+              className="dark group relative flex min-h-40 flex-col justify-end overflow-hidden rounded-2xl border border-lamp bg-background"
+            >
+              {moment.art && <ArtworkImage art={moment.art} sizes="(min-width: 768px) 33vw, 100vw" className="transition-transform duration-700 group-hover:scale-105" />}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/10" />
+              <div className="relative grid gap-1 p-4">
+                <span className="text-[11px] font-medium tracking-widest text-lamp uppercase">The story</span>
+                <span className="flex items-center gap-2 font-story text-xl font-medium">
+                  <Play className="size-5" /> Play {titleOf(moment)}
+                </span>
+                <span className="text-sm text-muted-foreground">{moment.storyCards} cards</span>
+              </div>
             </Link>
           )}
           {doors.map((door) => <DoorCard key={door.target.id} door={door} />)}
