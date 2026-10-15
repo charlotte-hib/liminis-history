@@ -11,7 +11,8 @@ export const PASSKEY = "test-results/.auth/passkey.json";
  * workbench. Start auth with its output in a file and a one-time link (`./gradlew :auth:bootRun
  * --args=--app.auth.one-time-link=true > auth.log`), the workbench on a throwaway copy of its database (the tests add
  * and decide claims), propose the claims (`wb claims`, `wb occupations`), and curate against them, then:
- * `AUTH_LOG=auth.log npx playwright test --config curate.config.ts` (CURATE_URL, default http://localhost:3100).
+ * `AUTH_LOG=auth.log npx playwright test --config curate.config.ts` (CURATE_URL, default http://localhost:3100). Add
+ * WORKBENCH_WITHOUT_ANTHROPIC_KEY=1 when the workbench was started without ANTHROPIC_API_KEY, to try drafting for free.
  */
 export default defineConfig({
   testDir: "curate",

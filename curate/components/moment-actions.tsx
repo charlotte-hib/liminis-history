@@ -15,7 +15,7 @@ const POLL_MS = 3000;
 
 /**
  * Drafts the moment's story with Claude, and follows the run: the page looks again until it ends, then shows what it
- * came to and cost. Disabled while any run runs: the workbench runs one at a time.
+ * came to and cost. Disabled while this draft runs; the workbench refuses one while another run runs, as it says.
  */
 export function DraftButton({ moment, draft, drafted }: { moment: string; draft?: Run; drafted: boolean }) {
   const router = useRouter();

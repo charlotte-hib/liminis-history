@@ -168,6 +168,11 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
   const { claim, evidence, person, occupation } = review;
   const payload = claim.payload;
   const [mode, setMode] = useState<"view" | "edit" | "REJECT" | "NEEDS_WORK">("view");
+  // A story redrafted after the curator's edits keeps them: the new draft is the claim's proposal, to edit from.
+  const [fromDraft, setFromDraft] = useState(false);
+  const proposal = claim.proposal as Payload;
+  const redrafted =
+    proposal.type === "STORY" && claim.flags.some((flag) => flag.reason === "CHANGED_SINCE_EDITED") ? proposal : null;
   const [note, setNote] = useState("");
   const editable = payload.type === "PERSON_FACTS" || payload.type === "ANECDOTE" || payload.type === "STORY";
 
@@ -225,7 +230,7 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
         {claimFlags.map((flag) => (
           <div key={flag.reason} role="note" className={`flex items-center gap-3 rounded-lg px-4 py-2.5 ${FLAG_STYLE[flag.flag]}`}>
             <span className="font-mono text-xs font-medium">{FLAGS[flag.flag]}</span>
-            <span>{describe(flag.reason)}</span>
+            <span>{describe(flag.reason, payload.type)}</span>
           </div>
         ))}
 
@@ -234,9 +239,38 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
         ) : mode === "edit" && payload.type === "ANECDOTE" ? (
           <AnecdoteForm payload={payload} pending={pending} onApprove={(p, n) => onDecide("APPROVE", p, n)} onCancel={() => setMode("view")} />
         ) : mode === "edit" && payload.type === "STORY" ? (
-          <StoryForm payload={payload} pending={pending} onApprove={(p, n) => onDecide("APPROVE", p, n)} onCancel={() => setMode("view")} />
+          <StoryForm
+            payload={fromDraft && redrafted ? redrafted : payload}
+            pending={pending}
+            onApprove={(p, n) => onDecide("APPROVE", p, n)}
+            onCancel={() => {
+              setFromDraft(false);
+              setMode("view");
+            }}
+          />
         ) : payload.type === "STORY" ? (
-          <StoryView story={payload} />
+          <>
+            <StoryView story={payload} />
+            {redrafted && (
+              <section aria-label="The new draft" className="flex flex-col gap-3 border-t border-line pt-4">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-semibold">Claude&apos;s new draft</h3>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      setFromDraft(true);
+                      setMode("edit");
+                    }}
+                    className="rounded-md border border-line px-3 py-1.5"
+                  >
+                    Edit from the new draft
+                  </button>
+                </div>
+                <StoryView story={redrafted} />
+              </section>
+            )}
+          </>
         ) : payload.type === "PERSON_FACTS" ? (
           <FactsTable facts={payload} evidence={evidence} flags={claim.flags} />
         ) : payload.type === "OCCUPATION_DOMAIN" ? (

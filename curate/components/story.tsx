@@ -121,7 +121,12 @@ export function StoryForm({ payload, pending, onApprove, onCancel }: FormProps) 
     const story: Story = {
       ...payload,
       hook: { ...payload.hook, text: hook.trim() },
-      world,
+      world: {
+        governs: { ...world.governs, text: world.governs.text.trim() },
+        everyday: { ...world.everyday, text: world.everyday.text.trim() },
+        arts: { ...world.arts, text: world.arts.text.trim() },
+        meanwhile: { ...world.meanwhile, text: world.meanwhile.text.trim() },
+      },
       cards: cards.map(({ when, ...card }) => {
         const field = SHOWS[card.type];
         return {
@@ -165,7 +170,7 @@ export function StoryForm({ payload, pending, onApprove, onCancel }: FormProps) 
             <legend className="px-1.5 text-[13px] text-muted">Card {i + 1}</legend>
             <div className="grid grid-cols-[130px_110px_minmax(0,1fr)_auto] items-end gap-3">
               <Labelled name="Type">
-                <select className={input} value={card.type} onChange={(e) => change(i, { type: e.target.value as CardType })}>
+                <select className={input} value={card.type} onChange={(e) => change(i, { type: e.target.value as CardType, label: undefined })}>
                   {Object.keys(SHOWS).map((type) => (
                     <option key={type}>{type}</option>
                   ))}

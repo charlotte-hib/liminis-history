@@ -24,6 +24,8 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
   ]);
   if (!moment || !people) notFound();
   const pages = Math.max(1, Math.ceil(people.total / PAGE));
+  // The moment's waiting claims count its story's too, which has its own link.
+  const waitingFacts = moment.waiting - (moment.story === "CANDIDATE" ? 1 : 0);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-10 py-8">
@@ -61,7 +63,7 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
           <span className="text-muted">
             {people.total} people tied to {moment.region} by a place of theirs, the best known first
           </span>
-          {moment.waiting > 0 && (
+          {waitingFacts > 0 && (
             <Link href={`/review/person-facts?moment=${moment.id}`} className="ml-auto text-lamp underline-offset-4 hover:underline">
               Review this moment&apos;s waiting facts
             </Link>

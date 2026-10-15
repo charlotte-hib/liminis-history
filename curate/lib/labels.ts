@@ -72,9 +72,19 @@ export function fieldOf(reason: string): Field {
   return PLACE_FIELDS[reason.split("_")[0]] ?? "claim";
 }
 
-/** A reason in words: the workbench's codes translated, its sentences (a story's findings) as they are. */
-export function describe(reason: string): string {
+/** What a new draft did to a story already reviewed: the workbench's refresh reasons, said for stories. */
+const STORY_REASONS: Record<string, string> = {
+  CHANGED_SINCE_APPROVED: "Claude drafted it again since you approved it",
+  CHANGED_SINCE_EDITED: "Claude drafted it again since you edited it: your edits are shown, the new draft below",
+};
+
+/**
+ * A reason in words: the workbench's codes translated, for the claim's [type] when it says otherwise, and its
+ * sentences (a story's findings) as they are.
+ */
+export function describe(reason: string, type?: ClaimType): string {
   if (reason.includes(" ")) return reason;
+  if (type === "STORY" && STORY_REASONS[reason]) return STORY_REASONS[reason];
   const place = reason.match(/^P\d+_(.+)$/);
   return REASONS[place ? place[1] : reason] ?? reason.toLowerCase().replaceAll("_", " ");
 }

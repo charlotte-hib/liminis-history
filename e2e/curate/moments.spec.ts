@@ -24,8 +24,9 @@ test("a moment's people are listed, and one's facts proposed for review", async 
 });
 
 // Without an Anthropic key the workbench cannot draft: the page follows the run and says why it failed, spending nothing.
+// Only this process can't tell how the workbench was started: the run says so with WORKBENCH_WITHOUT_ANTHROPIC_KEY=1.
 test("drafting a story is started from the moment's page, and its outcome shown", async ({ page }) => {
-  test.skip(!!process.env.ANTHROPIC_API_KEY, "Would spend: run with the workbench started without ANTHROPIC_API_KEY");
+  test.skip(process.env.WORKBENCH_WITHOUT_ANTHROPIC_KEY !== "1", "Would spend unless the workbench runs without ANTHROPIC_API_KEY");
   await page.goto("/moments/edo-1830s");
   await page.getByRole("button", { name: /Draft (again )?with Claude/ }).click();
   await expect(page.getByRole("status")).toContainText("The last draft failed", { timeout: 15_000 });
