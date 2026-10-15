@@ -29,7 +29,22 @@ data class DraftCard(
     val citations: List<Citation>,
 )
 
-data class StoryDraft(val hook: DraftLine, val world: DraftWorld, val cards: List<DraftCard>)
+data class StoryDraft(val hook: DraftLine, val world: DraftWorld, val cards: List<DraftCard>) {
+
+    /**
+     * The draft with its cards naming what they show by id alone: the model sometimes copies the whole source id
+     * (`person:Q5586` for `Q5586`), which would name nothing.
+     */
+    fun withBareIds(): StoryDraft = copy(
+        cards = cards.map { card ->
+            card.copy(
+                personId = card.personId?.removePrefix("person:")?.removePrefix("elsewhere:"),
+                lifeId = card.lifeId?.removePrefix("life:"),
+                eventId = card.eventId?.removePrefix("event:"),
+            )
+        },
+    )
+}
 
 /**
  * A text the drafter may draw on, under a stable id it cites, e.g. `person:Q535`, with the [name] of whoever or whatever

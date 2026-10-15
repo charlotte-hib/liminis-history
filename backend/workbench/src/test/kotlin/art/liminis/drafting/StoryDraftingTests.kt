@@ -68,8 +68,9 @@ class StoryDraftingTests(
         world = line("A line.", "person:Q3008", "a French writer").let { DraftWorld(it, it, it, it) },
         cards = listOf(
             DraftCard(CardType.PERSON, null, null, "Back from exile.", "Q535", null, null, 1871, listOf(Citation("person:Q535", "and politician"))),
-            DraftCard(CardType.PERSON, null, null, "Writing.", "Q3008", null, null, 1875, listOf(Citation("person:Q3008", "nineteenth century"))),
-            DraftCard(CardType.LIFE, null, null, "Washing.", null, "a-washerwoman-on-the-seine", null, 1875, listOf(Citation("person:Q3008", "invented"))),
+            // Named by its whole source id, as Claude did once: the id alone is kept.
+            DraftCard(CardType.PERSON, null, null, "Writing.", "person:Q3008", null, null, 1875, listOf(Citation("person:Q3008", "nineteenth century"))),
+            DraftCard(CardType.LIFE, null, null, "Washing.", null, "life:a-washerwoman-on-the-seine", null, 1875, listOf(Citation("person:Q3008", "invented"))),
             DraftCard(CardType.SCENE, "Setting the scene", "A city rebuilt", "Boulevards.", null, null, null, 1875, listOf(Citation("person:Q535", "writer"))),
         ),
     )

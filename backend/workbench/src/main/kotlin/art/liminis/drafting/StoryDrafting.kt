@@ -58,10 +58,11 @@ class StoryDrafting(
         val momentSources = sources.forMoment(moment)
         log.info("Drafting {} from {} sources with {}", momentId, momentSources.size, properties.model)
         val drafted = drafter.draft(moment, momentSources)
-        val problems = StoryDraftValidator.problems(drafted.draft, momentSources, moment.startYear, moment.endYear)
-        val story = story(moment, drafted.draft, momentSources)
+        val draft = drafted.draft.withBareIds()
+        val problems = StoryDraftValidator.problems(draft, momentSources, moment.startYear, moment.endYear)
+        val story = story(moment, draft, momentSources)
         val flags = (problems + fetchedPeople(story)).map { FlagReason(Flag.ODD, it) }
-        val counts = claims.propose(listOf(Proposal(story, Origin.CLAUDE, flags, articles(drafted.draft, momentSources))))
+        val counts = claims.propose(listOf(Proposal(story, Origin.CLAUDE, flags, articles(draft, momentSources))))
 
         val cost = cost(drafted)
         log.info("Drafted {} with {}: {} cards, {} problems, {} input and {} output tokens, \${}", momentId, drafted.model,

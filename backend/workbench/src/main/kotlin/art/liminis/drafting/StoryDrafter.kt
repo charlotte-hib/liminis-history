@@ -27,9 +27,11 @@ private val SYSTEM_PROMPT = """
     Write 6 to 9 cards:
     - SCENE cards set the scene: who governs, how ordinary people live, what is being made. Kicker like
       "Setting the scene · Edo, 1830s"; a short title; two or three sentences.
-    - PERSON cards introduce someone who lived it, as they are during the moment. Set personId and the year.
-    - LIFE cards show a typical everyday life. Set lifeId.
-    - EVENT cards tell a documented event. Set eventId; the text adds context and does not repeat the event.
+    - PERSON cards introduce someone who lived it, as they are during the moment. Set personId to the id after
+      "person:" in their source's id (Q535 for person:Q535), and the year.
+    - LIFE cards show a typical everyday life. Set lifeId to the id after "life:".
+    - EVENT cards tell a documented event. Set eventId to the id after "event:"; the text adds context and does not
+      repeat the event.
     Mix powerful people, artists and thinkers, and everyday lives. Order the cards so they read as one story.
 
     Also write a hook of under 90 characters, and the world around the moment: one sentence each for who
