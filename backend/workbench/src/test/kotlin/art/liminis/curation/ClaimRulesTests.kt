@@ -2,6 +2,7 @@ package art.liminis.curation
 
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import art.liminis.domain.CardType
 import art.liminis.support.InvalidRequestException
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -114,5 +115,50 @@ class ClaimRulesTests {
         assertFalse(ClaimRules.changes(approved, proposal(facts, listOf(unreferenced))))
         assertTrue(ClaimRules.changes(approved, proposal(facts)))
         assertEquals(approved.copy(flags = emptyList()), ClaimRules.refresh(approved, proposal(facts)))
+    }
+
+    private fun story(hook: String) = Story(
+        moment = "paris-1870s",
+        hook = StoryLine(hook, listOf(Citation("person:Q535", "Victor Hugo", "a French writer"))),
+        world = StoryLine("A line.").let { StoryWorld(it, it, it, it) },
+        cards = listOf(StoryCard(CardType.PERSON, text = "Back from exile.", year = 1871, person = "victor-hugo", label = "Victor Hugo")),
+    )
+
+    @Test
+    fun `a story is one claim per moment, and its cards name what they show`() {
+        val draft = story("A republic born out of defeat.")
+        assertEquals("story:paris-1870s", ClaimRules.idOf(draft))
+        assertThrows<InvalidRequestException> { ClaimRules.flagsOfNew(NewClaim(draft, listOf(SourceRef(SourceKind.WEB, url = "https://example.org")))) }
+
+        val unnamed = draft.copy(cards = listOf(StoryCard(CardType.PERSON, text = "Someone.")))
+        assertThrows<InvalidRequestException> { ClaimRules.decide(state(ClaimStatus.CANDIDATE, draft, draft), NewDecision(Verdict.APPROVE, unnamed)) }
+        val untitled = draft.copy(cards = listOf(StoryCard(CardType.SCENE, text = "A scene.")))
+        assertThrows<InvalidRequestException> { ClaimRules.decide(state(ClaimStatus.CANDIDATE, draft, draft), NewDecision(Verdict.APPROVE, untitled)) }
+        assertThrows<InvalidRequestException> {
+            ClaimRules.decide(state(ClaimStatus.CANDIDATE, draft, draft), NewDecision(Verdict.APPROVE, draft.copy(moment = "paris-1890s")))
+        }
+    }
+
+    @Test
+    fun `a new draft of a story waits for review, whatever became of the last one, unless the curator edited it`() {
+        val first = story("First draft.")
+        val edited = story("Edited by the curator.")
+        val second = Proposal(story("Second draft."), Origin.CLAUDE, listOf(FlagReason(Flag.ODD, "card 1 quotes text not found")), emptyList())
+
+        for (status in ClaimStatus.entries) {
+            val redrafted = ClaimRules.refresh(state(status, first, first), second)
+            assertEquals(ClaimStatus.CANDIDATE, redrafted.status, "after $status")
+            assertEquals(second.payload, redrafted.payload, "after $status")
+            assertEquals(second.payload, redrafted.proposal)
+            assertEquals(second.flags + listOfNotNull(changedSinceApproved.takeIf { status == ClaimStatus.APPROVED }), redrafted.flags)
+        }
+
+        val keptEdits = ClaimRules.refresh(state(ClaimStatus.APPROVED, edited, first), second)
+        assertEquals(ClaimStatus.CANDIDATE, keptEdits.status)
+        assertEquals(edited, keptEdits.payload)
+        assertEquals(second.flags + changedSinceEdited, keptEdits.flags)
+
+        // Rejected: the edits went with it.
+        assertEquals(second.payload, ClaimRules.refresh(state(ClaimStatus.REJECTED, edited, first), second).payload)
     }
 }

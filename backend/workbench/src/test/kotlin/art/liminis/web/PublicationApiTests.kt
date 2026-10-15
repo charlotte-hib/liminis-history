@@ -44,6 +44,11 @@ import art.liminis.curation.OccupationDomain
 import art.liminis.curation.Origin
 import art.liminis.curation.Payload
 import art.liminis.curation.PersonFacts
+import art.liminis.curation.Story
+import art.liminis.curation.StoryCard
+import art.liminis.curation.StoryLine
+import art.liminis.curation.StoryWorld
+import art.liminis.domain.CardType
 import art.liminis.publishing.GitHub
 import art.liminis.publishing.PublishProperties
 import art.liminis.support.UnavailableException
@@ -304,5 +309,50 @@ class PublicationApiTests(
         fun key(registry: DynamicPropertyRegistry) {
             registry.add("app.publish.github.private-key") { keyFile.toString() }
         }
+    }
+
+    private fun story(moment: String, person: String) = Story(
+        moment = moment,
+        hook = StoryLine("A new hook."),
+        world = StoryLine("A line.").let { StoryWorld(it, it, it, it) },
+        cards = listOf(StoryCard(CardType.PERSON, text = "Someone there.", year = 1875, person = person, label = "Someone")),
+    )
+
+    @Test
+    fun `writes an approved story into its moment's file, and holds back one showing a fetched person`() {
+        val paris = """{
+  "id": "paris-1870s",
+  "hook": "Old hook.",
+  "doors": []
+}
+"""
+        file("data/moments/paris-1870s.json", paris)
+        file("data/moments/edo-1830s.json", "{}")
+        val approved = { story: Story -> claims.save(Claim.candidate(story, Origin.CLAUDE, emptyList()).apply { status = ClaimStatus.APPROVED }) }
+        approved(story("paris-1870s", "victor-hugo"))
+        approved(story("edo-1830s", "Q5586"))
+        approved(story("london-1600", "william-shakespeare"))
+        file("data/moments/london-1600.json", null)
+        file("data/corrections.jsonl", null)
+
+        mockMvc.get("/api/publication") { signedIn() }.andExpect {
+            status { isOk() }
+            jsonPath("$.files[2].path") { value("data/moments/paris-1870s.json") }
+            jsonPath("$.files[2].changes[0].id") { value("paris-1870s") }
+            jsonPath("$.files[2].changes[0].change") { value("CHANGED") }
+            jsonPath("$.files[2].changes[0].before") { value("""{"hook":"Old hook."}""") }
+            jsonPath("$.files[2].changes[0].after") { value(containsString(""""cards":[{"type":"PERSON","text":"Someone there.","year":1875,"person":"victor-hugo"}]""")) }
+            jsonPath("$.files.length()") { value(3) }
+            jsonPath("$.heldBack[0].moment") { value("edo-1830s") }
+            jsonPath("$.heldBack[0].reason") { value(containsString("Q5586")) }
+            jsonPath("$.heldBack[1].moment") { value("london-1600") }
+            jsonPath("$.heldBack[1].reason") { value("There is no data/moments/london-1600.json on the data repository's main") }
+        }
+
+        stubWrites()
+        publish().andExpect { status { isOk() } }
+        val tree = github.findAll(postRequestedFor(urlPathEqualTo("$repo/git/trees"))).single().bodyAsString
+        assertTrue("data/moments/paris-1870s.json" in tree && "edo-1830s" !in tree, tree)
+        assertTrue("""\"hook\": \"A new hook.\"""" in tree, tree)
     }
 }

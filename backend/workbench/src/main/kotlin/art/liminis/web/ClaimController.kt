@@ -8,6 +8,8 @@ import org.springframework.web.ErrorResponseException
 import org.springframework.web.bind.annotation.RestController
 import art.liminis.curation.ClaimDetail
 import art.liminis.curation.Claims
+import art.liminis.curation.PersonFactsProposals
+import art.liminis.moments.Moments
 import art.liminis.support.StaleException
 import art.liminis.web.WorkbenchSecurity.Companion.currentActor
 import art.liminis.workbench.api.ClaimsApi
@@ -27,17 +29,23 @@ import art.liminis.workbench.api.model.QueueDto
 @RestController
 class ClaimController(
     private val claims: Claims,
+    private val moments: Moments,
+    private val personFacts: PersonFactsProposals,
     private val mapper: ClaimApiMapper,
     private val response: HttpServletResponse,
 ) : ClaimsApi {
 
     override fun listQueues(): List<QueueDto> = claims.queues().map(mapper::toDto)
 
-    override fun listClaims(type: ClaimTypeDto?, status: ClaimStatusDto?, flag: FlagDto?, after: Long?, limit: Int): List<ClaimDto> =
-        claims.list(type?.let(mapper::toModel), status?.let(mapper::toModel), flag?.let(mapper::toModel), after ?: 0, limit)
+    override fun listClaims(type: ClaimTypeDto?, status: ClaimStatusDto?, flag: FlagDto?, moment: String?, after: Long?, limit: Int): List<ClaimDto> {
+        val ids = moment?.let(moments::claimIds)
+        return claims.list(type?.let(mapper::toModel), status?.let(mapper::toModel), flag?.let(mapper::toModel), ids, after ?: 0, limit)
             .map(mapper::toDto)
+    }
 
     override fun getClaim(id: String): ClaimDetailDto = answer(claims.detail(id))
+
+    override fun proposeFacts(qid: String): ClaimDetailDto = answer(claims.detail(personFacts.propose(qid)))
 
     override fun addClaim(newClaimDto: NewClaimDto): ClaimDetailDto = answer(claims.add(mapper.toModel(newClaimDto), currentActor()))
 

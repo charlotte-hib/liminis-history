@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component
 import art.liminis.dataset.DatasetPerson
 import art.liminis.dataset.DatasetStore
 import art.liminis.repository.MomentRepository
+import art.liminis.support.NotFoundException
 import art.liminis.wikidata.RawStore
 
 @ConfigurationProperties("app.curation")
@@ -40,6 +41,13 @@ class PersonFactsProposals(
         val counts = claims.propose(qids.mapNotNull(people::get).map { proposal(it, revisions[it.qid]) })
         log.info("Proposed the facts of {} people: {}", qids.size, counts)
         return counts
+    }
+
+    /** Proposes [qid]'s facts, as [propose] does for the people of the moments, and says the claim's id. */
+    fun propose(qid: String): String {
+        val person = dataset.people(listOf(qid)).singleOrNull() ?: throw NotFoundException("No $qid in the dataset")
+        claims.propose(listOf(proposal(person, raw.revisions(listOf(qid))[qid])))
+        return ClaimRules.factsId(qid)
     }
 
     private fun proposal(person: DatasetPerson, revision: Long?) = Proposal(

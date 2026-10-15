@@ -20,7 +20,10 @@ interface FlagCount {
 
 interface ClaimRepository : JpaRepository<Claim, String> {
 
-    /** Claims after [after] in the order they were proposed, at most [limit], of [type], [status] and [flags] if given. */
+    /**
+     * Claims after [after] in the order they were proposed, at most [limit], of [type], [status] and [flags] if given,
+     * and among [ids] (a JSON array) if given.
+     */
     @Query(
         nativeQuery = true,
         value = """
@@ -28,11 +31,12 @@ interface ClaimRepository : JpaRepository<Claim, String> {
             where seq > :after and (cast(:type as text) is null or type = :type)
                 and (cast(:status as text) is null or status = :status)
                 and (cast(:flags as jsonb) is null or flags @> cast(:flags as jsonb))
+                and (cast(:ids as jsonb) is null or jsonb_exists(cast(:ids as jsonb), id))
             order by seq
             limit :limit
             """,
     )
-    fun list(type: String?, status: String?, flags: String?, after: Long, limit: Int): List<Claim>
+    fun list(type: String?, status: String?, flags: String?, ids: String?, after: Long, limit: Int): List<Claim>
 
     /** Every claim of [type] in [status], by id. */
     fun findByTypeAndStatusOrderById(type: ClaimType, status: ClaimStatus): List<Claim>

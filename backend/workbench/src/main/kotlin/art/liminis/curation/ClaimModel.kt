@@ -6,7 +6,7 @@ package art.liminis.curation
 // enums' names. Renaming a field or a constant here is a migration of the stored rows (db/curation). The payloads are
 // in Payloads.kt; what the service takes and gives back, in ClaimOperations.kt.
 
-enum class ClaimType { PERSON_FACTS, CONNECTION, EVENT, ANECDOTE, OCCUPATION_DOMAIN }
+enum class ClaimType { PERSON_FACTS, CONNECTION, EVENT, ANECDOTE, OCCUPATION_DOMAIN, STORY }
 
 /** `CANDIDATE` waits for review; `NEEDS_WORK` was kept for later, with a note. */
 enum class ClaimStatus { CANDIDATE, APPROVED, REJECTED, NEEDS_WORK }

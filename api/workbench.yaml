@@ -25,6 +25,8 @@ tags:
     description: The fetched people, and what Wikidata and Wikipedia say about them, to review their claims against.
   - name: occupations
     description: The fetched occupations and who holds them, to map them to the site's domains.
+  - name: moments
+    description: The release's moments, everyone alive in each, and their stories, drafted with Claude.
   - name: runs
     description: Imports, mappings, proposals and drafts, one at a time, in the background.
   - name: publication
@@ -74,6 +76,11 @@ paths:
           in: query
           schema:
             $ref: "#/components/schemas/Flag"
+        - name: moment
+          in: query
+          description: Only the claims about the moment's people (their facts) and its story.
+          schema:
+            $ref: "#/components/schemas/MomentId"
         - name: after
           in: query
           description: The `seq` of the last claim of the previous page.
@@ -103,6 +110,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
     post:
       tags: [claims]
       operationId: addClaim
@@ -316,6 +325,167 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/people/{qid}/facts:
+    post:
+      tags: [claims]
+      operationId: proposeFacts
+      security:
+        - auth: ["curation:write"]
+      summary: Propose a person's facts
+      description: |
+        Proposes the person's facts as the dataset holds them, as `wb claims` does for the best known people of each
+        moment: a new claim waits for review; an existing one is refreshed by the same rules.
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Qid"
+      responses:
+        "200":
+          description: The person's facts claim.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/moments:
+    get:
+      tags: [moments]
+      operationId: listMoments
+      security:
+        - auth: ["curation:read"]
+      summary: The release's moments
+      description: Each moment of the release the workbench loaded, with how many people lived there and what waits.
+      responses:
+        "200":
+          description: The moments, by id.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MomentSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/moments/{id}:
+    get:
+      tags: [moments]
+      operationId: getMoment
+      security:
+        - auth: ["curation:read"]
+      summary: A moment
+      description: The moment, with the story the release has for it.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/MomentId"
+      responses:
+        "200":
+          description: The moment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MomentDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/moments/{id}/story:
+    post:
+      tags: [moments]
+      operationId: draftStory
+      security:
+        - auth: ["curation:write"]
+      summary: Draft the moment's story
+      description: |
+        Starts the run that drafts the moment's story with Claude and proposes it as the moment's `STORY` claim, as
+        `wb draft` does. The moment's `draft` follows it.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/MomentId"
+      responses:
+        "202":
+          description: The run, started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/moments/{id}/people:
+    get:
+      tags: [moments]
+      operationId: listMomentPeople
+      security:
+        - auth: ["curation:read"]
+      summary: Everyone alive in a moment
+      description: |
+        The fetched people tied to the moment's region by a place of theirs (where they were born, died, worked or
+        lived, by the country it lies in today), alive at some time during the moment: the best known first, a page
+        at a time, each with their facts claim if they have one.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/MomentId"
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: A page of the people.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MomentPeople"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/occupations/{qid}:
     get:
       tags: [occupations]
@@ -436,8 +606,9 @@ paths:
       description: |
         The approved claims as the files of `data/` that publishing writes whole (`data/occupations.jsonl`,
         `data/corrections.jsonl`), compared with those files on the data repository's `main`: each record added,
-        changed or removed. Also the publish pull request open, if any, and the corrections for people written by hand
-        in `people.jsonl`, which the release gives no effect.
+        changed or removed; and the approved stories written into their moments' files (`data/moments/<id>.json`),
+        each a story changed. Also the publish pull request open, if any, the corrections for people written by hand
+        in `people.jsonl`, which the release gives no effect, and the approved stories held back.
       responses:
         "200":
           description: The changes.
@@ -590,7 +761,8 @@ components:
         `PERSON_FACTS`: a person's facts as fetched, one claim per person. `CONNECTION`: two people linked at a date.
         `EVENT`: something that happened in a region in a year. `ANECDOTE`: a short story about one person.
         `OCCUPATION_DOMAIN`: the domain of the people who hold an occupation, one claim per occupation or class.
-      enum: [PERSON_FACTS, CONNECTION, EVENT, ANECDOTE, OCCUPATION_DOMAIN]
+        `STORY`: a moment's story, drafted with Claude, one claim per moment.
+      enum: [PERSON_FACTS, CONNECTION, EVENT, ANECDOTE, OCCUPATION_DOMAIN, STORY]
 
     ClaimStatus:
       type: string
@@ -703,6 +875,7 @@ components:
         - $ref: "#/components/schemas/Event"
         - $ref: "#/components/schemas/Anecdote"
         - $ref: "#/components/schemas/OccupationDomain"
+        - $ref: "#/components/schemas/Story"
       discriminator:
         propertyName: type
         mapping:
@@ -711,6 +884,7 @@ components:
           EVENT: "#/components/schemas/Event"
           ANECDOTE: "#/components/schemas/Anecdote"
           OCCUPATION_DOMAIN: "#/components/schemas/OccupationDomain"
+          STORY: "#/components/schemas/Story"
 
     PersonFacts:
       type: object
@@ -888,6 +1062,206 @@ components:
       type: string
       enum: [POWER, ARTS, EVERYDAY, NONE]
 
+    Story:
+      type: object
+      description: |
+        A moment's story as it would ship into its file in `data/moments/`, each line with the quotes it rests on.
+        Publishing writes the hook, the world and the cards, and leaves the rest of the moment's file as it is.
+      required: [type, moment, hook, world, cards]
+      properties:
+        type:
+          type: string
+        moment:
+          $ref: "#/components/schemas/MomentId"
+        hook:
+          $ref: "#/components/schemas/StoryLine"
+        world:
+          $ref: "#/components/schemas/StoryWorld"
+        cards:
+          type: array
+          minItems: 1
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/StoryCard"
+
+    StoryLine:
+      type: object
+      required: [text, citations]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 400
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Citation"
+
+    StoryWorld:
+      type: object
+      description: The world around the moment, one line each.
+      required: [governs, everyday, arts, meanwhile]
+      properties:
+        governs:
+          $ref: "#/components/schemas/StoryLine"
+        everyday:
+          $ref: "#/components/schemas/StoryLine"
+        arts:
+          $ref: "#/components/schemas/StoryLine"
+        meanwhile:
+          $ref: "#/components/schemas/StoryLine"
+
+    StoryCard:
+      type: object
+      description: |
+        One card. A `PERSON` card names a person (the id of one written by hand, else a Q-id), a `LIFE` card a typical
+        life, an `EVENT` card an event; a `SCENE` card has a title.
+      required: [type, citations]
+      properties:
+        type:
+          $ref: "#/components/schemas/CardType"
+        kicker:
+          type: string
+          maxLength: 120
+        title:
+          type: string
+          maxLength: 120
+        text:
+          type: string
+          maxLength: 600
+        year:
+          $ref: "#/components/schemas/Year"
+        person:
+          type: string
+          maxLength: 100
+        life:
+          type: string
+          maxLength: 100
+        event:
+          type: string
+          maxLength: 100
+        label:
+          type: string
+          description: The name of the person, life or event the card shows, for reading. Not published.
+          maxLength: 300
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Citation"
+
+    CardType:
+      type: string
+      enum: [SCENE, PERSON, LIFE, EVENT]
+
+    Citation:
+      type: object
+      description: A passage copied from one of the texts the story was drafted from. Not published.
+      required: [source, title, quote]
+      properties:
+        source:
+          type: string
+          description: The text's id, by what it is about.
+          example: person:Q535
+        title:
+          type: string
+        quote:
+          type: string
+          maxLength: 2000
+
+    MomentId:
+      type: string
+      pattern: "^[a-z0-9-]+$"
+      maxLength: 100
+      example: paris-1870s
+
+    MomentSummary:
+      type: object
+      required: [id, region, place, period, start, end, focus, people, waiting, cards]
+      properties:
+        id:
+          $ref: "#/components/schemas/MomentId"
+        region:
+          type: string
+          example: FR
+        place:
+          type: string
+        period:
+          type: string
+          example: 1870s
+        start:
+          $ref: "#/components/schemas/Year"
+        end:
+          $ref: "#/components/schemas/Year"
+        focus:
+          $ref: "#/components/schemas/Year"
+        people:
+          type: integer
+          description: The fetched people alive there, as the moment's people list counts them.
+        waiting:
+          type: integer
+          description: The claims about the moment's people and its story waiting for review.
+        cards:
+          type: integer
+          description: The cards of the story the release has.
+        story:
+          $ref: "#/components/schemas/ClaimStatus"
+
+    MomentDetail:
+      allOf:
+        - $ref: "#/components/schemas/MomentSummary"
+        - type: object
+          required: [hook, storyCards]
+          properties:
+            hook:
+              type: string
+              description: The release's hook.
+            world:
+              $ref: "#/components/schemas/World"
+            storyCards:
+              type: array
+              description: The release's cards, in order.
+              items:
+                $ref: "#/components/schemas/StoryCard"
+            draft:
+              description: The last run that drafted the moment's story since the workbench started, if any.
+              allOf:
+                - $ref: "#/components/schemas/Run"
+
+    World:
+      type: object
+      required: [governs, everyday, arts, meanwhile]
+      properties:
+        governs:
+          type: string
+        everyday:
+          type: string
+        arts:
+          type: string
+        meanwhile:
+          type: string
+
+    MomentPeople:
+      type: object
+      required: [total, people]
+      properties:
+        total:
+          type: integer
+        people:
+          type: array
+          items:
+            $ref: "#/components/schemas/MomentPerson"
+
+    MomentPerson:
+      allOf:
+        - $ref: "#/components/schemas/PersonSummary"
+        - type: object
+          required: [sitelinks]
+          properties:
+            sitelinks:
+              type: integer
+            claim:
+              $ref: "#/components/schemas/ClaimStatus"
+
     OccupationEvidence:
       type: object
       required: [occupation, label, people, first, examples, parents]
@@ -1020,7 +1394,8 @@ components:
         finished import to the dataset's rows. `DATASET_EXPORT` writes those rows to the fetched dataset's files, in
         `backend/dataset-export/`. `PERSON_FACTS_CLAIMS` proposes the facts of the people of the release's moments.
         `OCCUPATION_CLAIMS` proposes a domain claim for every occupation the dataset's people hold, and their classes:
-        those most held as a first occupation first, then the classes nobody holds directly. `STORY_DRAFT` drafts a moment's story with Claude into `backend/drafts/`.
+        those most held as a first occupation first, then the classes nobody holds directly. `STORY_DRAFT` drafts a moment's story with Claude and proposes it as the
+        moment's `STORY` claim; its result says what the draft cost.
       enum: [WIKIDATA_IMPORT, DATASET_MAPPING, DATASET_EXPORT, PERSON_FACTS_CLAIMS, OCCUPATION_CLAIMS, STORY_DRAFT]
 
     Run:
@@ -1138,7 +1513,7 @@ components:
 
     Publication:
       type: object
-      required: [base, files, withoutEffect, maxAge]
+      required: [base, files, withoutEffect, heldBack, maxAge]
       properties:
         base:
           type: string
@@ -1156,6 +1531,11 @@ components:
           description: People written by hand in `people.jsonl` with a correction, which their record overrides.
           items:
             $ref: "#/components/schemas/Qid"
+        heldBack:
+          type: array
+          description: Approved stories not published, and why.
+          items:
+            $ref: "#/components/schemas/HeldBack"
         maxAge:
           type: integer
           format: int32
@@ -1181,16 +1561,25 @@ components:
       properties:
         id:
           type: string
-          description: The record's id, a Q-id.
+          description: The record's id, a Q-id, or the moment's id in a moment's file.
         change:
           type: string
           enum: [ADDED, CHANGED, REMOVED]
         before:
           type: string
-          description: The record's line as `main` has it, JSON. None when added.
+          description: The record's line as `main` has it, JSON; a moment's story only, in its file. None when added.
         after:
           type: string
           description: The record's line as publishing writes it, JSON. None when removed.
+
+    HeldBack:
+      type: object
+      required: [moment, reason]
+      properties:
+        moment:
+          $ref: "#/components/schemas/MomentId"
+        reason:
+          type: string
 
     PullRequest:
       type: object

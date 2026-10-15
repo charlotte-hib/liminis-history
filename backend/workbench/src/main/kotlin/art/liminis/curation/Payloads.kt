@@ -2,6 +2,7 @@ package art.liminis.curation
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import art.liminis.domain.CardType
 
 // The records claims are about, stored in the JSON columns payload and proposal, and in each decision: the same rules
 // as ClaimModel.kt apply. Renaming a field here is a migration of the stored rows.
@@ -14,6 +15,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
     JsonSubTypes.Type(Event::class, name = "EVENT"),
     JsonSubTypes.Type(Anecdote::class, name = "ANECDOTE"),
     JsonSubTypes.Type(OccupationDomain::class, name = "OCCUPATION_DOMAIN"),
+    JsonSubTypes.Type(Story::class, name = "STORY"),
 )
 sealed interface Payload
 
@@ -76,3 +78,33 @@ data class OccupationDomain(val occupation: String, val label: String, val label
 
 /** A domain of the site's, or none: the occupation says nothing of a life's work, so the person's next one decides. */
 enum class OccupationChoice { POWER, ARTS, EVERYDAY, NONE }
+
+/**
+ * A moment's story, drafted with Claude: the hook, the world around the moment and the cards that publishing writes
+ * into the moment's file. Each line keeps the quotes it was written from, which are not published.
+ */
+data class Story(val moment: String, val hook: StoryLine, val world: StoryWorld, val cards: List<StoryCard>) : Payload
+
+data class StoryLine(val text: String, val citations: List<Citation> = emptyList())
+
+data class StoryWorld(val governs: StoryLine, val everyday: StoryLine, val arts: StoryLine, val meanwhile: StoryLine)
+
+/**
+ * One card. A person card names a person by the id of one written by hand, else by Q-id; [label] is the name of
+ * whoever or whatever the card shows, for reading.
+ */
+data class StoryCard(
+    val type: CardType,
+    val kicker: String? = null,
+    val title: String? = null,
+    val text: String? = null,
+    val year: Int? = null,
+    val person: String? = null,
+    val life: String? = null,
+    val event: String? = null,
+    val label: String? = null,
+    val citations: List<Citation> = emptyList(),
+)
+
+/** A passage copied from the text [source] (`person:Q535`, `event:carmen-premiere`), titled [title]. */
+data class Citation(val source: String, val title: String, val quote: String)

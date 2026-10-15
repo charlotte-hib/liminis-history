@@ -18,8 +18,8 @@ data class DraftCard(
     val kicker: String?,
     val title: String?,
     val text: String,
-    /** For PERSON cards: the slug from the person's source id. */
-    val personSlug: String?,
+    /** For PERSON cards: the id from the person's source id, a Q-id. */
+    val personId: String?,
     /** For LIFE cards: the id from the life's source id. */
     val lifeId: String?,
     /** For EVENT cards: the id from the event's source id. */
@@ -31,5 +31,8 @@ data class DraftCard(
 
 data class StoryDraft(val hook: DraftLine, val world: DraftWorld, val cards: List<DraftCard>)
 
-/** A text the drafter may draw on, under a stable id it cites, e.g. `person:emile-zola`. */
-data class Source(val id: String, val title: String, val text: String, val url: String?)
+/**
+ * A text the drafter may draw on, under a stable id it cites, e.g. `person:Q535`, with the [name] of whoever or whatever
+ * it is about, and the English Wikipedia [article] it comes from, if any.
+ */
+data class Source(val id: String, val title: String, val text: String, val url: String?, val name: String = title, val article: String? = null)

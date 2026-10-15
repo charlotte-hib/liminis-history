@@ -36,7 +36,7 @@ class PersonFactsProposalsTests(
 
     private fun version(id: String) = claim(id).version!!
 
-    private fun proposed() = claims.list(null, null, null, 0, 100).map { it.id }
+    private fun proposed() = claims.list(null, null, null, null, 0, 100).map { it.id }
 
     @Test
     fun `proposes the best known people born in each moment's region and alive during it`() {

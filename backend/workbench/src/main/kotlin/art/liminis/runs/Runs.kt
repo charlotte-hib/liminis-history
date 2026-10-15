@@ -45,6 +45,9 @@ class Runs(
 
     fun find(id: Long): RunDto = runs[id] ?: throw NotFoundException("No run $id")
 
+    /** The last run that drafted [moment]'s story, if any. */
+    fun lastDraft(moment: String): RunDto? = all().firstOrNull { it.kind == RunKindDto.STORY_DRAFT && it.moment == moment }
+
     @Synchronized
     fun start(kind: RunKindDto, moment: String?): RunDto {
         if (kind == RunKindDto.STORY_DRAFT && (moment == null || !moments.existsById(moment))) {

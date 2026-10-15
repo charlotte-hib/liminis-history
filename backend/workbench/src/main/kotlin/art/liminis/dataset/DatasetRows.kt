@@ -41,4 +41,9 @@ data class PersonSummary(
     val died: Int,
     /** The first occupation's label, the one the site shows. */
     val occupation: String?,
+    /** How many Wikimedia sites have an article about them: how well known they are. */
+    val sitelinks: Int,
 )
+
+/** A person's English Wikipedia intro, for drafting from. */
+data class Intro(val person: String, val title: String, val url: String, val extract: String)

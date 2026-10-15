@@ -79,6 +79,9 @@ interface PersonRepository : JpaRepository<Person, String> {
     @EntityGraph(attributePaths = ["region"])
     fun findByIdIn(ids: Collection<String>): List<Person>
 
+    /** Those of [qids] the release holds, by their Q-ids. */
+    fun findByQidIn(qids: Collection<String>): List<Person>
+
     /** People alive at some point from [start] to [end] and tied to [region], the most written about first. */
     @EntityGraph(attributePaths = ["region"])
     @Query("select p from Person p where $ALIVE_BETWEEN and $TIED_TO_REGION order by p.sitelinks desc, p.id")
