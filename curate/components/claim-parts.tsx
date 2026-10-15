@@ -1,4 +1,5 @@
 import type { components } from "@/lib/api-schema";
+import { STATUS } from "@/lib/labels";
 import { year } from "@/lib/years";
 
 type Source = components["schemas"]["Source"];
@@ -48,13 +49,6 @@ export function Sources({ sources }: { sources: Source[] }) {
   );
 }
 
-const VERDICTS: Record<string, string> = {
-  CANDIDATE: "waiting",
-  APPROVED: "approved",
-  REJECTED: "rejected",
-  NEEDS_WORK: "kept for later",
-};
-
 /** Every decision taken on the claim, oldest first. */
 export function History({ decisions }: { decisions: Decision[] }) {
   return (
@@ -65,7 +59,7 @@ export function History({ decisions }: { decisions: Decision[] }) {
           <li key={i} className="flex gap-3">
             <time className="w-40 font-mono text-muted">{decision.decidedAt.slice(0, 16).replace("T", " ")}</time>
             <span>
-              {decision.by}: {decision.from ? VERDICTS[decision.from] : "new"} → {decision.to ? VERDICTS[decision.to] : "?"}
+              {decision.by}: {decision.from ? STATUS[decision.from] : "new"} → {decision.to ? STATUS[decision.to] : "?"}
               {decision.edited && ", edited"}
               {decision.note && <span className="text-muted"> · {decision.note}</span>}
             </span>

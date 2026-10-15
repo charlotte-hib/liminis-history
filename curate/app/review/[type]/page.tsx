@@ -11,10 +11,11 @@ export default async function ReviewPage({ params, searchParams }: PageProps<"/r
   if (!found) notFound();
   const query = await searchParams;
   const later = query.later === "1";
-  const claims = await queue(found.type, later ? "NEEDS_WORK" : "CANDIDATE");
+  const moment = typeof query.moment === "string" ? query.moment : undefined;
+  const claims = await queue(found.type, later ? "NEEDS_WORK" : "CANDIDATE", moment);
   const id = typeof query.claim === "string" ? query.claim : claims[0]?.id;
   const current = id ? await review(id) : null;
   if (id && !current) notFound();
 
-  return <ReviewScreen queue={found} later={later} claims={claims.map(summaryOf)} current={current} />;
+  return <ReviewScreen queue={found} later={later} moment={moment} claims={claims.map(summaryOf)} current={current} />;
 }
