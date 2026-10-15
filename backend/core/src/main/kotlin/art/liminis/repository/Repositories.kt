@@ -51,29 +51,6 @@ interface EraRepository : JpaRepository<Era, String> {
 
 interface PersonRepository : JpaRepository<Person, String> {
     @EntityGraph(attributePaths = ["region"])
-    @Query(
-        """
-        select p from Person p
-        where p.region.code = :region
-          and p.birthYear <= :end and (p.deathYear is null or p.deathYear >= :start)
-        order by p.birthYear, p.id
-        """
-    )
-    fun findAliveBetween(region: String, start: Int, end: Int): List<Person>
-
-    /** Everyone alive in [year] outside [region]. */
-    @EntityGraph(attributePaths = ["region"])
-    @Query(
-        """
-        select p from Person p
-        where p.region.code <> :region
-          and p.birthYear <= :year and (p.deathYear is null or p.deathYear >= :year)
-        order by p.birthYear, p.id
-        """
-    )
-    fun findAliveElsewhere(region: String, year: Int): List<Person>
-
-    @EntityGraph(attributePaths = ["region"])
     override fun findAll(): List<Person>
 
     @EntityGraph(attributePaths = ["region"])
