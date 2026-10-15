@@ -17,6 +17,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 import art.liminis.testing.PostgresTestConfiguration
 import art.liminis.web.WorkbenchSecurity.Companion.CURATION_READ
 import art.liminis.web.WorkbenchSecurity.Companion.CURATION_WRITE
+import art.liminis.web.WorkbenchSecurity.Companion.PUBLISH
 import art.liminis.web.WorkbenchSecurity.Companion.RUNS
 import kotlin.test.assertEquals
 
@@ -43,6 +44,8 @@ class WorkbenchSecurityTests(
         "GET /api/runs" to RUNS,
         "POST /api/runs" to RUNS,
         "GET /api/runs/{id}" to RUNS,
+        "GET /api/publication" to CURATION_READ,
+        "POST /api/publication" to PUBLISH,
     )
 
     /** Every endpoint of the API, as "METHOD /path". */

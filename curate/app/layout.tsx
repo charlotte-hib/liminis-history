@@ -26,6 +26,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/add" className="hover:text-ink">
               Add a claim
             </Link>
+            <Link href="/publish" className="hover:text-ink">
+              Publish
+            </Link>
           </nav>
           <form method="post" action="/auth/sign-out" className="ml-auto">
             <button type="submit" className="text-muted hover:text-ink">

@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { expect, test as setup } from "@playwright/test";
-import { SIGNED_IN } from "../curate.config.js";
+import { PASSKEY, SIGNED_IN } from "../curate.config.js";
 
 /** The one-time link auth printed last in its log (AUTH_LOG): auth started with --app.auth.one-time-link=true. */
 function oneTimeLink(): string {
@@ -16,7 +16,7 @@ function oneTimeLink(): string {
 setup("the curator registers a passkey with the one-time link, then signs in to curate with it", async ({ page, context }) => {
   const cdp = await context.newCDPSession(page);
   await cdp.send("WebAuthn.enable");
-  await cdp.send("WebAuthn.addVirtualAuthenticator", {
+  const { authenticatorId } = await cdp.send("WebAuthn.addVirtualAuthenticator", {
     options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
   });
 
@@ -34,4 +34,6 @@ setup("the curator registers a passkey with the one-time link, then signs in to 
   await page.getByRole("button", { name: "Sign in with a passkey" }).click();
   await expect(page.getByRole("heading", { name: "What waits for you" })).toBeVisible();
   await context.storageState({ path: SIGNED_IN });
+  const { credentials } = await cdp.send("WebAuthn.getCredentials", { authenticatorId });
+  writeFileSync(PASSKEY, JSON.stringify(credentials[0]));
 });

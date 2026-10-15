@@ -34,6 +34,9 @@ interface ClaimRepository : JpaRepository<Claim, String> {
     )
     fun list(type: String?, status: String?, flags: String?, after: Long, limit: Int): List<Claim>
 
+    /** Every claim of [type] in [status], by id. */
+    fun findByTypeAndStatusOrderById(type: ClaimType, status: ClaimStatus): List<Claim>
+
     @Query(
         nativeQuery = true,
         value = """

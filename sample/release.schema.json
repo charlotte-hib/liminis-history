@@ -84,6 +84,37 @@
       "required" : [ "kind", "people", "source", "text", "year" ],
       "additionalProperties" : false
     },
+    "CorrectionRecord" : {
+      "type" : "object",
+      "properties" : {
+        "approximate" : {
+          "type" : "boolean"
+        },
+        "born" : {
+          "type" : "integer"
+        },
+        "died" : {
+          "type" : "integer"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "name" : {
+          "type" : "string"
+        },
+        "nameFr" : {
+          "type" : "string"
+        },
+        "occupations" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string"
+          }
+        }
+      },
+      "required" : [ "id" ],
+      "additionalProperties" : false
+    },
     "Domain" : {
       "type" : "string",
       "enum" : [ "POWER", "ARTS", "EVERYDAY" ]
@@ -390,6 +421,12 @@
       "type" : "array",
       "items" : {
         "$ref" : "#/$defs/ConnectionRecord"
+      }
+    },
+    "corrections" : {
+      "type" : "array",
+      "items" : {
+        "$ref" : "#/$defs/CorrectionRecord"
       }
     },
     "eras" : {

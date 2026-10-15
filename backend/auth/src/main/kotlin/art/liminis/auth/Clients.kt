@@ -40,7 +40,7 @@ class Clients(
             authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
             redirectUri("${properties.curateUrl}/auth/callback")
             postLogoutRedirectUri("${properties.curateUrl}/auth/signed-out")
-            scopes { it += listOf(OidcScopes.OPENID, Scopes.CURATION_READ, Scopes.CURATION_WRITE) }
+            scopes { it += listOf(OidcScopes.OPENID, Scopes.CURATION_READ, Scopes.CURATION_WRITE, Scopes.PUBLISH) }
             clientSettings(ClientSettings.builder().requireProofKey(true).requireAuthorizationConsent(false).build())
             tokenSettings(
                 TokenSettings.builder()

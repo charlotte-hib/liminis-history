@@ -129,12 +129,30 @@ data class DoorRecord(val to: String, val kind: String, val text: String, val fa
  */
 data class OccupationRecord(val id: String, val domain: Domain? = null)
 
+/**
+ * A line of `corrections.jsonl`: the curator's corrections to a person of the fetched dataset, by Q-id. Only the fields
+ * corrected are written; the others stay as Wikidata states them. A correction for someone written by hand in
+ * `people.jsonl`, or for a Q-id the dataset does not hold, changes nothing.
+ */
+data class CorrectionRecord(
+    val id: String,
+    val name: String? = null,
+    /** The French name, for the French site: the English one compiles without it. */
+    val nameFr: String? = null,
+    val born: Int? = null,
+    val died: Int? = null,
+    val approximate: Boolean? = null,
+    /** Q-ids, in the order the site takes them: the first mapped one gives the domain. */
+    val occupations: List<String>? = null,
+)
+
 /** A release as read from its directory, before it is compiled. */
 data class Release(
     val regions: List<RegionRecord>,
     val eras: List<EraRecord>,
     val people: List<PersonRecord>,
     val occupations: List<OccupationRecord> = emptyList(),
+    val corrections: List<CorrectionRecord> = emptyList(),
     /** Facts from Wikidata and Wikipedia, for people beyond those written by hand. */
     val dataset: FetchedDataset? = null,
     val lives: List<LifeRecord>,

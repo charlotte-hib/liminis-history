@@ -55,6 +55,20 @@ app:
   dataset:
     # The fetched dataset's files (wb export), written from backend/, where wb finds them to push.
     export-dir: dataset-export
+  publish:
+    # The private data repository publishing opens its pull requests on, through the workbench's GitHub App.
+    repository: charlotte-hib/liminis-history-data
+    base-branch: main
+    branch: publish
+    # Publishing takes a passkey used this recently (auth's max_age, the token's auth_time).
+    max-age: 5m
+    github:
+      api: https://api.github.com
+      # The App's client id (Liminis publish charlotte-hib, installed on the data repository only); its private key,
+      # converted to PKCS#8 once:
+      # openssl pkcs8 -topk8 -nocrypt -in <downloaded>.pem -out ~/.config/liminis/github-app.pem && chmod 600 ...
+      client-id: Iv23lijPeswCZ6TAmjpn
+      private-key: ${user.home}/.config/liminis/github-app.pem
   drafting:
     model: claude-opus-5-5
     output-dir: drafts

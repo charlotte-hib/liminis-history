@@ -1,6 +1,16 @@
 "use server";
 
-import { etag, failure, outcome, workbench, type NewClaim, type NewDecision, type Outcome, type PersonSummary } from "@/lib/workbench";
+import {
+  etag,
+  failure,
+  outcome,
+  workbench,
+  type NewClaim,
+  type NewDecision,
+  type Outcome,
+  type PersonSummary,
+  type Publication,
+} from "@/lib/workbench";
 
 /** The claim's new version after a decision or an undo, to undo it in turn. */
 type Decided = Outcome<{ version: string }>;
@@ -30,4 +40,12 @@ export async function findPeople(q: string): Promise<PersonSummary[]> {
   if (q.trim().length < 2) return [];
   const { data } = await workbench.GET("/api/people", { params: { query: { q: q.trim().slice(0, 100), limit: 8 } } });
   return data ?? [];
+}
+
+/**
+ * Publishes the changes the curator saw on [base]: 401 when the passkey is too old, for the page to ask for it again;
+ * 412 when the data repository moved since.
+ */
+export async function publish(base: string): Promise<Outcome<Publication>> {
+  return outcome(workbench.POST("/api/publication", { body: { base } }));
 }

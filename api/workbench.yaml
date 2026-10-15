@@ -27,6 +27,8 @@ tags:
     description: The fetched occupations and who holds them, to map them to the site's domains.
   - name: runs
     description: Imports, mappings, proposals and drafts, one at a time, in the background.
+  - name: publication
+    description: The approved claims, written into the private data repository through a pull request.
 
 paths:
   /api/queues:
@@ -424,6 +426,70 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/publication:
+    get:
+      tags: [publication]
+      operationId: previewPublication
+      security:
+        - auth: ["curation:read"]
+      summary: What a publish would change
+      description: |
+        The approved claims as the files of `data/` that publishing writes whole (`data/occupations.jsonl`,
+        `data/corrections.jsonl`), compared with those files on the data repository's `main`: each record added,
+        changed or removed. Also the publish pull request open, if any, and the corrections for people written by hand
+        in `people.jsonl`, which the release gives no effect.
+      responses:
+        "200":
+          description: The changes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Publication"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    post:
+      tags: [publication]
+      operationId: publish
+      security:
+        - auth: ["publish"]
+      summary: Publish
+      description: |
+        Commits the changes on the branch `publish` of the data repository, built on `main` at `base`, and opens its
+        pull request, or updates the one open. With nothing to change, closes the one open. Needs a passkey used within
+        the publication's `maxAge` seconds: an older one is a 401 with `error="insufficient_user_authentication"` and
+        `max_age` in `WWW-Authenticate` (RFC 9470), for curate to ask for the passkey again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPublication"
+      responses:
+        "200":
+          description: The changes published, with their pull request; none when there was nothing to publish.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Publication"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "412":
+          description: The data repository's `main` moved since `base`. Look at the changes again, then publish.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
 components:
   securitySchemes:
     auth:
@@ -439,6 +505,7 @@ components:
           scopes:
             curation:read: Read queues, claims, people and their evidence.
             curation:write: Add claims, decide on them and undo a decision.
+            publish: Publish the approved claims to the data repository, after a recent passkey.
         clientCredentials:
           tokenUrl: http://localhost:9000/oauth2/token
           scopes:
@@ -480,7 +547,9 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
     Unauthorized:
-      description: No access token, or one that is expired, not signed by `auth`, or not for the workbench.
+      description: |
+        No access token, or one that is expired, not signed by `auth`, or not for the workbench; or, to publish, one
+        whose passkey is too old.
     Forbidden:
       description: The access token lacks the operation's scope.
     NotFound:
@@ -497,6 +566,12 @@ components:
             $ref: "#/components/schemas/Problem"
     PreconditionFailed:
       description: The claim changed since the version in `If-Match`. Read it again, then decide.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unavailable:
+      description: No GitHub App is set up to publish with, or GitHub refused or did not answer.
       content:
         application/problem+json:
           schema:
@@ -1060,6 +1135,82 @@ components:
           description: The intro, as plain text, as Wikipedia gives it.
         thumbnailUrl:
           type: string
+
+    Publication:
+      type: object
+      required: [base, files, withoutEffect, maxAge]
+      properties:
+        base:
+          type: string
+          description: The commit of the data repository's `main` the changes are counted from. Send it to publish.
+          pattern: "^[0-9a-f]{40}$"
+        files:
+          type: array
+          description: The files publishing writes, with their changes, in the same order every time.
+          items:
+            $ref: "#/components/schemas/FileChanges"
+        pullRequest:
+          $ref: "#/components/schemas/PullRequest"
+        withoutEffect:
+          type: array
+          description: People written by hand in `people.jsonl` with a correction, which their record overrides.
+          items:
+            $ref: "#/components/schemas/Qid"
+        maxAge:
+          type: integer
+          format: int32
+          description: How recently, in seconds, the curator must have used their passkey to publish.
+          example: 300
+
+    FileChanges:
+      type: object
+      required: [path, changes]
+      properties:
+        path:
+          type: string
+          example: data/occupations.jsonl
+        changes:
+          type: array
+          description: By the records' ids.
+          items:
+            $ref: "#/components/schemas/RecordChange"
+
+    RecordChange:
+      type: object
+      required: [id, change]
+      properties:
+        id:
+          type: string
+          description: The record's id, a Q-id.
+        change:
+          type: string
+          enum: [ADDED, CHANGED, REMOVED]
+        before:
+          type: string
+          description: The record's line as `main` has it, JSON. None when added.
+        after:
+          type: string
+          description: The record's line as publishing writes it, JSON. None when removed.
+
+    PullRequest:
+      type: object
+      required: [number, url]
+      properties:
+        number:
+          type: integer
+          format: int32
+        url:
+          type: string
+          example: https://github.com/charlotte-hib/liminis-history-data/pull/4
+
+    NewPublication:
+      type: object
+      required: [base]
+      properties:
+        base:
+          type: string
+          description: The `base` of the changes the curator looked at.
+          pattern: "^[0-9a-f]{40}$"
 
     Qid:
       type: string

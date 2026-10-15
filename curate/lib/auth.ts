@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { base64url, EncryptJWT, jwtDecrypt, type JWTPayload } from "jose";
+import { base64url, decodeJwt, EncryptJWT, jwtDecrypt, type JWTPayload } from "jose";
 import * as oidc from "openid-client";
 
 /**
@@ -20,7 +20,7 @@ export const CURATE_URL = new URL(process.env.CURATE_URL ?? "http://localhost:31
 /** Where auth writes curate's client secret, and where curate keeps the key of its cookies. */
 const SECRETS_DIR = process.env.LIMINIS_SECRETS_DIR ?? join(homedir(), ".config", "liminis");
 
-const SCOPE = "openid curation:read curation:write";
+const SCOPE = "openid curation:read curation:write publish";
 
 /** A working day from the sign-in, whatever the refreshes: then the passkey again. */
 const SESSION_SECONDS = 8 * 60 * 60;
@@ -109,8 +109,12 @@ export function pageOfCurate(to: string | null): string {
   return url.origin === CURATE_URL.origin ? url.pathname + url.search : "/";
 }
 
-/** Where to send the browser to sign in, and the cookie that remembers what to check when it comes back. */
-export async function startSignIn(returnTo: string): Promise<{ url: URL; cookie: string; expiresAt: number }> {
+/**
+ * Where to send the browser to sign in, and the cookie that remembers what to check when it comes back. With [maxAge],
+ * auth asks for the passkey again unless it was used within that many seconds, as the workbench wants before a
+ * publish.
+ */
+export async function startSignIn(returnTo: string, maxAge?: number): Promise<{ url: URL; cookie: string; expiresAt: number }> {
   const signIn: SignIn = { verifier: oidc.randomPKCECodeVerifier(), state: oidc.randomState(), nonce: oidc.randomNonce(), returnTo };
   const url = oidc.buildAuthorizationUrl(await client(), {
     redirect_uri: new URL("/auth/callback", CURATE_URL).href,
@@ -119,6 +123,7 @@ export async function startSignIn(returnTo: string): Promise<{ url: URL; cookie:
     code_challenge_method: "S256",
     state: signIn.state,
     nonce: signIn.nonce,
+    ...(maxAge === undefined ? {} : { max_age: String(maxAge) }),
   });
   const expiresAt = now() + SIGN_IN_SECONDS;
   return { url, cookie: await seal(signIn, expiresAt), expiresAt };
@@ -156,6 +161,18 @@ export async function sessionCookie(value: Session) {
 
 export function cookieOptions(path: string) {
   return { httpOnly: true, sameSite: "lax" as const, secure: CURATE_URL.protocol === "https:", path };
+}
+
+/**
+ * How many seconds ago the curator last used their passkey, as auth wrote it in the access token, and whether the
+ * token may publish: one from before publishing existed may not. The token is curate's own, so it is only read here,
+ * not checked: the workbench checks it.
+ */
+export function passkey(value: Session): { secondsAgo: number; mayPublish: boolean } {
+  const claims = decodeJwt(value.access);
+  const scopes = typeof claims.scope === "string" ? claims.scope.split(" ") : ((claims.scope as string[] | undefined) ?? []);
+  const usedAt = typeof claims.auth_time === "number" ? claims.auth_time : 0;
+  return { secondsAgo: now() - usedAt, mayPublish: scopes.includes("publish") };
 }
 
 /** Whether the access token has less than a minute left: time enough for any request that starts now. */

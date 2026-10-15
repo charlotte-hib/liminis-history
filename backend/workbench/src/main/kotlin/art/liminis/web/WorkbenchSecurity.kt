@@ -32,6 +32,9 @@ class WorkbenchSecurity {
                 for (path in listOf("/api/claims", "/api/claims/*/decisions", "/api/claims/*/undo")) {
                     authorize(POST, path, hasAuthority(CURATION_WRITE))
                 }
+                authorize(GET, "/api/publication", hasAuthority(CURATION_READ))
+                // And a recent passkey, which PublicationController checks.
+                authorize(POST, "/api/publication", hasAuthority(PUBLISH))
                 authorize("/api/runs", hasAuthority(RUNS))
                 authorize("/api/runs/*", hasAuthority(RUNS))
                 // Where Spring sends an unexpected failure to become a 500 Problem, which the rule below would turn
@@ -62,6 +65,9 @@ class WorkbenchSecurity {
 
         /** Starting and following runs: wb. */
         const val RUNS = "SCOPE_runs"
+
+        /** Publishing to the data repository: curate, after a recent passkey. */
+        const val PUBLISH = "SCOPE_publish"
 
         /** Who sent the current request, for the decision log: the curator signed in to curate, or the wb client. */
         fun currentActor(): String = SecurityContextHolder.getContext().authentication!!.name
