@@ -51,6 +51,15 @@ object ClaimRules {
     /** The id of the claim on [moment]'s story. */
     fun storyId(moment: String) = "story:$moment"
 
+    /**
+     * The cards of [story] showing a fetched person, named by Q-id, by their number: the site holds them only once its
+     * release carries the fetched dataset.
+     */
+    fun fetchedPeople(story: Story): Map<Int, StoryCard> =
+        story.cards.withIndex()
+            .filter { (_, card) -> card.type == CardType.PERSON && card.person.orEmpty().matches(QID) }
+            .associate { (index, card) -> index + 1 to card }
+
     /** Whom or where a claim is about: an edit must not change it. */
     fun subjectOf(payload: Payload): String = when (payload) {
         is PersonFacts -> payload.person
@@ -84,6 +93,9 @@ object ClaimRules {
             if (typeOf(payload) != typeOf(state.payload) || subjectOf(payload) != subjectOf(state.payload)) {
                 invalid("An edit must stay a ${typeOf(state.payload)} about ${subjectOf(state.payload)}")
             }
+            check(payload)
+        } else if (decision.verdict == Verdict.APPROVE && payload is Story) {
+            // A draft is checked by the validator, which only flags: approved as drafted, it must still hold together.
             check(payload)
         }
         val status = when (decision.verdict) {
@@ -180,6 +192,8 @@ object ClaimRules {
         }
         if (!complete) invalid("A ${source.kind} source needs $needs")
     }
+
+    private val QID = Regex("Q[1-9][0-9]*")
 
     private fun invalid(reason: String): Nothing = throw InvalidRequestException(reason)
 

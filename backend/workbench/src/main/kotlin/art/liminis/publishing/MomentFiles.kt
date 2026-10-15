@@ -19,7 +19,8 @@ import kotlin.reflect.full.primaryConstructor
 /**
  * The moments' files of the data repository, `data/moments/<id>.json`, which publishing writes the approved stories
  * into. Only a story's fields change (the hook, the world, the cards); the rest of the file, written by hand, stays as
- * it is, in the same layout: two spaces per level, as the files were written.
+ * it is, in the same layout: two spaces per level, as the files were written. A card's painting, chosen by hand, stays
+ * with a new card showing the same person, life or event.
  */
 @Component
 class MomentFiles(jsonMapper: JsonMapper) {
@@ -47,6 +48,8 @@ class MomentFiles(jsonMapper: JsonMapper) {
             set(WORLD, mapper.valueToTree(with(story.world) { WorldRecord(governs.text, everyday.text, arts.text, meanwhile.text) }))
             set(CARDS, mapper.valueToTree(story.cards.map { CardRecord(it.type, it.kicker, it.title, it.text, it.year, it.person, it.life, it.event) }))
         }
+        val paintings = file[CARDS]?.values().orEmpty().filter { it.has(ART) }.associate { shown(it) to it[ART] }
+        for (card in written[CARDS].values()) paintings[shown(card)]?.let { (card as ObjectNode).set(ART, it) }
         val names = (file.propertyNames() + written.propertyNames()).distinct()
             .sortedBy { FIELDS.indexOf(it).takeIf { index -> index >= 0 } ?: FIELDS.size }
         val merged = mapper.createObjectNode()
@@ -60,6 +63,9 @@ class MomentFiles(jsonMapper: JsonMapper) {
         return mapper.writeValueAsString(mapper.createObjectNode().apply { for (name in listOf(HOOK, WORLD, CARDS)) file[name]?.let { set(name, it) } })
     }
 
+    /** Whom or what a card shows: its type and the id it names. */
+    private fun shown(card: JsonNode) = listOf(TYPE, PERSON, LIFE, EVENT).map { card[it]?.asString() }
+
     private fun read(text: String): ObjectNode =
         mapper.readTree(text) as? ObjectNode ?: throw UnavailableException("A moment's file holds no JSON object")
 
@@ -67,6 +73,11 @@ class MomentFiles(jsonMapper: JsonMapper) {
         const val HOOK = "hook"
         const val WORLD = "world"
         const val CARDS = "cards"
+        const val ART = "art"
+        const val TYPE = "type"
+        const val PERSON = "person"
+        const val LIFE = "life"
+        const val EVENT = "event"
         val INDENT = DefaultIndenter("  ", "\n")
 
         /** A moment's fields in the release format's order. */

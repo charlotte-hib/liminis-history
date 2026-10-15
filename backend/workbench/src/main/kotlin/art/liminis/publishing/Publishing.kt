@@ -2,10 +2,10 @@ package art.liminis.publishing
 
 import org.springframework.stereotype.Service
 import art.liminis.curation.ClaimRepository
+import art.liminis.curation.ClaimRules
 import art.liminis.curation.ClaimStatus
 import art.liminis.curation.ClaimType
 import art.liminis.curation.Story
-import art.liminis.domain.CardType
 import art.liminis.support.StaleException
 import art.liminis.support.UnavailableException
 
@@ -109,6 +109,10 @@ class Publishing(
         return publication to texts + stories.associate { (file, text) -> file.path to text }
     }
 
+    /**
+     * The approved stories, every one written on every publish: the claim is the story's source, so a hand edit of its
+     * fields in `data/` shows in the preview as a change back, and goes with the next publish.
+     */
     private fun approvedStories() = claims.findByTypeAndStatusOrderById(ClaimType.STORY, ClaimStatus.APPROVED).map { it.payload as Story }
 
     /**
@@ -117,10 +121,8 @@ class Publishing(
      */
     private fun holdBack(story: Story): String? {
         if (properties.fetchedPeople) return null
-        val index = story.cards.indexOfFirst { it.type == CardType.PERSON && it.person.orEmpty().matches(QID) }
-        if (index < 0) return null
-        val card = story.cards[index]
-        return "Card ${index + 1} shows ${card.label ?: card.person}, ${card.person}: the release holds fetched people " +
+        val (number, card) = ClaimRules.fetchedPeople(story).entries.firstOrNull() ?: return null
+        return "Card $number shows ${card.label ?: card.person}, ${card.person}: the release holds fetched people " +
             "once it carries the dataset"
     }
 
@@ -150,7 +152,6 @@ class Publishing(
 
     private companion object {
         const val PEOPLE = "data/people.jsonl"
-        val QID = Regex("Q[1-9][0-9]*")
         const val TITLE = "feat: publish the curator's decisions"
         const val ABOUT = "Opened by the workbench when the curator published from curate. Each file is written whole from " +
             "the approved claims. Merging packs a release; a `release.lock` pull request in the code repository puts it in production."

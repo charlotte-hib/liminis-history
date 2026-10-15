@@ -31,9 +31,9 @@ class DraftSources(
     fun forMoment(moment: Moment): List<Source> {
         val region = moment.region.code
         val (start, end) = moment.startYear to moment.endYear
-        val regionEras = eras.findAllByOrderByStartYearAscIdAsc()
+        val allEras = eras.findAllByOrderByStartYearAscIdAsc()
 
-        val eraSources = regionEras.filter { it.region.code == region && it.startYear <= end && it.endYear >= start }
+        val eraSources = allEras.filter { it.region.code == region && it.startYear <= end && it.endYear >= start }
             .map { Source("era:${it.id}", it.label, "${it.label}: who governed ${it.region.name} from ${it.startYear} to ${it.endYear}.", null) }
 
         val alive = dataset.aliveIn(region, start, end, properties.people)
@@ -48,7 +48,7 @@ class DraftSources(
         }
 
         // A few people of each other place with a history in the release, alive in the focus year, nearest 40 years old.
-        val elsewhere = regionEras.map { it.region }.distinctBy { it.code }.filter { it.code != region }.flatMap { other ->
+        val elsewhere = allEras.map { it.region }.distinctBy { it.code }.filter { it.code != region }.flatMap { other ->
             dataset.aliveIn(other.code, moment.focusYear, moment.focusYear, ELSEWHERE_POOL)
                 .sortedBy { abs(yearsBetween(it.born, moment.focusYear) - 40) }
                 .take(ELSEWHERE_PER_REGION)

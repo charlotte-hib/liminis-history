@@ -132,6 +132,9 @@ class ClaimRulesTests {
 
         val unnamed = draft.copy(cards = listOf(StoryCard(CardType.PERSON, text = "Someone.")))
         assertThrows<InvalidRequestException> { ClaimRules.decide(state(ClaimStatus.CANDIDATE, draft, draft), NewDecision(Verdict.APPROVE, unnamed)) }
+        // As drafted too: the validator only flags a card naming nobody.
+        assertThrows<InvalidRequestException> { ClaimRules.decide(state(ClaimStatus.CANDIDATE, unnamed, unnamed), NewDecision(Verdict.APPROVE)) }
+        ClaimRules.decide(state(ClaimStatus.CANDIDATE, unnamed, unnamed), NewDecision(Verdict.REJECT, note = "Nobody on card 1"))
         val untitled = draft.copy(cards = listOf(StoryCard(CardType.SCENE, text = "A scene.")))
         assertThrows<InvalidRequestException> { ClaimRules.decide(state(ClaimStatus.CANDIDATE, draft, draft), NewDecision(Verdict.APPROVE, untitled)) }
         assertThrows<InvalidRequestException> {

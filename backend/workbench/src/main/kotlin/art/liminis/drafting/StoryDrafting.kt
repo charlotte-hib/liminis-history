@@ -66,8 +66,10 @@ class StoryDrafting(
         val cost = cost(drafted)
         log.info("Drafted {} with {}: {} cards, {} problems, {} input and {} output tokens, \${}", momentId, drafted.model,
             story.cards.size, flags.size, drafted.inputTokens, drafted.outputTokens, cost)
+        // A refusal can hand the draft to a fallback model, at its own price: the cost is then only a guide.
+        val priced = if (drafted.model == properties.model) "" else " at ${properties.model}'s price, though ${drafted.model} wrote it"
         return "Drafted ${ClaimRules.storyId(momentId)} ($counts): ${story.cards.size} cards, ${flags.size} to look at; " +
-            "%,d input and %,d output tokens, about \$%s".format(Locale.ROOT, drafted.inputTokens, drafted.outputTokens, cost)
+            "%,d input and %,d output tokens, about \$%s%s".format(Locale.ROOT, drafted.inputTokens, drafted.outputTokens, cost, priced)
     }
 
     /** The draft as the claim's record: each line with its quotes, and cards naming people written by hand by their id. */
@@ -108,10 +110,8 @@ class StoryDrafting(
     private fun citations(citations: List<Citation>, byId: Map<String, Source>) =
         citations.map { StoryCitation(it.sourceId, byId[it.sourceId]?.title ?: it.sourceId, it.quote) }
 
-    /** The cards showing people the site holds only once its release carries the fetched dataset: named by Q-id. */
-    private fun fetchedPeople(story: Story): List<String> = story.cards.mapIndexedNotNull { index, card ->
-        card.person?.takeIf { card.type == CardType.PERSON && it.matches(QID) }
-            ?.let { "card ${index + 1} shows ${card.label ?: it} ($it), whom the site holds once its release carries the fetched dataset" }
+    private fun fetchedPeople(story: Story): List<String> = ClaimRules.fetchedPeople(story).map { (number, card) ->
+        "card $number shows ${card.label ?: card.person} (${card.person}), whom the site holds once its release carries the fetched dataset"
     }
 
     /** The English Wikipedia articles the draft quotes. */
@@ -129,7 +129,6 @@ class StoryDrafting(
             .divide(MILLION, 2, RoundingMode.HALF_UP)
 
     private companion object {
-        val QID = Regex("Q[1-9][0-9]*")
         val MILLION = BigDecimal(1_000_000)
     }
 }

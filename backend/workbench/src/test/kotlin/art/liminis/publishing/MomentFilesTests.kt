@@ -13,6 +13,7 @@ import java.nio.file.Path
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** A story written into a moment's file, the rest of the file as it was written by hand. */
 class MomentFilesTests {
@@ -29,11 +30,11 @@ class MomentFilesTests {
     )
 
     @Test
-    fun `writing back a moment's own story gives the same bytes, for every story of the sample`() {
-        // A card's painting is not part of a story publishing writes.
+    fun `writing back a moment's own story gives the same bytes, for every story of the sample, its cards' paintings kept`() {
         val stories = moments.listDirectoryEntries("*.json").map { it to mapper.readValue<MomentRecord>(it.readText()) }
-            .filter { (_, record) -> record.cards.isNotEmpty() && record.cards.none { it.art != null } }
-        assertEquals(3, stories.size)
+            .filter { (_, record) -> record.cards.isNotEmpty() }
+        assertEquals(4, stories.size)
+        assertTrue(stories.any { (_, record) -> record.cards.any { it.art != null } })
         for ((file, record) in stories) {
             val text = file.readText()
             assertEquals(text, files.write(text, storyOf(record)), file.toString())
