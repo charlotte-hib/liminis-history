@@ -345,6 +345,22 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
             DataClassRowMapper(Intro::class.java), qids.toTypedArray(),
         ).associateBy { it.person }
 
+    /**
+     * Those of [qids] the dataset holds, as a story card shows them: their first occupation, a portrait from their
+     * English Wikipedia article, else the French one, and the English intro.
+     */
+    fun portraits(qids: Collection<String>): List<PersonPortrait> =
+        jdbc.query(
+            """
+            select $SUMMARY,
+                (select a.thumbnail_url from dataset.person_article a
+                 where a.person = p.qid and a.thumbnail_url is not null order by a.language limit 1) as portrait,
+                (select a.extract from dataset.person_article a where a.person = p.qid and a.language = 'en') as intro
+            from dataset.person p where p.qid = any (?) order by p.qid
+            """.trimIndent(),
+            DataClassRowMapper(PersonPortrait::class.java), qids.toTypedArray(),
+        )
+
     /** The person's Wikipedia articles, by language. */
     fun articles(person: String): List<ArticleRow> =
         jdbc.query(

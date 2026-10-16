@@ -1,6 +1,7 @@
 package art.liminis.web
 
 import org.junit.jupiter.api.BeforeEach
+import org.hamcrest.Matchers.startsWith
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -97,6 +98,48 @@ class MomentsApiTests(
             jsonPath("$[0].id") { value("person-facts:Q504") }
         }
         mockMvc.get("/api/claims") { signedIn() }.andExpect { jsonPath("$.length()") { value(2) } }
+    }
+
+    @Test
+    fun `a story's preview shows the people, lives and events its cards name, from the release or the dataset`() {
+        jdbc.update(
+            "insert into dataset.person_article (person, language, title, url, extract, thumbnail_url, image) values " +
+                "('Q535', 'en', 'Victor Hugo', 'https://en.wikipedia.org/wiki/Victor_Hugo', ?, null, null), " +
+                "('Q535', 'fr', 'Victor Hugo', 'https://fr.wikipedia.org/wiki/Victor_Hugo', 'Victor Hugo est un poète.', 'https://upload.example/hugo.jpg', 'Hugo.jpg')",
+            "For the ship, see Victor Hugo (ship).\nVictor Hugo was a French writer. He wrote Les Misérables.",
+        )
+        mockMvc.get("/api/moments/{id}/preview", "paris-1870s") {
+            signedIn()
+            param("person", "georges-clemenceau", "Q535", "Q404")
+            param("life", "a-washerwoman-on-the-seine")
+            param("event", "first-impressionist-exhibition")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.art.credit") { value("Gustave Caillebotte, Paris Street; Rainy Day, 1877") }
+            jsonPath("$.cardArt.length()") { value(0) }
+            // Ordered by id; the Q-id nobody holds is left out.
+            jsonPath("$.people.length()") { value(2) }
+            jsonPath("$.people[0].id") { value("Q535") }
+            jsonPath("$.people[0].name") { value("Victor Hugo") }
+            jsonPath("$.people[0].occupation") { value("writer") }
+            jsonPath("$.people[0].portrait") { value("https://upload.example/hugo.jpg") }
+            jsonPath("$.people[0].bio") { value("Victor Hugo was a French writer. He wrote Les Misérables.") }
+            jsonPath("$.people[1].id") { value("georges-clemenceau") }
+            jsonPath("$.people[1].born") { value(1841) }
+            jsonPath("$.people[1].bio") { value(startsWith("A physician turned politician")) }
+            jsonPath("$.lives[0].label") { value("A washerwoman on the Seine") }
+            jsonPath("$.lives[0].art.fit") { exists() }
+            jsonPath("$.events[0].title") { value("The first Impressionist exhibition") }
+            jsonPath("$.events[0].participants.length()") { value(3) }
+            jsonPath("$.events[0].participants[0].role") { value("exhibitor") }
+        }
+        mockMvc.get("/api/moments/{id}/preview", "tokyo-1870s") { signedIn() }.andExpect {
+            jsonPath("$.cardArt.length()") { value(1) }
+            jsonPath("$.cardArt[0].type") { value("EVENT") }
+            jsonPath("$.cardArt[0].event") { value("first-railway") }
+            jsonPath("$.people.length()") { value(0) }
+        }
+        mockMvc.get("/api/moments/{id}/preview", "atlantis-0") { signedIn() }.andExpect { status { isNotFound() } }
     }
 
     @Test

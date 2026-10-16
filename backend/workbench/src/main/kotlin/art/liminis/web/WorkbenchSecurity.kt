@@ -28,7 +28,7 @@ class WorkbenchSecurity {
             authorizeHttpRequests {
                 for (path in listOf(
                     "/api/queues", "/api/claims", "/api/claims/*", "/api/people", "/api/people/*/evidence", "/api/occupations/*",
-                    "/api/moments", "/api/moments/*", "/api/moments/*/people",
+                    "/api/moments", "/api/moments/*", "/api/moments/*/people", "/api/moments/*/preview",
                 )) {
                     authorize(GET, path, hasAuthority(CURATION_READ))
                 }

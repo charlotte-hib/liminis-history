@@ -12,6 +12,7 @@ import art.liminis.moments.MomentPeople
 import art.liminis.moments.MomentPerson
 import art.liminis.moments.MomentStory
 import art.liminis.moments.Moments
+import art.liminis.moments.StoryPreview
 import art.liminis.runs.Runs
 import art.liminis.workbench.api.MomentsApi
 import art.liminis.workbench.api.model.ClaimStatusDto
@@ -22,6 +23,7 @@ import art.liminis.workbench.api.model.MomentSummaryDto
 import art.liminis.workbench.api.model.RunDto
 import art.liminis.workbench.api.model.RunKindDto
 import art.liminis.workbench.api.model.StoryCardDto
+import art.liminis.workbench.api.model.StoryPreviewDto
 import art.liminis.workbench.api.model.WorldDto
 
 @RestController
@@ -37,6 +39,9 @@ class MomentController(private val moments: Moments, private val runs: Runs, pri
     }
 
     override fun listMomentPeople(id: String, offset: Int, limit: Int): MomentPeopleDto = mapper.toDto(moments.people(id, offset, limit))
+
+    override fun getStoryPreview(id: String, person: List<String>?, life: List<String>?, event: List<String>?): StoryPreviewDto =
+        mapper.toDto(moments.preview(id, person.orEmpty(), life.orEmpty(), event.orEmpty()))
 }
 
 /** The workspace's moments to the API's models. Every target field is mapped or ignored on purpose. */
@@ -83,4 +88,6 @@ interface MomentApiMapper {
     @Mapping(target = "occupation", source = "person.occupation")
     @Mapping(target = "sitelinks", source = "person.sitelinks")
     fun toDto(person: MomentPerson): MomentPersonDto
+
+    fun toDto(preview: StoryPreview): StoryPreviewDto
 }
