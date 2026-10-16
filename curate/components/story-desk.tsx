@@ -82,8 +82,8 @@ function storyOf(draft: Draft, base: Story): Story {
   };
 }
 
-/** Why the draft can't be approved yet, if it can't. */
-function problemOf(draft: Draft): string | null {
+/** Why the draft can't be approved yet, if it can't. [missing] holds the ids looked up and found nowhere, by kind. */
+function problemOf(draft: Draft, missing: Set<string>): string | null {
   if (!draft.hook.trim()) return "Write the hook.";
   if (WORLD.some(({ key }) => !draft.world[key].trim())) return "Write every line of the world around.";
   if (!draft.cards.length) return "Keep at least one card.";
@@ -91,6 +91,7 @@ function problemOf(draft: Draft): string | null {
     if (card.when.trim() && parseYear(card.when) === null) return `Card ${i + 1}: the year is a whole number, negative for BCE, never 0.`;
     const field = SHOWS[card.type];
     if (field && !card[field]?.trim()) return `Card ${i + 1}: say which ${field} it shows.`;
+    if (field && missing.has(`${field}:${card[field]!.trim()}`)) return `Card ${i + 1}: no ${field} “${card[field]!.trim()}” in the release or the dataset.`;
     if (card.type === "SCENE" && !card.title?.trim()) return `Card ${i + 1}: a scene needs a title.`;
   }
   return null;
@@ -101,6 +102,16 @@ function idsOf(cards: StoryCard[]) {
   const of = (field: "person" | "life" | "event") =>
     [...new Set(cards.filter((card) => SHOWS[card.type] === field).map((card) => card[field]?.trim()).filter((id): id is string => !!id))];
   return { person: of("person"), life: of("life"), event: of("event") };
+}
+
+/** The ids the stories' cards name, as "kind:id". */
+const keysOf = (stories: (Story | null)[]) =>
+  stories.flatMap((story) => (story ? Object.entries(idsOf(story.cards)).flatMap(([kind, list]) => list.map((id) => `${kind}:${id}`)) : []));
+
+/** Whether the subjects hold the "kind:id" given. */
+function has(subjects: Subjects, key: string): boolean {
+  const [kind, id] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
+  return id in (kind === "person" ? subjects.people : kind === "life" ? subjects.lives : subjects.events);
 }
 
 /** What a card shows, as its tile names it. */
@@ -137,9 +148,15 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
   // A story drafted again after the curator's edits keeps them: the new draft is the claim's proposal.
   const redrafted = claim.flags.some((flag) => flag.reason === "CHANGED_SINCE_EDITED") ? (claim.proposal as Story) : null;
   const [base, setBase] = useState<Story>(payload);
+  const [from, setFrom] = useState<"edits" | "draft">("edits");
   const [draft, setDraft] = useState(() => draftOf(payload));
   const [open, setOpen] = useState(0);
   const [subjects, setSubjects] = useState(() => subjectsOf(preview));
+  // Ids looked up and found nowhere, as "kind:id": the page asked for every id the story and the new draft name.
+  const [missing, setMissing] = useState(() => {
+    const found = subjectsOf(preview);
+    return new Set(keysOf([payload, redrafted]).filter((key) => !has(found, key)));
+  });
   const [mode, setMode] = useState<"view" | "REJECT" | "NEEDS_WORK">("view");
   const [note, setNote] = useState("");
   const [last, setLast] = useState<Decided | null>(null);
@@ -151,23 +168,20 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
   if (shown !== version) {
     setShown(version);
     setBase(payload);
+    setFrom("edits");
     setDraft(draftOf(payload));
   }
 
   const story = useMemo(() => storyOf(draft, base), [draft, base]);
-  const edited = useMemo(() => JSON.stringify(story) !== JSON.stringify(storyOf(draftOf(payload), payload)), [story, payload]);
-  const problem = problemOf(draft);
+  const original = useMemo(() => JSON.stringify(storyOf(draftOf(payload), payload)), [payload]);
+  const edited = JSON.stringify(story) !== original;
+  const problem = problemOf(draft, missing);
   const card = draft.cards[Math.min(open, draft.cards.length - 1)];
   const fetched = draft.cards.flatMap((c, i) => (c.type === "PERSON" && QID.test(c.person?.trim() ?? "") ? [i + 1] : []));
 
-  // Ids typed in that the preview has not looked up yet: asked for once each, a moment after the typing stops.
-  const asked = useRef(
-    new Set(
-      [payload, redrafted].flatMap((asOf) =>
-        asOf ? Object.entries(idsOf(asOf.cards)).flatMap(([kind, list]) => list.map((id) => `${kind}:${id}`)) : [],
-      ),
-    ),
-  );
+  // Ids typed in that the preview has not looked up yet: asked for once each, a moment after the typing stops, and
+  // again after a failed lookup.
+  const asked = useRef(new Set(keysOf([payload, redrafted])));
   useEffect(() => {
     const ids = idsOf(story.cards);
     const unknown = {
@@ -177,26 +191,29 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
     };
     if (!unknown.person.length && !unknown.life.length && !unknown.event.length) return;
     const wait = setTimeout(async () => {
-      for (const [kind, list] of Object.entries(unknown)) list.forEach((id) => asked.current.add(`${kind}:${id}`));
+      const keys = Object.entries(unknown).flatMap(([kind, list]) => list.map((id) => `${kind}:${id}`));
+      keys.forEach((key) => asked.current.add(key));
       const result = await previewOf(moment.id, unknown);
-      if (!result.ok) return;
+      if (!result.ok) return keys.forEach((key) => asked.current.delete(key));
       const found = subjectsOf(result.data);
       setSubjects((known) => ({
         people: { ...known.people, ...found.people },
         lives: { ...known.lives, ...found.lives },
         events: { ...known.events, ...found.events },
       }));
+      setMissing((known) => new Set([...known, ...keys.filter((key) => !has(found, key))]));
     }, 400);
     return () => clearTimeout(wait);
   }, [story.cards, moment.id]);
 
   const changeCard = (i: number, change: Partial<DraftCard>) =>
     setDraft((d) => ({ ...d, cards: d.cards.map((c, j) => (j === i ? { ...c, ...change } : c)) }));
-  const move = (from: number, to: number) => {
-    if (to < 0 || to >= draft.cards.length || from === to) return;
+  const move = (at: number, to: number) => {
+    const within = (i: number) => Number.isInteger(i) && i >= 0 && i < draft.cards.length;
+    if (!within(at) || !within(to) || at === to) return;
     setDraft((d) => {
       const cards = [...d.cards];
-      cards.splice(to, 0, ...cards.splice(from, 1));
+      cards.splice(to, 0, ...cards.splice(at, 1));
       return { ...d, cards };
     });
     setOpen(to);
@@ -209,7 +226,9 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
     setDraft((d) => ({ ...d, cards: [...d.cards, { type: "SCENE", citations: [], when: "", key: Math.max(-1, ...d.cards.map((c) => c.key)) + 1 }] }));
     setOpen(draft.cards.length);
   };
-  const startFrom = (story: Story) => {
+  const startFrom = (which: "edits" | "draft") => {
+    const story = which === "draft" && redrafted ? redrafted : payload;
+    setFrom(which);
     setBase(story);
     setDraft(draftOf(story));
     setOpen(0);
@@ -227,6 +246,7 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
       if (!result.ok) return setFailure(result);
       setLast({ version: result.data.version, verdict: VERDICTS[action] });
       setMode("view");
+      setNote("");
       router.refresh();
     });
   };
@@ -252,7 +272,7 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
       if (event.metaKey || event.ctrlKey || event.altKey || pending) return;
       if ((event.target as HTMLElement).closest("input, textarea, select, [contenteditable]")) return;
       const action: Record<string, () => void> = {
-        a: () => decideOn("APPROVE"),
+        a: () => decideOn("APPROVE", note),
         r: () => setMode("REJECT"),
         n: () => setMode("NEEDS_WORK"),
         u: undoLast,
@@ -287,12 +307,12 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
       {redrafted && (
         <div role="note" className="mx-10 mt-4 flex flex-wrap items-center gap-3 rounded border border-line bg-note px-4 py-3">
           <span>{describe("CHANGED_SINCE_EDITED", "STORY")}.</span>
-          {base === redrafted ? (
-            <button type="button" className="button-small" onClick={() => startFrom(payload)}>
+          {from === "draft" ? (
+            <button type="button" className="button-small" onClick={() => startFrom("edits")}>
               Back to my edits
             </button>
           ) : (
-            <button type="button" className="button-small" onClick={() => startFrom(redrafted)}>
+            <button type="button" className="button-small" onClick={() => startFrom("draft")}>
               Start from the new draft
             </button>
           )}
@@ -303,6 +323,7 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
         <label className="flex flex-col gap-1">
           <span className="label">The hook · on the moment&apos;s page, under its title</span>
           <textarea
+            aria-describedby="quotes-hook"
             value={draft.hook}
             maxLength={400}
             rows={2}
@@ -310,7 +331,7 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
             className="field-sizing-content resize-none bg-transparent font-serif text-[26px] leading-tight outline-none focus:bg-surface"
           />
         </label>
-        <Quotes citations={base.hook.citations} sources={claim.sources} compact />
+        <Quotes id="quotes-hook" citations={base.hook.citations} sources={claim.sources} compact />
         <span className="text-[12.5px] text-muted">The whole story at a glance · drag a card to move it</span>
         <ol aria-label="Cards" className="grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-3">
           {draft.cards.map((c, i) => (
@@ -370,6 +391,7 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
             number={index + 1}
             count={draft.cards.length}
             subjects={subjects}
+            missing={missing}
             sources={claim.sources}
             onChange={(change) => changeCard(index, change)}
             onMove={(by) => move(index, index + by)}
@@ -387,16 +409,19 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
         </div>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(360px,100%),1fr))] gap-x-8 gap-y-5">
           {WORLD.map(({ key, name }) => (
-            <label key={key} className="flex flex-col gap-1.5">
-              <span className="label">{name}</span>
-              <textarea
-                value={draft.world[key]}
-                maxLength={400}
-                onChange={(e) => setDraft({ ...draft, world: { ...draft.world, [key]: e.target.value } })}
-                className="field-sizing-content min-h-16 resize-none border-b border-edge bg-transparent pb-2 font-serif text-[17px] leading-normal outline-none focus:border-ink"
-              />
-              <Quotes citations={base.world[key].citations} sources={claim.sources} compact />
-            </label>
+            <div key={key} className="flex flex-col gap-1.5">
+              <label className="flex flex-col gap-1.5">
+                <span className="label">{name}</span>
+                <textarea
+                  value={draft.world[key]}
+                  maxLength={400}
+                  aria-describedby={`quotes-${key}`}
+                  onChange={(e) => setDraft({ ...draft, world: { ...draft.world, [key]: e.target.value } })}
+                  className="field-sizing-content min-h-16 resize-none border-b border-edge bg-transparent pb-2 font-serif text-[17px] leading-normal outline-none focus:border-ink"
+                />
+              </label>
+              <Quotes id={`quotes-${key}`} citations={base.world[key].citations} sources={claim.sources} compact />
+            </div>
           ))}
         </div>
         {moment.draft && moment.draft.status !== "RUNNING" && <p className="text-[12.5px] text-muted">Last draft: {moment.draft.result}</p>}
@@ -406,7 +431,7 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
       <footer className="sticky bottom-0 mt-auto flex flex-wrap items-center gap-3 border-t border-line bg-paper px-10 py-4">
         {mode === "view" ? (
           <>
-            <button type="button" className="button-primary" disabled={pending || !!problem} onClick={() => decideOn("APPROVE")}>
+            <button type="button" className="button-primary" disabled={pending || !!problem} onClick={() => decideOn("APPROVE", note)}>
               {edited ? "Approve with my changes" : "Approve the story"}
             </button>
             <button type="button" className="button" disabled={pending} onClick={() => setMode("NEEDS_WORK")}>
@@ -416,7 +441,7 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
               Reject
             </button>
             {edited ? (
-              <button type="button" className="button" disabled={pending} onClick={() => startFrom(base)}>
+              <button type="button" className="button" disabled={pending} onClick={() => startFrom("edits")}>
                 Discard my changes
               </button>
             ) : (
@@ -432,13 +457,23 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
                 </button>
               </span>
             )}
+            {edited && (
+              <input
+                aria-label="Why, for the log (optional)"
+                placeholder="Why, for the log (optional)"
+                value={note}
+                maxLength={2000}
+                onChange={(event) => setNote(event.target.value)}
+                className="min-w-48 rounded border border-line bg-surface px-3 py-2"
+              />
+            )}
             {problem && <span className="text-conflict">{problem}</span>}
             {failure && (
               <span role="alert" className="text-conflict">
                 {failure.status === 412 ? "The story changed since you opened it: reload the page, then decide." : failure.detail}
               </span>
             )}
-            <span className="ml-auto text-[12.5px] text-muted">Keys still work: A approve · R reject · N later · ← → cards</span>
+            <span className="ml-auto text-[12.5px] text-muted">Keys still work: A approve · R reject · N later · U undo · ← → cards</span>
           </>
         ) : (
           <form
@@ -452,15 +487,16 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
               <span className="whitespace-nowrap">{mode === "REJECT" ? "Reject: why?" : "Keep for later: what needs doing?"}</span>
               <input
                 autoFocus
+                required
                 value={note}
                 maxLength={2000}
                 onChange={(event) => setNote(event.target.value)}
                 onKeyDown={(event) => event.key === "Escape" && setMode("view")}
-                placeholder={mode === "REJECT" ? "Optional: off the moment, wrong people…" : "Optional: find a painting for card 3…"}
+                placeholder={mode === "REJECT" ? "Off the moment, wrong people…" : "Find a painting for card 3…"}
                 className="flex-1 rounded border border-line bg-surface px-3 py-2"
               />
             </label>
-            <button type="submit" disabled={pending} className="button-primary">
+            <button type="submit" disabled={pending || !note.trim()} className="button-primary">
               {mode === "REJECT" ? "Reject" : "Keep for later"}
             </button>
             <button type="button" onClick={() => setMode("view")} className="button">
@@ -484,22 +520,28 @@ type TileProps = {
   onDrop: (from: number) => void;
 };
 
+/** What a dragged card carries: its index, under a type of its own, so no text field takes it as text. */
+const CARD_DRAG = "application/x-liminis-card";
+
 /** One card on the desk: dragged onto another to take its place. */
 function CardTile({ card, number, name, art, fetched, open, onOpen, onDrop }: TileProps) {
   const [over, setOver] = useState(false);
   return (
     <li
       draggable
-      onDragStart={(event) => event.dataTransfer.setData("text/plain", String(number - 1))}
+      onDragStart={(event) => event.dataTransfer.setData(CARD_DRAG, String(number - 1))}
       onDragOver={(event) => {
+        // Only a card is dropped here: text, links and images dragged from elsewhere are left to the browser.
+        if (!event.dataTransfer.types.includes(CARD_DRAG)) return;
         event.preventDefault();
         setOver(true);
       }}
       onDragLeave={() => setOver(false)}
       onDrop={(event) => {
+        if (!event.dataTransfer.types.includes(CARD_DRAG)) return;
         event.preventDefault();
         setOver(false);
-        onDrop(Number(event.dataTransfer.getData("text/plain")));
+        onDrop(Number(event.dataTransfer.getData(CARD_DRAG)));
       }}
       className={over ? "outline-2 outline-offset-2 outline-lamp" : undefined}
     >
@@ -533,6 +575,7 @@ type OpenProps = {
   number: number;
   count: number;
   subjects: Subjects;
+  missing: Set<string>;
   sources: Source[];
   onChange: (change: Partial<DraftCard>) => void;
   onMove: (by: number) => void;
@@ -540,7 +583,7 @@ type OpenProps = {
 };
 
 /** The open card: what visitors read, what it shows, and the quotes it rests on. */
-function OpenCard({ card, number, count, subjects, sources, onChange, onMove, onRemove }: OpenProps) {
+function OpenCard({ card, number, count, subjects, missing, sources, onChange, onMove, onRemove }: OpenProps) {
   const field = SHOWS[card.type];
   const id = field ? card[field]?.trim() : undefined;
   const found = id ? (field === "person" ? subjects.people[id]?.name : field === "life" ? subjects.lives[id]?.label : subjects.events[id]?.title) : undefined;
@@ -615,7 +658,11 @@ function OpenCard({ card, number, count, subjects, sources, onChange, onMove, on
         </div>
         {field && id && (
           <p className="mt-2 text-[12.5px] text-muted">
-            {found ? `${found}, ${QID.test(id) ? "from the dataset: not on the site yet" : "from the release"}.` : "Looking it up…"}
+            {found
+              ? `${found}, ${QID.test(id) ? "from the dataset: not on the site yet" : "from the release"}.`
+              : missing.has(`${field}:${id}`)
+                ? "Not found in the release or the dataset."
+                : "Looking it up…"}
           </p>
         )}
       </details>
@@ -664,10 +711,15 @@ function PinnedSource({ citation, sources, tilt }: { citation: Citation; sources
 }
 
 /** The quotes a line was written from, under it. */
-function Quotes({ citations, sources, compact }: { citations: Citation[]; sources: Source[]; compact?: boolean }) {
-  if (!citations.length) return <p className="text-[12.5px] text-conflict">No quote: check it yourself.</p>;
+function Quotes({ id, citations, sources, compact }: { id?: string; citations: Citation[]; sources: Source[]; compact?: boolean }) {
+  if (!citations.length)
+    return (
+      <p id={id} className="text-[12.5px] text-conflict">
+        No quote: check it yourself.
+      </p>
+    );
   return (
-    <ul className={`flex flex-col gap-1 text-muted ${compact ? "text-[12.5px]" : "text-[13.5px]"}`}>
+    <ul id={id} className={`flex flex-col gap-1 text-muted ${compact ? "text-[12.5px]" : "text-[13.5px]"}`}>
       {citations.map((citation, i) => {
         const url = sources.find((source) => source.title === citation.title)?.url;
         return (

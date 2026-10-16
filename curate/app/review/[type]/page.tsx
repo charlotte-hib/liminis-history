@@ -15,7 +15,7 @@ export default async function ReviewPage({ params, searchParams }: PageProps<"/r
   const claims = await queue(found.type, later ? "NEEDS_WORK" : "CANDIDATE", moment);
   const id = typeof query.claim === "string" ? query.claim : claims[0]?.id;
   // A story is reviewed on its moment's own page, beside its preview.
-  if (found.type === "STORY" && id?.startsWith("story:")) redirect(`/moments/${id.slice("story:".length)}/story`);
+  if (found.type === "STORY" && id?.startsWith("story:")) redirect(`/moments/${encodeURIComponent(id.slice("story:".length))}/story`);
   const current = id ? await review(id) : null;
   if (id && !current) notFound();
 

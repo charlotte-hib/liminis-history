@@ -258,15 +258,17 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
               <span className="whitespace-nowrap">{mode === "REJECT" ? "Reject: why?" : "Keep for later: what needs doing?"}</span>
               <input
                 autoFocus
+                required
                 value={note}
                 maxLength={2000}
                 onChange={(event) => setNote(event.target.value)}
                 onKeyDown={(event) => event.key === "Escape" && setMode("view")}
-                placeholder={mode === "REJECT" ? "Optional: wrong facts, not this person, a duplicate…" : "Optional: check the book…"}
+                placeholder={mode === "REJECT" ? "Wrong facts, not this person, a duplicate…" : "Check the book…"}
                 className="flex-1 rounded border border-line bg-surface px-3 py-2"
               />
             </label>
-            <button type="submit" disabled={pending} className="button-primary">
+            {/* The workbench asks why a claim is not approved. */}
+            <button type="submit" disabled={pending || !note.trim()} className="button-primary">
               {mode === "REJECT" ? "Reject" : "Keep for later"}
             </button>
             <button type="button" onClick={() => setMode("view")} className="button">
