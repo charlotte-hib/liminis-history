@@ -12,6 +12,9 @@
   }
 }
 
+/* Light only when the device asks for it, even inside a .dark element: a painting's dark wash can stay lighter on paper. */
+@custom-variant light (@media (prefers-color-scheme: light));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

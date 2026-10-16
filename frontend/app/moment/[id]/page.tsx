@@ -29,9 +29,10 @@ export default async function MomentPage({ params }: PageProps<"/moment/[id]">) 
       <TrailOrigin label={titleOf(moment)} />
       <SiteHeader overlay />
       <main>
-        <header className="relative flex min-h-80 items-end overflow-hidden">
+        <header className="dark relative flex min-h-80 items-end overflow-hidden">
           {moment.art && <ArtworkImage art={moment.art} priority />}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-background/30" />
+          {/* Dark in both themes, a little lighter on paper. */}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-background/30 light:from-background/70 light:via-background/35 light:to-background/10" />
           <div className="relative mx-auto w-full max-w-6xl px-4 pt-28 pb-6">
             <p className="text-xs font-medium tracking-widest text-lamp uppercase">
               {moment.region} · {formatYear(moment.startYear)}–{formatYear(moment.endYear)}

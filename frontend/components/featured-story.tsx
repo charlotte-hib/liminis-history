@@ -20,7 +20,7 @@ export function FeaturedStory({ stories, initialIndex }: Props) {
   const step = (by: number) => setIndex((current) => (current + by + stories.length) % stories.length);
 
   return (
-    <section aria-labelledby="featured-title" className="relative flex min-h-[min(88vh,52rem)] items-end overflow-hidden">
+    <section aria-labelledby="featured-title" className="dark relative flex min-h-[min(88vh,52rem)] items-end overflow-hidden">
       <AnimatePresence initial={false}>
         <motion.div
           key={story.id}
@@ -33,8 +33,8 @@ export function FeaturedStory({ stories, initialIndex }: Props) {
           {story.art && <ArtworkImage art={story.art} priority />}
         </motion.div>
       </AnimatePresence>
-      {/* On paper, a lighter wash keeps the painting vivid; phones keep more of it, as the text covers most of the painting. */}
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent max-sm:via-background/65 dark:via-background/70 dark:to-background/30" />
+      {/* The gallery's dark wash in both themes, never a white veil; on paper a little lighter, to keep the painting vivid. */}
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/30 light:from-background/70 light:via-background/40 light:to-background/10" />
 
       <div className="relative mx-auto w-full max-w-6xl px-4 pt-32 pb-12">
         <p className="text-xs font-medium tracking-widest text-lamp uppercase">Featured story</p>
