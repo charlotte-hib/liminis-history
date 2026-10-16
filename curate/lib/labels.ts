@@ -75,7 +75,7 @@ export function fieldOf(reason: string): Field {
 /** What a new draft did to a story already reviewed: the workbench's refresh reasons, said for stories. */
 const STORY_REASONS: Record<string, string> = {
   CHANGED_SINCE_APPROVED: "Claude drafted it again since you approved it",
-  CHANGED_SINCE_EDITED: "Claude drafted it again since you edited it: your edits are shown, the new draft below",
+  CHANGED_SINCE_EDITED: "Claude drafted it again since you edited it: your edits are shown",
 };
 
 /**

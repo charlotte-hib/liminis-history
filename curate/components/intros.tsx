@@ -12,9 +12,9 @@ export function Intros({ articles }: { articles: Article[] }) {
   if (!article) return <p className="text-muted">No English or French Wikipedia article.</p>;
 
   return (
-    <section aria-label="Wikipedia intro" className="flex flex-col gap-2.5 rounded-lg border border-line bg-surface p-4">
+    <section aria-label="Wikipedia intro" className="flex flex-col gap-2.5 rounded border border-line bg-surface p-4">
       <div className="flex items-baseline gap-3">
-        <h2 className="font-semibold">Wikipedia intro</h2>
+        <h2 className="section-title">Wikipedia intro</h2>
         <div className="flex gap-1">
           {articles.map((a) => (
             <button
@@ -22,7 +22,7 @@ export function Intros({ articles }: { articles: Article[] }) {
               type="button"
               aria-pressed={a.language === language}
               onClick={() => setLanguage(a.language)}
-              className="rounded border border-line px-2.5 py-0.5 text-[12.5px] aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bar"
+              className="rounded border border-line px-2.5 py-0.5 text-[12.5px] aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-paper"
             >
               {a.language}
             </button>

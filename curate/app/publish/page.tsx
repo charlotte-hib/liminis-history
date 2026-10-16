@@ -18,7 +18,7 @@ export default async function PublishPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-10 py-8">
-      <h1 className="text-[22px] font-semibold">Publish your decisions</h1>
+      <h1 className="page-title">Publish your decisions</h1>
       <p className="max-w-3xl text-muted">
         Your approved claims, as the files of <code className="font-mono">data/</code> they make, against the data
         repository&apos;s <code className="font-mono">main</code>. Publishing opens a pull request there, or updates the one
@@ -60,7 +60,7 @@ function Changes({ publication }: { publication: Publication }) {
             <h2 className="font-mono text-[15px] font-medium">
               {file.path} <span className="font-sans text-muted">· {counts(file.changes)}</span>
             </h2>
-            <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+            <div className="overflow-x-auto rounded border border-line bg-surface">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b border-line text-left text-xs tracking-wider text-muted uppercase">
@@ -95,7 +95,7 @@ function Changes({ publication }: { publication: Publication }) {
       )}
       {publication.heldBack.length > 0 && (
         <section aria-label="Stories held back" className="flex flex-col gap-1">
-          <h2 className="font-semibold">Approved stories not published</h2>
+          <h2 className="section-title">Approved stories not published</h2>
           <ul className="flex flex-col gap-1 text-[13.5px]">
             {publication.heldBack.map((held) => (
               <li key={held.moment}>

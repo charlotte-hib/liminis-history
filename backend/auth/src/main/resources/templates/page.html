@@ -1,18 +1,18 @@
 <!DOCTYPE html>
-<!--/* What every page of auth shares: its head, and curate's bar. */-->
+<!--/* What every page of auth shares: its head, and the reading room's header, as curate shows them. */-->
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head th:fragment="head(title)">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title th:text="|${title} · curate|">curate</title>
+  <title th:text="|${title} · Liminis reading room|">Liminis reading room</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap">
   <link rel="stylesheet" href="/auth.css">
 </head>
 <body>
 <header th:fragment="bar">
-  <a class="name" th:href="${curateUrl}">curate</a>
+  <a class="name" th:href="${curateUrl}">Liminis <i>reading room</i></a>
   <span class="where">Signing in</span>
 </header>
 </body>

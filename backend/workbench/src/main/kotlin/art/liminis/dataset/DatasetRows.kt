@@ -45,5 +45,18 @@ data class PersonSummary(
     val sitelinks: Int,
 )
 
+/** A person as a story card shows them: [portrait] is a Wikipedia thumbnail, [intro] the English article's. */
+data class PersonPortrait(
+    val person: String,
+    val label: String,
+    val labelFr: String?,
+    val born: Int,
+    val died: Int,
+    val occupation: String?,
+    val sitelinks: Int,
+    val portrait: String?,
+    val intro: String?,
+)
+
 /** A person's English Wikipedia intro, for drafting from. */
 data class Intro(val person: String, val title: String, val url: String, val extract: String)

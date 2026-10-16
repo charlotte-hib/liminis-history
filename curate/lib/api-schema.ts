@@ -259,6 +259,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/moments/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a story's cards show
+         * @description What the site would show on the moment's story cards: the moment's painting, the paintings the release's
+         *     cards carry, and the people, lives and events named. A person written by hand comes from the release; a
+         *     fetched one, named by Q-id, from the dataset and their Wikipedia articles. An id found nowhere is left out.
+         */
+        get: operations["getStoryPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/occupations/{qid}": {
         parameters: {
             query?: never;
@@ -607,6 +629,75 @@ export interface components {
             storyCards: components["schemas"]["StoryCard"][];
             /** @description The last run that drafted the moment's story since the workbench started, if any. */
             draft?: components["schemas"]["Run"];
+        };
+        StoryPreview: {
+            /** @description The moment's painting, behind every card without one of its own. */
+            art?: components["schemas"]["Artwork"];
+            /**
+             * @description The paintings the release's cards carry, by what each card shows: publishing keeps a painting for a card
+             *     showing the same.
+             */
+            cardArt: components["schemas"]["CardArtwork"][];
+            people: components["schemas"]["PreviewPerson"][];
+            lives: components["schemas"]["PreviewLife"][];
+            events: components["schemas"]["PreviewEvent"][];
+        };
+        /** @description A public-domain image, its credit and the page it comes from. */
+        Artwork: {
+            url: string;
+            credit: string;
+            sourceUrl: string;
+        };
+        CardArtwork: {
+            type: components["schemas"]["CardType"];
+            person?: string;
+            life?: string;
+            event?: string;
+            art: components["schemas"]["Artwork"];
+        };
+        PreviewPerson: {
+            /** @description The id a card names them by. */
+            id: string;
+            name: string;
+            born: components["schemas"]["Year"];
+            died?: components["schemas"]["Year"];
+            /** @description The first occupation, the one the site shows. */
+            occupation?: string;
+            portrait?: string;
+            /** @description What the card says when it has no text of its own. */
+            bio?: string;
+        };
+        PreviewLife: {
+            id: string;
+            label: string;
+            description: string;
+            art?: components["schemas"]["LifeArtwork"];
+            /**
+             * @description Drawn when there is no picture, after the work the life stands for.
+             * @example WHEAT
+             */
+            icon?: string;
+        };
+        LifeArtwork: components["schemas"]["Artwork"] & {
+            /**
+             * @description The point kept in view when cropped to a circle, as CSS `object-position`.
+             * @example 50% 30%
+             */
+            position: string;
+            /** @enum {string} */
+            fit: "COVER" | "CONTAIN";
+        };
+        PreviewEvent: {
+            id: string;
+            title: string;
+            year: components["schemas"]["Year"];
+            description: string;
+            sourceUrl: string;
+            participants: components["schemas"]["EventRole"][];
+        };
+        EventRole: {
+            name: string;
+            role: string;
         };
         World: {
             governs: string;
@@ -1272,6 +1363,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MomentPeople"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getStoryPreview: {
+        parameters: {
+            query?: {
+                person?: string[];
+                life?: string[];
+                event?: string[];
+            };
+            header?: never;
+            path: {
+                id: components["schemas"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the cards show. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryPreview"];
                 };
             };
             400: components["responses"]["BadRequest"];

@@ -68,7 +68,7 @@ test("an anecdote is added by hand, then rejected with a reason", async ({ page 
   await expect(page.getByRole("note")).toContainText("only one source");
 
   await page.keyboard.press("r");
-  await page.getByPlaceholder(/^Optional: wrong facts/).fill("Only a legend");
+  await page.getByPlaceholder(/^Wrong facts/).fill("Only a legend");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("status")).toContainText("Rejected:");
 });
@@ -83,6 +83,7 @@ test("a decision on a claim that changed meanwhile is refused", async ({ page, c
   await expect(other.getByRole("status")).toContainText(`Approved: ${name}`);
 
   await page.keyboard.press("n");
+  await page.getByPlaceholder("Check the book…").fill("Check the dates");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("alert").filter({ hasText: "This claim changed since you opened it" })).toBeVisible();
 

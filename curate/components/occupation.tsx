@@ -18,7 +18,7 @@ export const choiceLabel = (choice: OccupationChoice | undefined) => CHOICES.fin
 /** An occupation to map: who holds it, the classes it belongs to, and the domain chosen so far. */
 export function OccupationView({ payload, evidence }: { payload: OccupationDomain; evidence: OccupationEvidence | null }) {
   return (
-    <dl className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-3 rounded-lg border border-line bg-surface p-4">
+    <dl className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-3 rounded border border-line bg-surface p-4">
       <dt className="text-muted">Domain</dt>
       <dd className="font-medium">{choiceLabel(payload.domain)}</dd>
       {evidence && (

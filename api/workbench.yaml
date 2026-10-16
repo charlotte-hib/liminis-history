@@ -486,6 +486,63 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/moments/{id}/preview:
+    get:
+      tags: [moments]
+      operationId: getStoryPreview
+      security:
+        - auth: ["curation:read"]
+      summary: What a story's cards show
+      description: |
+        What the site would show on the moment's story cards: the moment's painting, the paintings the release's
+        cards carry, and the people, lives and events named. A person written by hand comes from the release; a
+        fetched one, named by Q-id, from the dataset and their Wikipedia articles. An id found nowhere is left out.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/MomentId"
+        - name: person
+          in: query
+          schema:
+            type: array
+            maxItems: 24
+            items:
+              type: string
+              maxLength: 100
+        - name: life
+          in: query
+          schema:
+            type: array
+            maxItems: 24
+            items:
+              type: string
+              maxLength: 100
+        - name: event
+          in: query
+          schema:
+            type: array
+            maxItems: 24
+            items:
+              type: string
+              maxLength: 100
+      responses:
+        "200":
+          description: What the cards show.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoryPreview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/occupations/{qid}:
     get:
       tags: [occupations]
@@ -1226,6 +1283,142 @@ components:
               description: The last run that drafted the moment's story since the workbench started, if any.
               allOf:
                 - $ref: "#/components/schemas/Run"
+
+    StoryPreview:
+      type: object
+      required: [cardArt, people, lives, events]
+      properties:
+        art:
+          description: The moment's painting, behind every card without one of its own.
+          allOf:
+            - $ref: "#/components/schemas/Artwork"
+        cardArt:
+          type: array
+          description: |
+            The paintings the release's cards carry, by what each card shows: publishing keeps a painting for a card
+            showing the same.
+          items:
+            $ref: "#/components/schemas/CardArtwork"
+        people:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreviewPerson"
+        lives:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreviewLife"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreviewEvent"
+
+    Artwork:
+      type: object
+      description: A public-domain image, its credit and the page it comes from.
+      required: [url, credit, sourceUrl]
+      properties:
+        url:
+          type: string
+        credit:
+          type: string
+        sourceUrl:
+          type: string
+
+    CardArtwork:
+      type: object
+      required: [type, art]
+      properties:
+        type:
+          $ref: "#/components/schemas/CardType"
+        person:
+          type: string
+        life:
+          type: string
+        event:
+          type: string
+        art:
+          $ref: "#/components/schemas/Artwork"
+
+    PreviewPerson:
+      type: object
+      required: [id, name, born]
+      properties:
+        id:
+          type: string
+          description: The id a card names them by.
+        name:
+          type: string
+        born:
+          $ref: "#/components/schemas/Year"
+        died:
+          $ref: "#/components/schemas/Year"
+        occupation:
+          type: string
+          description: The first occupation, the one the site shows.
+        portrait:
+          type: string
+        bio:
+          type: string
+          description: What the card says when it has no text of its own.
+
+    PreviewLife:
+      type: object
+      required: [id, label, description]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        art:
+          $ref: "#/components/schemas/LifeArtwork"
+        icon:
+          type: string
+          description: Drawn when there is no picture, after the work the life stands for.
+          example: WHEAT
+
+    LifeArtwork:
+      allOf:
+        - $ref: "#/components/schemas/Artwork"
+        - type: object
+          required: [position, fit]
+          properties:
+            position:
+              type: string
+              description: The point kept in view when cropped to a circle, as CSS `object-position`.
+              example: 50% 30%
+            fit:
+              type: string
+              enum: [COVER, CONTAIN]
+
+    PreviewEvent:
+      type: object
+      required: [id, title, year, description, sourceUrl, participants]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        year:
+          $ref: "#/components/schemas/Year"
+        description:
+          type: string
+        sourceUrl:
+          type: string
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventRole"
+
+    EventRole:
+      type: object
+      required: [name, role]
+      properties:
+        name:
+          type: string
+        role:
+          type: string
 
     World:
       type: object
