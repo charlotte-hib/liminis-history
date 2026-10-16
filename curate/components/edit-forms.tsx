@@ -10,7 +10,7 @@ type Payload = components["schemas"]["Payload"];
 
 type Props<T> = { payload: T; pending: boolean; onApprove: (payload: Payload, note: string) => void; onCancel: () => void };
 
-export const input = "rounded-md border border-line bg-surface px-3 py-2 font-[inherit] disabled:opacity-60";
+export const input = "rounded border border-line bg-surface px-3 py-2 font-[inherit] disabled:opacity-60";
 
 const PRECISIONS = [
   { value: 11, name: "day" },
@@ -96,7 +96,7 @@ export function FactsForm({ payload, pending, onApprove, onCancel }: Props<Perso
           Dates approximate
         </label>
       </div>
-      <fieldset className="flex flex-col gap-2 rounded-lg border border-line bg-surface px-4 py-3">
+      <fieldset className="flex flex-col gap-2 rounded border border-line bg-surface px-4 py-3">
         <legend className="px-1.5 text-[13px] text-muted">Occupations, the first one shows on the site</legend>
         {facts.occupations.map((occupation, i) => (
           <div key={occupation.occupation} className="flex items-center gap-3">
@@ -193,11 +193,11 @@ export function EditFrame(props: { pending: boolean; problem: string | null; onS
       </fieldset>
       {problem && <p role="alert" className="text-conflict">{problem}</p>}
       <div className="flex gap-2.5">
-        <button type="submit" disabled={pending || !!problem} className="min-h-11 rounded-md bg-ink px-3.5 text-bar disabled:opacity-50">
-          <kbd className="mr-2">⌘⏎</kbd>Approve with my changes
+        <button type="submit" disabled={pending || !!problem} className="button-primary">
+          Approve with my changes <kbd className="border-current/40 text-[11px] opacity-70">⌘⏎</kbd>
         </button>
-        <button type="button" onClick={onCancel} className="min-h-11 rounded-md border border-line px-3.5">
-          <kbd className="mr-2">Esc</kbd>Discard changes
+        <button type="button" onClick={onCancel} className="button">
+          Discard changes <kbd className="border-current/40 text-[11px] opacity-70">Esc</kbd>
         </button>
       </div>
     </form>

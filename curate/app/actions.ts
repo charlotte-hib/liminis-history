@@ -10,6 +10,7 @@ import {
   type Outcome,
   type PersonSummary,
   type Publication,
+  type StoryPreview,
 } from "@/lib/workbench";
 
 /** The claim's new version after a decision or an undo, to undo it in turn. */
@@ -60,4 +61,10 @@ export async function findPeople(q: string): Promise<PersonSummary[]> {
  */
 export async function publish(base: string): Promise<Outcome<Publication>> {
   return outcome(workbench.POST("/api/publication", { body: { base } }));
+}
+
+/** What the cards naming these people, lives and events show, as the preview of a story draws them. */
+export async function previewOf(moment: string, ids: { person: string[]; life: string[]; event: string[] }): Promise<Outcome<StoryPreview>> {
+  const query = { person: ids.person.slice(0, 24), life: ids.life.slice(0, 24), event: ids.event.slice(0, 24) };
+  return outcome(workbench.GET("/api/moments/{id}/preview", { params: { path: { id: moment }, query } }));
 }

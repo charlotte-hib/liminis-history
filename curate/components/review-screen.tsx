@@ -9,7 +9,6 @@ import { AnecdoteForm, FactsForm } from "@/components/edit-forms";
 import { FactsTable } from "@/components/facts";
 import { Intros } from "@/components/intros";
 import { CHOICES, OccupationView } from "@/components/occupation";
-import { StoryForm, StoryView } from "@/components/story";
 import type { components } from "@/lib/api-schema";
 import { describe, FLAG_STYLE, FLAGS, flagsOf, type QUEUES } from "@/lib/labels";
 import type { Review } from "@/lib/queue";
@@ -79,7 +78,7 @@ export function ReviewScreen({ queue, later, moment, claims, current }: Props) {
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-[340px_minmax(0,1fr)]">
-      <nav aria-label="Claims in this queue" className="flex flex-col overflow-y-auto border-r border-line bg-bar">
+      <nav aria-label="Claims in this queue" className="flex flex-col overflow-y-auto border-r border-line bg-paper">
         <div className="flex items-baseline gap-2 border-b border-line px-4 py-3">
           <h1 className="font-semibold">
             {queue.name}
@@ -168,13 +167,8 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
   const { claim, evidence, person, occupation } = review;
   const payload = claim.payload;
   const [mode, setMode] = useState<"view" | "edit" | "REJECT" | "NEEDS_WORK">("view");
-  // A story redrafted after the curator's edits keeps them: the new draft is the claim's proposal, to edit from.
-  const [fromDraft, setFromDraft] = useState(false);
-  const proposal = claim.proposal as Payload;
-  const redrafted =
-    proposal.type === "STORY" && claim.flags.some((flag) => flag.reason === "CHANGED_SINCE_EDITED") ? proposal : null;
   const [note, setNote] = useState("");
-  const editable = payload.type === "PERSON_FACTS" || payload.type === "ANECDOTE" || payload.type === "STORY";
+  const editable = payload.type === "PERSON_FACTS" || payload.type === "ANECDOTE";
 
   useEffect(() => {
     if (mode !== "view") return;
@@ -214,8 +208,8 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
     <>
       <main className="flex flex-1 flex-col gap-4 px-7 py-5">
         <div className="flex items-baseline gap-3.5">
-          <h2 className="text-2xl font-semibold">
-            {payload.type === "ANECDOTE" ? (person?.label ?? qid) : payload.type === "STORY" ? <Link href={`/moments/${payload.moment}`} className="underline-offset-4 hover:underline">The story of {payload.moment}</Link> : title}
+          <h2 className="page-title">
+            {payload.type === "ANECDOTE" ? (person?.label ?? qid) : title}
           </h2>
           {payload.type === "PERSON_FACTS" && payload.labelFr && <span className="text-muted">{payload.labelFr}</span>}
           <span className="ml-auto font-mono text-[12.5px] text-muted">{claim.id}</span>
@@ -228,7 +222,7 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
 
         {problem && <ProblemBanner problem={problem} onReload={onReload} />}
         {claimFlags.map((flag) => (
-          <div key={flag.reason} role="note" className={`flex items-center gap-3 rounded-lg px-4 py-2.5 ${FLAG_STYLE[flag.flag]}`}>
+          <div key={flag.reason} role="note" className={`flex items-center gap-3 rounded px-4 py-2.5 ${FLAG_STYLE[flag.flag]}`}>
             <span className="font-mono text-xs font-medium">{FLAGS[flag.flag]}</span>
             <span>{describe(flag.reason, payload.type)}</span>
           </div>
@@ -238,39 +232,6 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
           <FactsForm payload={payload} pending={pending} onApprove={(p, n) => onDecide("APPROVE", p, n)} onCancel={() => setMode("view")} />
         ) : mode === "edit" && payload.type === "ANECDOTE" ? (
           <AnecdoteForm payload={payload} pending={pending} onApprove={(p, n) => onDecide("APPROVE", p, n)} onCancel={() => setMode("view")} />
-        ) : mode === "edit" && payload.type === "STORY" ? (
-          <StoryForm
-            payload={fromDraft && redrafted ? redrafted : payload}
-            pending={pending}
-            onApprove={(p, n) => onDecide("APPROVE", p, n)}
-            onCancel={() => {
-              setFromDraft(false);
-              setMode("view");
-            }}
-          />
-        ) : payload.type === "STORY" ? (
-          <>
-            <StoryView story={payload} />
-            {redrafted && (
-              <section aria-label="The new draft" className="flex flex-col gap-3 border-t border-line pt-4">
-                <div className="flex items-center gap-3">
-                  <h3 className="font-semibold">Claude&apos;s new draft</h3>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => {
-                      setFromDraft(true);
-                      setMode("edit");
-                    }}
-                    className="rounded-md border border-line px-3 py-1.5"
-                  >
-                    Edit from the new draft
-                  </button>
-                </div>
-                <StoryView story={redrafted} />
-              </section>
-            )}
-          </>
         ) : payload.type === "PERSON_FACTS" ? (
           <FactsTable facts={payload} evidence={evidence} flags={claim.flags} />
         ) : payload.type === "OCCUPATION_DOMAIN" ? (
@@ -284,7 +245,7 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
         <History decisions={claim.decisions} />
       </main>
 
-      <footer className="sticky bottom-0 flex min-h-15 flex-wrap items-center gap-2.5 border-t border-line bg-bar px-6 py-2">
+      <footer className="sticky bottom-0 flex min-h-15 flex-wrap items-center gap-3 border-t border-line bg-paper px-10 py-4">
         {mode === "REJECT" || mode === "NEEDS_WORK" ? (
           <form
             className="flex flex-1 items-center gap-2.5"
@@ -302,16 +263,16 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
                 onChange={(event) => setNote(event.target.value)}
                 onKeyDown={(event) => event.key === "Escape" && setMode("view")}
                 placeholder={mode === "REJECT" ? "Optional: wrong facts, not this person, a duplicate…" : "Optional: check the book…"}
-                className="flex-1 rounded-md border border-line bg-surface px-3 py-2"
+                className="flex-1 rounded border border-line bg-surface px-3 py-2"
               />
             </label>
-            <button type="submit" disabled={pending} className="min-h-11 rounded-md bg-ink px-3.5 text-bar disabled:opacity-50">
-              <kbd className="mr-2">⏎</kbd>
+            <button type="submit" disabled={pending} className="button-primary">
               {mode === "REJECT" ? "Reject" : "Keep for later"}
             </button>
-            <button type="button" onClick={() => setMode("view")} className="min-h-11 rounded-md border border-line px-3.5">
-              <kbd className="mr-2">Esc</kbd>Cancel
+            <button type="button" onClick={() => setMode("view")} className="button">
+              Cancel
             </button>
+            <span className="text-[12.5px] text-muted">⏎ to confirm · Esc to cancel</span>
           </form>
         ) : mode === "view" ? (
           <>
@@ -329,7 +290,7 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
             <KeyButton keyName="N" label="Keep for later" disabled={pending} onClick={() => setMode("NEEDS_WORK")} />
             <KeyButton keyName="S" label="Skip" disabled={pending} onClick={onNext} />
             {last && <UndoBar last={last} pending={pending} onUndo={onUndo} />}
-            <span className="ml-auto text-[13px] text-muted">J K or ↓ ↑ move in the list</span>
+            <span className="ml-auto text-[12.5px] text-muted">J K or ↓ ↑ move in the list · U undoes</span>
           </>
         ) : null}
       </footer>
@@ -340,26 +301,21 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
 function KeyButton(props: { keyName: string; label: string; primary?: boolean; disabled: boolean; onClick: () => void }) {
   const { keyName, label, primary, disabled, onClick } = props;
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={`flex min-h-11 items-center gap-2 rounded-md border px-3 disabled:opacity-50 ${primary ? "border-ink bg-ink text-bar" : "border-line"}`}
-    >
-      <kbd>{keyName}</kbd>
+    <button type="button" disabled={disabled} onClick={onClick} title={`Key: ${keyName}`} className={primary ? "button-primary" : "button"}>
       {label}
+      <kbd className="border-current/40 text-[11px] opacity-70">{keyName}</kbd>
     </button>
   );
 }
 
 function UndoBar({ last, pending, onUndo }: { last: Decided; pending: boolean; onUndo: () => void }) {
   return (
-    <div role="status" className="flex items-center gap-3 rounded-md bg-ink py-1 pr-1 pl-3 text-bar">
+    <div role="status" className="flex items-center gap-3 rounded-full bg-ink py-1 pr-1 pl-4 text-paper">
       <span className="max-w-72 truncate">
         {last.verdict}: {last.title}
       </span>
-      <button type="button" disabled={pending} onClick={onUndo} className="min-h-9 rounded border border-bar px-2.5">
-        <kbd className="mr-1.5">U</kbd>Undo
+      <button type="button" disabled={pending} onClick={onUndo} className="min-h-9 rounded-full border border-paper/60 px-3">
+        Undo
       </button>
     </div>
   );
@@ -369,13 +325,13 @@ function UndoBar({ last, pending, onUndo }: { last: Decided; pending: boolean; o
 function ProblemBanner({ problem, onReload }: { problem: { status: number; detail: string }; onReload: () => void }) {
   const stale = problem.status === 412;
   return (
-    <div role="alert" className="flex items-center gap-4 rounded-lg bg-lamp-soft px-4 py-3">
+    <div role="alert" className="flex items-center gap-4 rounded bg-lamp-soft px-4 py-3">
       <div className="flex flex-col gap-0.5">
         <strong>{stale ? "This claim changed since you opened it" : "The workbench refused"}</strong>
         <span>{stale ? "Your decision was not saved. Read it again, then decide." : problem.detail}</span>
       </div>
       {stale && (
-        <button type="button" onClick={onReload} className="ml-auto min-h-11 rounded-md bg-ink px-3.5 text-bar">
+        <button type="button" onClick={onReload} className="button-primary ml-auto">
           Show the current claim
         </button>
       )}

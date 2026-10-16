@@ -13,8 +13,8 @@ export default async function Moments() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-10 py-8">
-      <h1 className="text-[22px] font-semibold">Moments</h1>
-      <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+      <h1 className="page-title">Moments</h1>
+      <div className="overflow-x-auto rounded border border-line bg-surface">
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-line text-left text-xs tracking-wider text-muted uppercase">

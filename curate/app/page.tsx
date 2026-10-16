@@ -18,12 +18,12 @@ export default async function Inbox() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-10 py-8">
       <div className="flex items-baseline gap-3">
-        <h1 className="text-[22px] font-semibold">What waits for you</h1>
+        <h1 className="page-title">What waits for you</h1>
         <span className="text-muted">
           {waiting} claims, {later} kept for later
         </span>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+      <div className="overflow-x-auto rounded border border-line bg-surface">
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-line text-left text-xs tracking-wider text-muted uppercase">

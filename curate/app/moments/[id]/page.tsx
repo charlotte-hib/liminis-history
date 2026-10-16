@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { ClaimLink, DraftButton, ProposeButton } from "@/components/moment-actions";
+import { MomentHeader } from "@/components/moment-header";
+import { DraftButton, FactsStatus, ReviewButton } from "@/components/moment-actions";
 import { STATUS } from "@/lib/labels";
 import type { components } from "@/lib/api-schema";
 import { workbench } from "@/lib/workbench";
 import { year } from "@/lib/years";
 
 type MomentDetail = components["schemas"]["MomentDetail"];
+type Story = components["schemas"]["Story"];
 
 /** People a page lists, the best known first. */
 const PAGE = 50;
@@ -18,11 +20,19 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
   const { id } = await params;
   const query = await searchParams;
   const page = Math.max(1, Number(query.page) || 1);
-  const [{ data: moment }, { data: people }] = await Promise.all([
+  const [{ data: moment }, { data: people }, { data: preview }, { data: claim }] = await Promise.all([
     workbench.GET("/api/moments/{id}", { params: { path: { id } } }),
     workbench.GET("/api/moments/{id}/people", { params: { path: { id }, query: { offset: (page - 1) * PAGE, limit: PAGE } } }),
+    workbench.GET("/api/moments/{id}/preview", { params: { path: { id } } }),
+    workbench.GET("/api/claims/{id}", { params: { path: { id: `story:${id}` } } }),
   ]);
   if (!moment || !people) notFound();
+  // The hook and the world around are drafted with the cards, in the story's claim: shown here from it while there is
+  // one not rejected, else as the release has them.
+  const drafted = claim && claim.status !== "REJECTED" ? (claim.payload as Story) : null;
+  const world = drafted
+    ? { governs: drafted.world.governs.text, everyday: drafted.world.everyday.text, arts: drafted.world.arts.text, meanwhile: drafted.world.meanwhile.text }
+    : moment.world;
   const pages = Math.max(1, Math.ceil(people.total / PAGE));
   // The moment's waiting claims count its story's too, which has its own link.
   const waitingFacts = moment.waiting - (moment.story === "CANDIDATE" ? 1 : 0);
@@ -30,7 +40,7 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-10 py-8">
       <div className="flex flex-col gap-1">
-        <h1 className="text-[22px] font-semibold">
+        <h1 className="page-title">
           {moment.place}, {moment.period}
         </h1>
         <span className="font-mono text-[13px] text-muted">
@@ -39,7 +49,7 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
       </div>
 
       <section aria-labelledby="story" className="flex flex-col gap-3">
-        <h2 id="story" className="text-lg font-semibold">
+        <h2 id="story" className="section-title">
           Story
         </h2>
         {moment.story && (
@@ -52,9 +62,34 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
         <Published moment={moment} />
       </section>
 
+      <section aria-labelledby="page" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h2 id="page" className="section-title">
+            The moment&apos;s page
+          </h2>
+          <span className="text-muted">
+            {drafted ? `The hook and the world around from the draft, ${STATUS[claim!.status]}` : "The hook and the world around as the release has them"}
+          </span>
+          {drafted && (
+            <Link href={`/moments/${moment.id}/story`} className="ml-auto text-lamp hover:underline">
+              Edit them with the story
+            </Link>
+          )}
+        </div>
+        <MomentHeader
+          title={`${moment.place}, ${moment.period}`}
+          region={moment.region}
+          start={moment.start}
+          end={moment.end}
+          hook={drafted?.hook.text ?? moment.hook}
+          world={world}
+          art={preview?.art}
+        />
+      </section>
+
       <section aria-labelledby="people" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="people" className="text-lg font-semibold">
+          <h2 id="people" className="section-title">
             Everyone alive there
           </h2>
           <span className="text-muted">
@@ -66,7 +101,7 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
             </Link>
           )}
         </div>
-        <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+        <div className="overflow-x-auto rounded border border-line bg-surface">
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-line text-left text-xs tracking-wider text-muted uppercase">
@@ -74,7 +109,10 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
                 <th className="px-4 py-2 font-medium">Lived</th>
                 <th className="px-4 py-2 font-medium">Occupation</th>
                 <th className="px-4 py-2 font-medium">Sitelinks</th>
-                <th className="px-4 py-2 font-medium">Facts</th>
+                <th className="px-4 py-2 font-medium">Their facts</th>
+                <th className="px-4 py-2 font-medium">
+                  <span className="sr-only">Review</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -92,7 +130,10 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
                   <td className="px-4 py-2 text-muted">{person.occupation}</td>
                   <td className="px-4 py-2 font-mono">{person.sitelinks}</td>
                   <td className="px-4 py-2">
-                    {person.claim ? <ClaimLink qid={person.person} moment={moment.id} status={person.claim} /> : <ProposeButton qid={person.person} moment={moment.id} />}
+                    <FactsStatus status={person.claim} />
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <ReviewButton qid={person.person} moment={moment.id} status={person.claim} />
                   </td>
                 </tr>
               ))}
@@ -116,7 +157,7 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
 /** The story the release has for the moment, as the site shows it. */
 function Published({ moment }: { moment: MomentDetail }) {
   return (
-    <details className="rounded-lg border border-line bg-surface p-4">
+    <details className="rounded border border-line bg-surface p-4">
       <summary className="cursor-pointer">
         The story the release has: {moment.storyCards.length ? `${moment.storyCards.length} cards` : "no cards yet"}
       </summary>

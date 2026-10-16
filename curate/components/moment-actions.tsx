@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { draftStory, proposeFacts } from "@/app/actions";
 import type { components } from "@/lib/api-schema";
-import { STATUS } from "@/lib/labels";
 
 type Run = components["schemas"]["Run"];
 type ClaimStatus = components["schemas"]["ClaimStatus"];
@@ -57,8 +56,8 @@ export function DraftButton({ moment, draft, story }: DraftProps) {
       <div className="flex flex-wrap items-center gap-2.5">
         {review && (
           <Link
-            href={`/review/stories?claim=${encodeURIComponent(`story:${moment}`)}`}
-            className="flex min-h-11 items-center rounded-md bg-ink px-3.5 text-bar"
+            href={`/moments/${moment}/story`}
+            className="button-primary"
           >
             {story === "CANDIDATE" ? "Review the draft" : "Open the story"}
           </Link>
@@ -67,7 +66,7 @@ export function DraftButton({ moment, draft, story }: DraftProps) {
           type="button"
           disabled={pending || running}
           onClick={start}
-          className={`min-h-11 rounded-md px-3.5 disabled:opacity-50 ${review ? "border border-line" : "bg-ink text-bar"}`}
+          className={review ? "button" : "button-primary"}
         >
           {running ? `Claude is drafting… ${elapsed(draft.startedAt, now)}` : story ? "Draft again with Claude" : "Draft with Claude"}
         </button>
@@ -92,35 +91,49 @@ export function DraftButton({ moment, draft, story }: DraftProps) {
   );
 }
 
-/** Proposes a person's facts for review, then opens their claim. */
-export function ProposeButton({ qid, moment }: { qid: string; moment: string }) {
+/** Where a person's facts claim stands, in words a reviewer reads at a glance. */
+const STANDING: Record<ClaimStatus, string> = {
+  CANDIDATE: "Waiting for your review",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  NEEDS_WORK: "Kept for later",
+};
+
+/** Where a person's facts stand: not looked at yet, or their claim's status. */
+export function FactsStatus({ status }: { status?: ClaimStatus }) {
+  return <span className={status === "CANDIDATE" ? "text-lamp" : "text-muted"}>{status ? STANDING[status] : "Not looked at yet"}</span>;
+}
+
+/**
+ * Opens the review of a person's facts as Wikidata states them. Someone not looked at yet gets their claim first: a
+ * copy of Wikidata's statements, no AI.
+ */
+export function ReviewButton({ qid, moment, status }: { qid: string; moment: string; status?: ClaimStatus }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [problem, setProblem] = useState<string>();
+  const href = `/review/person-facts?moment=${moment}&claim=${encodeURIComponent(`person-facts:${qid}`)}`;
 
-  const propose = () =>
+  if (status) {
+    return (
+      <Link href={href} className="button-small">
+        {status === "CANDIDATE" ? "Review" : "Open"}
+      </Link>
+    );
+  }
+  const review = () =>
     startTransition(async () => {
       const result = await proposeFacts(qid);
       if (!result.ok) return setProblem(result.detail);
-      router.push(`/review/person-facts?moment=${moment}&claim=${encodeURIComponent(result.data.id)}`);
+      router.push(href);
     });
-
   return problem ? (
     <span role="alert" className="text-conflict">
       {problem}
     </span>
   ) : (
-    <button type="button" disabled={pending} onClick={propose} className="rounded border border-line px-2 py-1 text-[13px] disabled:opacity-50">
-      Propose facts
+    <button type="button" disabled={pending} onClick={review} title="Copies their facts from Wikidata for you to check" className="button-small">
+      Review
     </button>
-  );
-}
-
-/** A person's claim, as a link to review it. */
-export function ClaimLink({ qid, moment, status }: { qid: string; moment: string; status: ClaimStatus }) {
-  return (
-    <Link href={`/review/person-facts?moment=${moment}&claim=${encodeURIComponent(`person-facts:${qid}`)}`} className="text-lamp underline-offset-4 hover:underline">
-      {STATUS[status]}
-    </Link>
   );
 }

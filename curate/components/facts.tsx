@@ -48,7 +48,7 @@ export function FactsTable({ facts, evidence, flags }: { facts: PersonFacts; evi
   ];
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+    <div className="overflow-x-auto rounded border border-line bg-surface">
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b border-line text-left text-xs tracking-wider text-muted uppercase">

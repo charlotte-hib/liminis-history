@@ -9,7 +9,7 @@ import { year } from "@/lib/years";
 type PersonSummary = components["schemas"]["PersonSummary"];
 type Source = components["schemas"]["Source"];
 
-const input = "rounded-md border border-line bg-surface px-3 py-2 font-[inherit]";
+const input = "rounded border border-line bg-surface px-3 py-2 font-[inherit]";
 
 const KINDS = [
   { kind: "MEDIA", name: "Podcast, video, documentary" },
@@ -86,7 +86,7 @@ export function AddAnecdote() {
               Person
             </label>
             {person ? (
-              <div className="flex items-center gap-3 rounded-md border border-line bg-surface px-3 py-2">
+              <div className="flex items-center gap-3 rounded border border-line bg-surface px-3 py-2">
                 <span className="flex-1">
                   <strong>{person.label}</strong> <span className="text-muted">{describe(person)}</span>
                 </span>
@@ -108,7 +108,7 @@ export function AddAnecdote() {
               />
             )}
             {!person && query.trim().length >= 2 && matches.length > 0 && (
-              <ul id="people" role="listbox" className="absolute top-full z-10 mt-1 w-full rounded-md border border-line bg-surface shadow">
+              <ul id="people" role="listbox" className="absolute top-full z-10 mt-1 w-full rounded border border-line bg-surface shadow">
                 {matches.map((match) => (
                   <li key={match.person} role="option" aria-selected={false}>
                     <button
@@ -134,7 +134,7 @@ export function AddAnecdote() {
         <Labelled name={`The anecdote, as the site would say it · ${text.length} / 400`}>
           <textarea className={`${input} h-28 resize-none`} maxLength={400} value={text} onChange={(e) => setText(e.target.value)} />
         </Labelled>
-        <fieldset className="flex flex-col gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+        <fieldset className="flex flex-col gap-3 rounded border border-line bg-surface px-4 py-3">
           <legend className="px-1.5 text-[13px] text-muted">Where you heard or read it</legend>
           <div role="radiogroup" aria-label="Kind of source" className="flex flex-wrap gap-1.5">
             {KINDS.map((k) => (
@@ -144,7 +144,7 @@ export function AddAnecdote() {
                 role="radio"
                 aria-checked={kind === k.kind}
                 onClick={() => setKind(k.kind)}
-                className="rounded-full border border-line px-3 py-1 text-[13px] aria-checked:border-ink aria-checked:bg-ink aria-checked:text-bar"
+                className="rounded-full border border-line px-3 py-1 text-[13px] aria-checked:border-ink aria-checked:bg-ink aria-checked:text-paper"
               >
                 {k.name}
               </button>
@@ -195,7 +195,7 @@ export function AddAnecdote() {
         </p>
       )}
       <div>
-        <button type="submit" disabled={pending || !valid} className="min-h-11 rounded-md bg-ink px-4 text-bar disabled:opacity-50">
+        <button type="submit" disabled={pending || !valid} className="button-primary">
           Add to the Anecdotes queue
         </button>
       </div>

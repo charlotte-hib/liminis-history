@@ -18,8 +18,8 @@ const KINDS: Record<Source["kind"], string> = {
 /** What the claim rests on. */
 export function Sources({ sources }: { sources: Source[] }) {
   return (
-    <section aria-label="Sources" className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4">
-      <h2 className="font-semibold">Sources</h2>
+    <section aria-label="Sources" className="flex flex-col gap-2 rounded border border-line bg-surface p-4">
+      <h2 className="section-title">Sources</h2>
       <ul className="flex flex-col gap-1.5">
         {sources.map((source, i) => (
           <li key={i} className="flex flex-col gap-0.5">
@@ -52,7 +52,7 @@ export function Sources({ sources }: { sources: Source[] }) {
 /** Every decision taken on the claim, oldest first. */
 export function History({ decisions }: { decisions: Decision[] }) {
   return (
-    <details className="rounded-lg border border-line bg-surface px-4 py-3">
+    <details className="rounded border border-line bg-surface px-4 py-3">
       <summary className="cursor-pointer font-medium">History · {decisions.length} decisions</summary>
       <ol className="mt-2 flex flex-col gap-1 text-[13px]">
         {decisions.map((decision, i) => (
@@ -97,7 +97,7 @@ export function PayloadView({ payload, person }: { payload: Payload; person: Per
           : [];
 
   return (
-    <dl className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-3 rounded-lg border border-line bg-surface p-4">
+    <dl className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-3 rounded border border-line bg-surface p-4">
       {fields.map(([name, value]) => (
         <div key={name} className="contents">
           <dt className="text-muted">{name}</dt>

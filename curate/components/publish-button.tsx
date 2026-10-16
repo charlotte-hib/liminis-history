@@ -28,7 +28,7 @@ export function PublishButton({ base, unchanged, open, maxAge, secondsAgo, mayPu
   if (unchanged && !open && published === undefined) return null;
   if (!mayPublish || secondsAgo >= fresh) {
     return (
-      <a href={stepUp(fresh)} className="self-start rounded-md bg-ink px-4 py-3 text-bar">
+      <a href={stepUp(fresh)} className="button-primary self-start">
         Use your passkey to publish
       </a>
     );
@@ -54,7 +54,7 @@ export function PublishButton({ base, unchanged, open, maxAge, secondsAgo, mayPu
 
   return (
     <div className="flex flex-col items-start gap-2">
-      <button type="button" onClick={go} disabled={pending} className="min-h-11 rounded-md bg-ink px-4 text-bar disabled:opacity-50">
+      <button type="button" onClick={go} disabled={pending} className="button-primary">
         {pending ? "Publishing…" : unchanged ? "Close the open publish" : "Publish"}
       </button>
       {published && (
