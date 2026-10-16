@@ -330,7 +330,7 @@ class PublicationApiTests(
         file("data/moments/edo-1830s.json", "{}")
         val approved = { story: Story -> claims.save(Claim.candidate(story, Origin.CLAUDE, emptyList()).apply { status = ClaimStatus.APPROVED }) }
         approved(story("paris-1870s", "victor-hugo"))
-        approved(story("edo-1830s", "Q5586"))
+        approved(story("edo-1830s", "Q5586").let { it.copy(cards = it.cards + StoryCard(CardType.PERSON, text = "A shogun.", person = "Q439717", label = "Tokugawa Ienari")) })
         approved(story("london-1600", "william-shakespeare"))
         file("data/moments/london-1600.json", null)
         file("data/corrections.jsonl", null)
@@ -344,7 +344,8 @@ class PublicationApiTests(
             jsonPath("$.files[2].changes[0].after") { value(containsString(""""cards":[{"type":"PERSON","text":"Someone there.","year":1875,"person":"victor-hugo"}]""")) }
             jsonPath("$.files.length()") { value(3) }
             jsonPath("$.heldBack[0].moment") { value("edo-1830s") }
-            jsonPath("$.heldBack[0].reason") { value(containsString("Q5586")) }
+            jsonPath("$.heldBack[0].reason") { value(containsString("2 cards show fetched people")) }
+            jsonPath("$.heldBack[0].reason") { value(containsString("card 1, Someone (Q5586); card 2, Tokugawa Ienari (Q439717)")) }
             jsonPath("$.heldBack[1].moment") { value("london-1600") }
             jsonPath("$.heldBack[1].reason") { value("There is no data/moments/london-1600.json on the data repository's main") }
         }

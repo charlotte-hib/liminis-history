@@ -116,14 +116,15 @@ class Publishing(
     private fun approvedStories() = claims.findByTypeAndStatusOrderById(ClaimType.STORY, ClaimStatus.APPROVED).map { it.payload as Story }
 
     /**
-     * Why [story] cannot be published yet: a card showing a fetched person (named by Q-id), whom the release holds only
-     * once it carries the fetched dataset.
+     * Why [story] cannot be published yet: cards showing fetched people (named by Q-id), whom the release holds only
+     * once it carries the fetched dataset. Every one is named, to remove them in one edit.
      */
     private fun holdBack(story: Story): String? {
         if (properties.fetchedPeople) return null
-        val (number, card) = ClaimRules.fetchedPeople(story).entries.firstOrNull() ?: return null
-        return "Card $number shows ${card.label ?: card.person}, ${card.person}: the release holds fetched people " +
-            "once it carries the dataset"
+        val cards = ClaimRules.fetchedPeople(story).takeIf { it.isNotEmpty() } ?: return null
+        val shown = cards.entries.joinToString("; ") { (number, card) -> "card $number, ${card.label ?: card.person} (${card.person})" }
+        return "${if (cards.size == 1) "One card shows a fetched person" else "${cards.size} cards show fetched people"}, " +
+            "whom the release holds once it carries the dataset: $shown"
     }
 
     /**

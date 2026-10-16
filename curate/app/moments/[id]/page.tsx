@@ -44,14 +44,11 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
         </h2>
         {moment.story && (
           <p>
-            A draft is {STATUS[moment.story]}:{" "}
-            <Link href={`/review/stories?claim=${encodeURIComponent(`story:${moment.id}`)}`} className="font-semibold underline underline-offset-4">
-              read it
-            </Link>
-            {moment.story === "APPROVED" && ". Publishing writes it into the moment's file"}.
+            A draft is {STATUS[moment.story]}
+            {moment.story === "APPROVED" && ": publishing writes it into the moment's file"}.
           </p>
         )}
-        <DraftButton moment={moment.id} draft={moment.draft} drafted={moment.story !== undefined} />
+        <DraftButton moment={moment.id} draft={moment.draft} story={moment.story} />
         <Published moment={moment} />
       </section>
 

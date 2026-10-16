@@ -13,20 +13,34 @@ type ClaimStatus = components["schemas"]["ClaimStatus"];
 /** How often the page looks again while Claude drafts: a draft takes a minute or two. */
 const POLL_MS = 3000;
 
+/** Minutes and seconds since [start], as a clock shows them: 1:05. */
+function elapsed(start: string, now: number): string {
+  const seconds = Math.max(0, Math.floor((now - Date.parse(start)) / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+type DraftProps = { moment: string; draft?: Run; story?: ClaimStatus };
+
 /**
  * Drafts the moment's story with Claude, and follows the run: the page looks again until it ends, then shows what it
- * came to and cost. Disabled while this draft runs; the workbench refuses one while another run runs, as it says.
+ * came to and cost, and the way to the draft. While Claude drafts, a clock counts from the run's start, so it stays
+ * right after a reload. Disabled while this draft runs; the workbench refuses one while another run runs, as it says.
  */
-export function DraftButton({ moment, draft, drafted }: { moment: string; draft?: Run; drafted: boolean }) {
+export function DraftButton({ moment, draft, story }: DraftProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [problem, setProblem] = useState<string>();
+  const [now, setNow] = useState(() => Date.now());
   const running = draft?.status === "RUNNING";
 
   useEffect(() => {
     if (!running) return;
-    const timer = setInterval(() => router.refresh(), POLL_MS);
-    return () => clearInterval(timer);
+    const poll = setInterval(() => router.refresh(), POLL_MS);
+    const clock = setInterval(() => setNow(Date.now()), 1000);
+    return () => {
+      clearInterval(poll);
+      clearInterval(clock);
+    };
   }, [running, router]);
 
   const start = () =>
@@ -37,11 +51,32 @@ export function DraftButton({ moment, draft, drafted }: { moment: string; draft?
       router.refresh();
     });
 
+  const review = story && !running;
   return (
     <div className="flex flex-col items-start gap-2">
-      <button type="button" disabled={pending || running} onClick={start} className="min-h-11 rounded-md bg-ink px-3.5 text-bar disabled:opacity-50">
-        {running ? "Claude is drafting…" : drafted ? "Draft again with Claude" : "Draft with Claude"}
-      </button>
+      <div className="flex flex-wrap items-center gap-2.5">
+        {review && (
+          <Link
+            href={`/review/stories?claim=${encodeURIComponent(`story:${moment}`)}`}
+            className="flex min-h-11 items-center rounded-md bg-ink px-3.5 text-bar"
+          >
+            {story === "CANDIDATE" ? "Review the draft" : "Open the story"}
+          </Link>
+        )}
+        <button
+          type="button"
+          disabled={pending || running}
+          onClick={start}
+          className={`min-h-11 rounded-md px-3.5 disabled:opacity-50 ${review ? "border border-line" : "bg-ink text-bar"}`}
+        >
+          {running ? `Claude is drafting… ${elapsed(draft.startedAt, now)}` : story ? "Draft again with Claude" : "Draft with Claude"}
+        </button>
+      </div>
+      {running && (
+        <p role="status" className="text-muted">
+          Usually 1 to 2 minutes. You can leave this page: the draft carries on and shows here when it&apos;s done.
+        </p>
+      )}
       {draft && !running && (
         <p role="status" className={draft.status === "FAILED" ? "text-conflict" : "text-muted"}>
           {draft.status === "FAILED" ? "The last draft failed: " : ""}
