@@ -16,9 +16,12 @@ test("a story is edited on its desk, its preview following, then approved and un
   await page.getByLabel("What visitors read").fill(line);
   await expect(page.getByRole("figure").getByText(line)).toBeVisible();
 
+  // Moved one place, later unless it is the last card.
   const number = Number((await person.getAttribute("aria-label"))!.match(/^Card (\d+)/)![1]);
-  await page.getByRole("button", { name: "Move later →" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: `Card ${number + 1}` })).toBeVisible();
+  const later = page.getByRole("button", { name: "Move later →" });
+  const by = (await later.isEnabled()) ? 1 : -1;
+  await (by === 1 ? later : page.getByRole("button", { name: "← Move earlier" })).click();
+  await expect(page.getByRole("heading", { level: 2, name: `Card ${number + by}` })).toBeVisible();
 
   await page.getByRole("button", { name: "Approve with my changes" }).click();
   await expect(page.getByRole("status")).toContainText("Approved");
