@@ -155,6 +155,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/people/{qid}/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose a person's facts
+         * @description Proposes the person's facts as the dataset holds them, as `wb claims` does for the best known people of each
+         *     moment: a new claim waits for review; an existing one is refreshed by the same rules.
+         */
+        post: operations["proposeFacts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/moments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The release's moments
+         * @description Each moment of the release the workbench loaded, with how many people lived there and what waits.
+         */
+        get: operations["listMoments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/moments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A moment
+         * @description The moment, with the story the release has for it.
+         */
+        get: operations["getMoment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/moments/{id}/story": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft the moment's story
+         * @description Starts the run that drafts the moment's story with Claude and proposes it as the moment's `STORY` claim, as
+         *     `wb draft` does. The moment's `draft` follows it.
+         */
+        post: operations["draftStory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/moments/{id}/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Everyone alive in a moment
+         * @description The fetched people tied to the moment's region by a place of theirs (where they were born, died, worked or
+         *     lived, by the country it lies in today), alive at some time during the moment: the best known first, a page
+         *     at a time, each with their facts claim if they have one.
+         */
+        get: operations["listMomentPeople"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/occupations/{qid}": {
         parameters: {
             query?: never;
@@ -226,8 +330,9 @@ export interface paths {
          * What a publish would change
          * @description The approved claims as the files of `data/` that publishing writes whole (`data/occupations.jsonl`,
          *     `data/corrections.jsonl`), compared with those files on the data repository's `main`: each record added,
-         *     changed or removed. Also the publish pull request open, if any, and the corrections for people written by hand
-         *     in `people.jsonl`, which the release gives no effect.
+         *     changed or removed; and the approved stories written into their moments' files (`data/moments/<id>.json`),
+         *     each a story changed. Also the publish pull request open, if any, the corrections for people written by hand
+         *     in `people.jsonl`, which the release gives no effect, and the approved stories held back.
          */
         get: operations["previewPublication"];
         put?: never;
@@ -253,9 +358,10 @@ export interface components {
          * @description `PERSON_FACTS`: a person's facts as fetched, one claim per person. `CONNECTION`: two people linked at a date.
          *     `EVENT`: something that happened in a region in a year. `ANECDOTE`: a short story about one person.
          *     `OCCUPATION_DOMAIN`: the domain of the people who hold an occupation, one claim per occupation or class.
+         *     `STORY`: a moment's story, drafted with Claude, one claim per moment.
          * @enum {string}
          */
-        ClaimType: "PERSON_FACTS" | "CONNECTION" | "EVENT" | "ANECDOTE" | "OCCUPATION_DOMAIN";
+        ClaimType: "PERSON_FACTS" | "CONNECTION" | "EVENT" | "ANECDOTE" | "OCCUPATION_DOMAIN" | "STORY";
         /**
          * @description `CANDIDATE` waits for review; `NEEDS_WORK` was kept for later, with a note.
          * @enum {string}
@@ -311,7 +417,7 @@ export interface components {
             note?: string;
         };
         /** @description The record as it would ship, by claim type. */
-        Payload: components["schemas"]["PersonFacts"] | components["schemas"]["Connection"] | components["schemas"]["Event"] | components["schemas"]["Anecdote"] | components["schemas"]["OccupationDomain"];
+        Payload: components["schemas"]["PersonFacts"] | components["schemas"]["Connection"] | components["schemas"]["Event"] | components["schemas"]["Anecdote"] | components["schemas"]["OccupationDomain"] | components["schemas"]["Story"];
         /**
          * @description A person's facts as Wikidata states them. Whether each statement has a reference shows in the claim's flags,
          *     not here: a reference added later does not change the facts.
@@ -418,6 +524,104 @@ export interface components {
         };
         /** @enum {string} */
         OccupationChoice: "POWER" | "ARTS" | "EVERYDAY" | "NONE";
+        /**
+         * @description A moment's story as it would ship into its file in `data/moments/`, each line with the quotes it rests on.
+         *     Publishing writes the hook, the world and the cards, and leaves the rest of the moment's file as it is.
+         */
+        Story: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "STORY";
+            moment: components["schemas"]["MomentId"];
+            hook: components["schemas"]["StoryLine"];
+            world: components["schemas"]["StoryWorld"];
+            cards: components["schemas"]["StoryCard"][];
+        };
+        StoryLine: {
+            text: string;
+            citations: components["schemas"]["Citation"][];
+        };
+        /** @description The world around the moment, one line each. */
+        StoryWorld: {
+            governs: components["schemas"]["StoryLine"];
+            everyday: components["schemas"]["StoryLine"];
+            arts: components["schemas"]["StoryLine"];
+            meanwhile: components["schemas"]["StoryLine"];
+        };
+        /**
+         * @description One card. A `PERSON` card names a person (the id of one written by hand, else a Q-id), a `LIFE` card a typical
+         *     life, an `EVENT` card an event; a `SCENE` card has a title.
+         */
+        StoryCard: {
+            type: components["schemas"]["CardType"];
+            kicker?: string;
+            title?: string;
+            text?: string;
+            year?: components["schemas"]["Year"];
+            person?: string;
+            life?: string;
+            event?: string;
+            /** @description The name of the person, life or event the card shows, for reading. Not published. */
+            label?: string;
+            citations: components["schemas"]["Citation"][];
+        };
+        /** @enum {string} */
+        CardType: "SCENE" | "PERSON" | "LIFE" | "EVENT";
+        /** @description A passage copied from one of the texts the story was drafted from. Not published. */
+        Citation: {
+            /**
+             * @description The text's id, by what it is about.
+             * @example person:Q535
+             */
+            source: string;
+            title: string;
+            quote: string;
+        };
+        /** @example paris-1870s */
+        MomentId: string;
+        MomentSummary: {
+            id: components["schemas"]["MomentId"];
+            /** @example FR */
+            region: string;
+            place: string;
+            /** @example 1870s */
+            period: string;
+            start: components["schemas"]["Year"];
+            end: components["schemas"]["Year"];
+            focus: components["schemas"]["Year"];
+            /** @description The fetched people alive there, as the moment's people list counts them. */
+            people: number;
+            /** @description The claims about the moment's people and its story waiting for review. */
+            waiting: number;
+            /** @description The cards of the story the release has. */
+            cards: number;
+            story?: components["schemas"]["ClaimStatus"];
+        };
+        MomentDetail: components["schemas"]["MomentSummary"] & {
+            /** @description The release's hook. */
+            hook: string;
+            world?: components["schemas"]["World"];
+            /** @description The release's cards, in order. */
+            storyCards: components["schemas"]["StoryCard"][];
+            /** @description The last run that drafted the moment's story since the workbench started, if any. */
+            draft?: components["schemas"]["Run"];
+        };
+        World: {
+            governs: string;
+            everyday: string;
+            arts: string;
+            meanwhile: string;
+        };
+        MomentPeople: {
+            total: number;
+            people: components["schemas"]["MomentPerson"][];
+        };
+        MomentPerson: components["schemas"]["PersonSummary"] & {
+            sitelinks: number;
+            claim?: components["schemas"]["ClaimStatus"];
+        };
         OccupationEvidence: {
             occupation: components["schemas"]["Qid"];
             label: string;
@@ -487,7 +691,8 @@ export interface components {
          *     finished import to the dataset's rows. `DATASET_EXPORT` writes those rows to the fetched dataset's files, in
          *     `backend/dataset-export/`. `PERSON_FACTS_CLAIMS` proposes the facts of the people of the release's moments.
          *     `OCCUPATION_CLAIMS` proposes a domain claim for every occupation the dataset's people hold, and their classes:
-         *     those most held as a first occupation first, then the classes nobody holds directly. `STORY_DRAFT` drafts a moment's story with Claude into `backend/drafts/`.
+         *     those most held as a first occupation first, then the classes nobody holds directly. `STORY_DRAFT` drafts a moment's story with Claude and proposes it as the
+         *     moment's `STORY` claim; its result says what the draft cost.
          * @enum {string}
          */
         RunKind: "WIKIDATA_IMPORT" | "DATASET_MAPPING" | "DATASET_EXPORT" | "PERSON_FACTS_CLAIMS" | "OCCUPATION_CLAIMS" | "STORY_DRAFT";
@@ -563,6 +768,8 @@ export interface components {
             pullRequest?: components["schemas"]["PullRequest"];
             /** @description People written by hand in `people.jsonl` with a correction, which their record overrides. */
             withoutEffect: components["schemas"]["Qid"][];
+            /** @description Approved stories not published, and why. */
+            heldBack: components["schemas"]["HeldBack"][];
             /**
              * Format: int32
              * @description How recently, in seconds, the curator must have used their passkey to publish.
@@ -577,14 +784,18 @@ export interface components {
             changes: components["schemas"]["RecordChange"][];
         };
         RecordChange: {
-            /** @description The record's id, a Q-id. */
+            /** @description The record's id, a Q-id, or the moment's id in a moment's file. */
             id: string;
             /** @enum {string} */
             change: "ADDED" | "CHANGED" | "REMOVED";
-            /** @description The record's line as `main` has it, JSON. None when added. */
+            /** @description The record's line as `main` has it, JSON; a moment's story only, in its file. None when added. */
             before?: string;
             /** @description The record's line as publishing writes it, JSON. None when removed. */
             after?: string;
+        };
+        HeldBack: {
+            moment: components["schemas"]["MomentId"];
+            reason: string;
         };
         PullRequest: {
             /** Format: int32 */
@@ -731,6 +942,8 @@ export interface operations {
                 type?: components["schemas"]["ClaimType"];
                 status?: components["schemas"]["ClaimStatus"];
                 flag?: components["schemas"]["Flag"];
+                /** @description Only the claims about the moment's people (their facts) and its story. */
+                moment?: components["schemas"]["MomentId"];
                 /** @description The `seq` of the last claim of the previous page. */
                 after?: number;
                 limit?: number;
@@ -753,6 +966,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     addClaim: {
@@ -933,6 +1147,134 @@ export interface operations {
                     "application/json": components["schemas"]["Evidence"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    proposeFacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                qid: components["schemas"]["Qid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The person's facts claim. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listMoments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The moments, by id. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MomentSummary"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The moment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MomentDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    draftStory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run, started. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listMomentPeople: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["schemas"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the people. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MomentPeople"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

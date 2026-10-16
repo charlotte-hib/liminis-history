@@ -1,37 +1,55 @@
 package art.liminis.publishing
 
 import org.springframework.stereotype.Service
+import art.liminis.curation.ClaimRepository
+import art.liminis.curation.ClaimRules
+import art.liminis.curation.ClaimStatus
+import art.liminis.curation.ClaimType
+import art.liminis.curation.Story
 import art.liminis.support.StaleException
 import art.liminis.support.UnavailableException
 
-/** How a record of a [DataFile] would change. */
+/** How a record of a file publishing writes would change. */
 enum class Change { ADDED, CHANGED, REMOVED }
 
 /** One record's change: its line before and after, as JSON. */
 data class RecordChange(val id: String, val change: Change, val before: String?, val after: String?)
 
-data class FileChanges(val file: DataFile, val changes: List<RecordChange>)
+/** The changes to the file at [path]: its records', or a moment's story, under the moment's id. */
+data class FileChanges(val path: String, val changes: List<RecordChange>)
+
+/** An approved story publishing leaves out, and why. */
+data class HeldBack(val moment: String, val reason: String)
 
 /**
- * What publishing makes of the data repository's [base] commit: the changes to each [DataFile], the publish pull
- * request open, if any, and the people written by hand whom a correction would not change.
+ * What publishing makes of the data repository's [base] commit: the changes to each [DataFile] and to the moments'
+ * files the approved stories go into, the publish pull request open, if any, the people written by hand whom a
+ * correction would not change, and the approved stories left out.
  */
 data class Publication(
     val base: String,
     val files: List<FileChanges>,
     val pullRequest: PullRequest?,
     val withoutEffect: List<String>,
+    val heldBack: List<HeldBack>,
 ) {
     val unchanged: Boolean get() = files.all { it.changes.isEmpty() }
 }
 
 /**
- * Publishing the curator's decisions: the approved claims, written into the data repository as [DataFiles], through a
- * pull request the curator reads and merges. One publish pull request at a time: publishing again while it is open
- * rebuilds its branch on the latest base, so it always holds every approval not merged yet.
+ * Publishing the curator's decisions: the approved claims, written into the data repository as [DataFiles] and the
+ * approved stories into their [MomentFiles], through a pull request the curator reads and merges. One publish pull
+ * request at a time: publishing again while it is open rebuilds its branch on the latest base, so it always holds
+ * every approval not merged yet.
  */
 @Service
-class Publishing(private val dataFiles: DataFiles, private val github: GitHub, private val properties: PublishProperties) {
+class Publishing(
+    private val dataFiles: DataFiles,
+    private val momentFiles: MomentFiles,
+    private val claims: ClaimRepository,
+    private val github: GitHub,
+    private val properties: PublishProperties,
+) {
 
     /** What a publish would change now. */
     fun preview(): Publication = compare(base()).first
@@ -53,7 +71,7 @@ class Publishing(private val dataFiles: DataFiles, private val github: GitHub, p
         }
         val summary = summary(publication)
         // Only the files that change: GitHub refuses to remove a file that is not there, as an emptied one may not be.
-        val changed = publication.files.filter { it.changes.isNotEmpty() }.associate { it.file.path to files.getValue(it.file).text() }
+        val changed = publication.files.filter { it.changes.isNotEmpty() }.associate { it.path to files.getValue(it.path) }
         val commit = github.commit(base, changed, "$TITLE\n\n$summary")
         github.moveBranch(properties.branch, commit)
         val body = "$summary\n\n$ABOUT"
@@ -65,13 +83,48 @@ class Publishing(private val dataFiles: DataFiles, private val github: GitHub, p
     private fun base(): String =
         github.head(properties.baseBranch) ?: throw UnavailableException("The data repository has no branch ${properties.baseBranch}")
 
-    /** What the approved claims change in [base]'s files, and those files as publishing would write them. */
-    private fun compare(base: String): Pair<Publication, Map<DataFile, Lines>> {
+    /** What the approved claims change in [base]'s files, and the text of each file as publishing would write it. */
+    private fun compare(base: String): Pair<Publication, Map<String, String?>> {
         val files = dataFiles.build()
-        val changes = files.map { (file, lines) -> FileChanges(file, changes(dataFiles.read(file.path, github.file(file.path, base)), lines)) }
+        val changes = files.map { (file, lines) -> FileChanges(file.path, changes(dataFiles.read(file.path, github.file(file.path, base)), lines)) }
         val byHand = dataFiles.qids(github.file(PEOPLE, base))
         val withoutEffect = files.getValue(DataFile.CORRECTIONS).keys.filter { it in byHand }
-        return Publication(base, changes, github.openPullRequest(properties.branch), withoutEffect) to files
+        val texts = files.entries.associate { (file, lines) -> file.path to lines.text() }
+
+        val heldBack = mutableListOf<HeldBack>()
+        val stories = mutableListOf<Pair<FileChanges, String>>()
+        for (story in approvedStories()) {
+            val path = momentFiles.path(story.moment)
+            val before = github.file(path, base)
+            val reason = holdBack(story) ?: if (before == null) "There is no $path on the data repository's main" else null
+            if (reason != null) {
+                heldBack += HeldBack(story.moment, reason)
+                continue
+            }
+            val after = momentFiles.write(before!!, story)
+            val change = RecordChange(story.moment, Change.CHANGED, momentFiles.story(before), momentFiles.story(after)).takeIf { before != after }
+            stories += FileChanges(path, listOfNotNull(change)) to after
+        }
+        val publication = Publication(base, changes + stories.map { it.first }, github.openPullRequest(properties.branch), withoutEffect, heldBack)
+        return publication to texts + stories.associate { (file, text) -> file.path to text }
+    }
+
+    /**
+     * The approved stories, every one written on every publish: the claim is the story's source, so a hand edit of its
+     * fields in `data/` shows in the preview as a change back, and goes with the next publish.
+     */
+    private fun approvedStories() = claims.findByTypeAndStatusOrderById(ClaimType.STORY, ClaimStatus.APPROVED).map { it.payload as Story }
+
+    /**
+     * Why [story] cannot be published yet: cards showing fetched people (named by Q-id), whom the release holds only
+     * once it carries the fetched dataset. Every one is named, to remove them in one edit.
+     */
+    private fun holdBack(story: Story): String? {
+        if (properties.fetchedPeople) return null
+        val cards = ClaimRules.fetchedPeople(story).takeIf { it.isNotEmpty() } ?: return null
+        val shown = cards.entries.joinToString("; ") { (number, card) -> "card $number, ${card.label ?: card.person} (${card.person})" }
+        return "${if (cards.size == 1) "One card shows a fetched person" else "${cards.size} cards show fetched people"}, " +
+            "whom the release holds once it carries the dataset: $shown"
     }
 
     /**
@@ -95,7 +148,7 @@ class Publishing(private val dataFiles: DataFiles, private val github: GitHub, p
         val counts = Change.entries.mapNotNull { change ->
             file.changes.count { it.change == change }.takeIf { it > 0 }?.let { "$it ${change.name.lowercase()}" }
         }
-        "- `${file.file.path}`: ${counts.joinToString(", ")}"
+        "- `${file.path}`: ${counts.joinToString(", ")}"
     }
 
     private companion object {

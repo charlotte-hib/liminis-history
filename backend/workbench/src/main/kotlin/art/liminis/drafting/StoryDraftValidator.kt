@@ -42,7 +42,7 @@ object StoryDraftValidator {
             checkCitations(where, card.citations)
             card.year?.let { if (it !in startYear..endYear) problems += "$where is set in $it, outside $startYear–$endYear" }
             when (card.type) {
-                CardType.PERSON -> requireSource(where, "person", card.personSlug, byId, problems)
+                CardType.PERSON -> requireSource(where, "person", card.personId, byId, problems)
                 CardType.LIFE -> requireSource(where, "life", card.lifeId, byId, problems)
                 CardType.EVENT -> requireSource(where, "event", card.eventId, byId, problems)
                 CardType.SCENE -> if (card.title.isNullOrBlank()) problems += "$where has no title"

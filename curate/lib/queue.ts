@@ -6,11 +6,14 @@ const PAGE = 200;
 /** How soon a claim comes up: conflicts first, then the other flagged ones, then the rest. */
 const urgency = (claim: Claim) => (claim.flags.some((flag) => flag.flag === "CONFLICT") ? 0 : claim.flags.length ? 1 : 2);
 
-/** Every claim of [type] waiting with [status], the flagged first, each group in the order they were proposed. */
-export async function queue(type: ClaimType, status: "CANDIDATE" | "NEEDS_WORK"): Promise<Claim[]> {
+/**
+ * Every claim of [type] waiting with [status], about [moment]'s people or story if given, the flagged first, each group
+ * in the order they were proposed.
+ */
+export async function queue(type: ClaimType, status: "CANDIDATE" | "NEEDS_WORK", moment?: string): Promise<Claim[]> {
   const claims: Claim[] = [];
   for (let after = 0; ; ) {
-    const { data } = await workbench.GET("/api/claims", { params: { query: { type, status, after, limit: PAGE } } });
+    const { data } = await workbench.GET("/api/claims", { params: { query: { type, status, moment, after, limit: PAGE } } });
     if (!data) throw new Error(`Could not list the ${type} claims`);
     claims.push(...data);
     if (data.length < PAGE) break;

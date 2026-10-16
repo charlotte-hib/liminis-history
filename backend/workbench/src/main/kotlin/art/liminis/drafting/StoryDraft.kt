@@ -18,8 +18,8 @@ data class DraftCard(
     val kicker: String?,
     val title: String?,
     val text: String,
-    /** For PERSON cards: the slug from the person's source id. */
-    val personSlug: String?,
+    /** For PERSON cards: the id from the person's source id, a Q-id. */
+    val personId: String?,
     /** For LIFE cards: the id from the life's source id. */
     val lifeId: String?,
     /** For EVENT cards: the id from the event's source id. */
@@ -29,7 +29,25 @@ data class DraftCard(
     val citations: List<Citation>,
 )
 
-data class StoryDraft(val hook: DraftLine, val world: DraftWorld, val cards: List<DraftCard>)
+data class StoryDraft(val hook: DraftLine, val world: DraftWorld, val cards: List<DraftCard>) {
 
-/** A text the drafter may draw on, under a stable id it cites, e.g. `person:emile-zola`. */
-data class Source(val id: String, val title: String, val text: String, val url: String?)
+    /**
+     * The draft with its cards naming what they show by id alone: the model sometimes copies the whole source id
+     * (`person:Q5586` for `Q5586`), which would name nothing.
+     */
+    fun withBareIds(): StoryDraft = copy(
+        cards = cards.map { card ->
+            card.copy(
+                personId = card.personId?.removePrefix("person:")?.removePrefix("elsewhere:"),
+                lifeId = card.lifeId?.removePrefix("life:"),
+                eventId = card.eventId?.removePrefix("event:"),
+            )
+        },
+    )
+}
+
+/**
+ * A text the drafter may draw on, under a stable id it cites, e.g. `person:Q535`, with the [name] of whoever or whatever
+ * it is about, and the English Wikipedia [article] it comes from, if any.
+ */
+data class Source(val id: String, val title: String, val text: String, val url: String?, val name: String = title, val article: String? = null)

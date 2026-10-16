@@ -14,7 +14,16 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.MockHttpServletRequestDsl
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import art.liminis.curation.Citation
+import art.liminis.curation.ClaimRepository
+import art.liminis.curation.Claim
 import art.liminis.curation.CurationFixtures
+import art.liminis.curation.Origin
+import art.liminis.curation.Story
+import art.liminis.curation.StoryCard
+import art.liminis.curation.StoryLine
+import art.liminis.curation.StoryWorld
+import art.liminis.domain.CardType
 import art.liminis.dataset.DatasetStore
 import art.liminis.testing.PostgresTestConfiguration
 import java.time.Duration
@@ -31,6 +40,7 @@ class ClaimsApiTests(
     @Autowired private val mockMvc: MockMvc,
     @Autowired private val dataset: DatasetStore,
     @Autowired private val jdbc: JdbcTemplate,
+    @Autowired private val claimRepository: ClaimRepository,
 ) {
 
     @BeforeEach
@@ -301,5 +311,31 @@ class ClaimsApiTests(
             Thread.sleep(50)
         }
         error("Run $id still running")
+    }
+
+    @Test
+    fun `a story claim reads with its quotes, and approves as edited`() {
+        val line = StoryLine("A line.", listOf(Citation("person:Q535", "Victor Hugo (1802–1885), writer", "a writer")))
+        val story = Story("paris-1870s", line, StoryWorld(line, line, line, line), listOf(StoryCard(CardType.SCENE, title = "A city", text = "Boulevards.")))
+        claimRepository.save(Claim.candidate(story, Origin.CLAUDE, emptyList()))
+
+        mockMvc.get("/api/claims/{id}", "story:paris-1870s") { signedIn() }.andExpect {
+            jsonPath("$.payload.type") { value("STORY") }
+            jsonPath("$.payload.hook.citations[0].title") { value("Victor Hugo (1802–1885), writer") }
+            jsonPath("$.payload.cards[0].type") { value("SCENE") }
+        }
+        val edited = """
+            {"action": "APPROVE", "payload": {"type": "STORY", "moment": "paris-1870s",
+              "hook": {"text": "A better hook.", "citations": []},
+              "world": {"governs": {"text": "g", "citations": []}, "everyday": {"text": "e", "citations": []},
+                        "arts": {"text": "a", "citations": []}, "meanwhile": {"text": "m", "citations": []}},
+              "cards": [{"type": "PERSON", "person": "victor-hugo", "text": "Back.", "citations": []}]}}
+        """.trimIndent()
+        mockMvc.post("/api/claims/{id}/decisions", "story:paris-1870s") { json(edited); ifMatch(etag("story:paris-1870s")) }.andExpect {
+            status { isOk() }
+            jsonPath("$.status") { value("APPROVED") }
+            jsonPath("$.payload.hook.text") { value("A better hook.") }
+            jsonPath("$.payload.cards[0].person") { value("victor-hugo") }
+        }
     }
 }

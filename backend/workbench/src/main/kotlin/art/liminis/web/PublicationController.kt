@@ -1,7 +1,6 @@
 package art.liminis.web
 
 import org.mapstruct.Mapper
-import org.mapstruct.Mapping
 import org.mapstruct.ReportingPolicy
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -67,6 +66,5 @@ class PublicationController(
 interface PublicationApiMapper {
     fun toDto(publication: Publication, maxAge: Int): PublicationDto
 
-    @Mapping(target = "path", source = "file.path")
     fun toDto(changes: FileChanges): FileChangesDto
 }

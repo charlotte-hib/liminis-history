@@ -48,7 +48,7 @@ class OccupationProposalsTests(
     fun `proposes every occupation held, the most held first, then the classes above them, without a domain`() {
         assertEquals(ProposalCounts(added = 4, refreshed = 0, unchanged = 0), proposals.propose())
 
-        val proposed = claims.list(ClaimType.OCCUPATION_DOMAIN, null, null, 0, 100)
+        val proposed = claims.list(ClaimType.OCCUPATION_DOMAIN, null, null, null, 0, 100)
         assertEquals(listOf("occupation:Q36180", "occupation:Q1028181", "occupation:Q3391743", "occupation:Q483501"), proposed.map { it.id })
         assertEquals(OccupationDomain("Q1028181", "painter", "peintre"), proposed[1].payload)
     }

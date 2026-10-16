@@ -23,6 +23,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="hover:text-ink">
               Inbox
             </Link>
+            <Link href="/moments" className="hover:text-ink">
+              Moments
+            </Link>
             <Link href="/add" className="hover:text-ink">
               Add a claim
             </Link>

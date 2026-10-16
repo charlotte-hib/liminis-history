@@ -1,5 +1,6 @@
 package art.liminis.curation
 
+import art.liminis.domain.CardType
 import art.liminis.support.InvalidRequestException
 import art.liminis.support.slugify
 import java.security.MessageDigest
@@ -27,20 +28,37 @@ object ClaimRules {
         is Event -> ClaimType.EVENT
         is Anecdote -> ClaimType.ANECDOTE
         is OccupationDomain -> ClaimType.OCCUPATION_DOMAIN
+        is Story -> ClaimType.STORY
     }
 
     /**
      * A claim's id, from what it is about, so the same thing proposed again lands on the same claim:
      * `person-facts:Q535`, `connection:Q296|Q535:friends`, `event:FR:-52:vercingetorix-surrenders-at-alesia`,
-     * `anecdote:Q535:1851:` and the start of the text's SHA-256, `occupation:Q1028181`.
+     * `anecdote:Q535:1851:` and the start of the text's SHA-256, `occupation:Q1028181`, `story:paris-1870s`.
      */
     fun idOf(payload: Payload): String = when (payload) {
-        is PersonFacts -> "person-facts:${payload.person}"
+        is PersonFacts -> factsId(payload.person)
         is Connection -> "connection:${payload.people.sorted().joinToString("|")}:${slugify(payload.kind)}"
         is Event -> "event:${payload.region}:${payload.year}:${slugify(payload.title)}"
         is Anecdote -> "anecdote:${payload.person}:${payload.year}:${sha256(payload.text.trim()).take(12)}"
         is OccupationDomain -> "occupation:${payload.occupation}"
+        is Story -> storyId(payload.moment)
     }
+
+    /** The id of the claim on [person]'s facts. */
+    fun factsId(person: String) = "person-facts:$person"
+
+    /** The id of the claim on [moment]'s story. */
+    fun storyId(moment: String) = "story:$moment"
+
+    /**
+     * The cards of [story] showing a fetched person, named by Q-id, by their number: the site holds them only once its
+     * release carries the fetched dataset.
+     */
+    fun fetchedPeople(story: Story): Map<Int, StoryCard> =
+        story.cards.withIndex()
+            .filter { (_, card) -> card.type == CardType.PERSON && card.person.orEmpty().matches(QID) }
+            .associate { (index, card) -> index + 1 to card }
 
     /** Whom or where a claim is about: an edit must not change it. */
     fun subjectOf(payload: Payload): String = when (payload) {
@@ -49,6 +67,7 @@ object ClaimRules {
         is Event -> payload.region
         is Anecdote -> payload.person
         is OccupationDomain -> payload.occupation
+        is Story -> payload.moment
     }
 
     /**
@@ -58,6 +77,7 @@ object ClaimRules {
     fun flagsOfNew(claim: NewClaim): List<FlagReason> {
         if (claim.payload is PersonFacts) invalid("A person's facts are fetched from Wikidata, not added by hand")
         if (claim.payload is OccupationDomain) invalid("Occupations are proposed from the dataset, not added by hand")
+        if (claim.payload is Story) invalid("Stories are drafted with Claude, not added by hand")
         check(claim.payload)
         claim.sources.forEach(::check)
         return if (claim.sources.size == 1) listOf(ONE_SOURCE) else emptyList()
@@ -73,6 +93,9 @@ object ClaimRules {
             if (typeOf(payload) != typeOf(state.payload) || subjectOf(payload) != subjectOf(state.payload)) {
                 invalid("An edit must stay a ${typeOf(state.payload)} about ${subjectOf(state.payload)}")
             }
+            check(payload)
+        } else if (decision.verdict == Verdict.APPROVE && payload is Story) {
+            // A draft is checked by the validator, which only flags: approved as drafted, it must still hold together.
             check(payload)
         }
         val status = when (decision.verdict) {
@@ -92,13 +115,15 @@ object ClaimRules {
     /**
      * What a new [proposal] makes of a claim in [state], keeping the conflicts earlier refreshes found until the
      * curator decides again. A claim not yet decided takes the new proposal, unless the curator edited it. An approved
-     * one goes back to review, flagged: what it rests on changed. A rejected one stays rejected.
+     * one goes back to review, flagged: what it rests on changed. A rejected one stays rejected. A story is drafted
+     * again only when the curator asks: [redraft].
      */
     fun refresh(state: ClaimState, proposal: Proposal): ClaimState {
         val conflicts = state.flags - fetchedFlags(state.flags).toSet()
         val flags = proposal.flags + conflicts
         if (state.proposal == proposal.payload) return state.copy(flags = flags)
         val refreshed = state.copy(proposal = proposal.payload)
+        if (proposal.payload is Story) return redraft(refreshed, state, flags)
         return when {
             state.status == ClaimStatus.REJECTED -> refreshed.copy(flags = flags)
             state.status == ClaimStatus.APPROVED ->
@@ -108,10 +133,31 @@ object ClaimRules {
         }
     }
 
+    /**
+     * A new draft of a story, whatever became of the last one, waits for review: in place of the last one, unless the
+     * curator edited it (and did not reject it), which keeps the edits, flagged. One approved is flagged too.
+     */
+    private fun redraft(refreshed: ClaimState, state: ClaimState, flags: List<FlagReason>): ClaimState {
+        val edited = state.payload != state.proposal && state.status != ClaimStatus.REJECTED
+        val conflict = when {
+            edited -> CHANGED_SINCE_EDITED
+            state.status == ClaimStatus.APPROVED -> CHANGED_SINCE_APPROVED
+            else -> null
+        }
+        return refreshed.copy(
+            status = ClaimStatus.CANDIDATE,
+            payload = if (edited) state.payload else refreshed.proposal,
+            flags = (flags + listOfNotNull(conflict)).distinct(),
+        )
+    }
+
     /** The flags a claim's proposal brought, without the conflicts refreshes found. */
     private fun fetchedFlags(flags: List<FlagReason>) = flags - setOf(CHANGED_SINCE_APPROVED, CHANGED_SINCE_EDITED)
 
-    /** What the spec cannot say: no year 0, and two different people in a connection. */
+    /**
+     * What the spec cannot say: no year 0, two different people in a connection, and a story's cards naming what they
+     * show.
+     */
     private fun check(payload: Payload) {
         val years = when (payload) {
             is PersonFacts -> listOf(payload.born, payload.died)
@@ -119,9 +165,21 @@ object ClaimRules {
             is Event -> listOf(payload.year)
             is Anecdote -> listOf(payload.year)
             is OccupationDomain -> emptyList()
+            is Story -> payload.cards.mapNotNull { it.year }
         }
         if (0 in years) invalid("There is no year 0: 1 BCE is followed by 1 CE")
         if (payload is Connection && payload.people.distinct().size != 2) invalid("A connection links two different people")
+        if (payload is Story) payload.cards.forEachIndexed { index, card -> check(index + 1, card) }
+    }
+
+    private fun check(number: Int, card: StoryCard) {
+        val (named, needs) = when (card.type) {
+            CardType.SCENE -> !card.title.isNullOrBlank() to "a title"
+            CardType.PERSON -> !card.person.isNullOrBlank() to "a person"
+            CardType.LIFE -> !card.life.isNullOrBlank() to "a life"
+            CardType.EVENT -> !card.event.isNullOrBlank() to "an event"
+        }
+        if (!named) invalid("Card $number, ${card.type}, needs $needs")
     }
 
     private fun check(source: SourceRef) {
@@ -134,6 +192,8 @@ object ClaimRules {
         }
         if (!complete) invalid("A ${source.kind} source needs $needs")
     }
+
+    private val QID = Regex("Q[1-9][0-9]*")
 
     private fun invalid(reason: String): Nothing = throw InvalidRequestException(reason)
 

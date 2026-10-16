@@ -3,6 +3,7 @@ package art.liminis.curation
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
+import tools.jackson.databind.json.JsonMapper
 import art.liminis.support.ConflictException
 import art.liminis.support.NotFoundException
 import art.liminis.support.StaleException
@@ -17,14 +18,18 @@ class Claims(
     private val decisions: DecisionRepository,
     private val sources: ClaimSources,
     private val transactions: TransactionTemplate,
+    private val jsonMapper: JsonMapper,
 ) {
 
     @Transactional(readOnly = true)
     fun detail(id: String): ClaimDetail = detail(find(id))
 
-    /** Claims after [after] in the order they were proposed, at most [limit], of [type], [status] and [flag] if given. */
-    fun list(type: ClaimType?, status: ClaimStatus?, flag: Flag?, after: Long, limit: Int): List<Claim> =
-        claims.list(type?.name, status?.name, flag?.let { """[{"flag": "${it.name}"}]""" }, after, limit)
+    /**
+     * Claims after [after] in the order they were proposed, at most [limit], of [type], [status] and [flag] if given,
+     * and among [ids] if given.
+     */
+    fun list(type: ClaimType?, status: ClaimStatus?, flag: Flag?, ids: List<String>?, after: Long, limit: Int): List<Claim> =
+        claims.list(type?.name, status?.name, flag?.let { """[{"flag": "${it.name}"}]""" }, ids?.let(jsonMapper::writeValueAsString), after, limit)
 
     /** For each claim type that has claims: how many wait, how many were kept for later, and the waiting ones' flags. */
     fun queues(): List<Queue> {

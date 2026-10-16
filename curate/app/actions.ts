@@ -36,6 +36,18 @@ export async function addClaim(claim: NewClaim): Promise<Outcome<{ id: string }>
   return result.ok ? { ok: true, data: { id: result.data.id } } : result;
 }
 
+/** Proposes the person's facts for review, or refreshes their claim. */
+export async function proposeFacts(qid: string): Promise<Outcome<{ id: string }>> {
+  const result = await outcome(workbench.POST("/api/people/{qid}/facts", { params: { path: { qid } } }));
+  return result.ok ? { ok: true, data: { id: result.data.id } } : result;
+}
+
+/** Starts drafting the moment's story with Claude: 409 while another run runs. */
+export async function draftStory(moment: string): Promise<Outcome<{ id: number }>> {
+  const result = await outcome(workbench.POST("/api/moments/{id}/story", { params: { path: { id: moment } } }));
+  return result.ok ? { ok: true, data: { id: result.data.id } } : result;
+}
+
 export async function findPeople(q: string): Promise<PersonSummary[]> {
   if (q.trim().length < 2) return [];
   const { data } = await workbench.GET("/api/people", { params: { query: { q: q.trim().slice(0, 100), limit: 8 } } });

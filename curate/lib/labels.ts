@@ -1,6 +1,7 @@
 import type { components } from "@/lib/api-schema";
 
 type ClaimType = components["schemas"]["ClaimType"];
+type ClaimStatus = components["schemas"]["ClaimStatus"];
 type Flag = components["schemas"]["Flag"];
 type FlagReason = components["schemas"]["FlagReason"];
 
@@ -11,7 +12,16 @@ export const QUEUES: { type: ClaimType; name: string; hint: string; slug: string
   { type: "EVENT", name: "Events", hint: "A region, a year", slug: "events" },
   { type: "ANECDOTE", name: "Anecdotes", hint: "A short story about one person", slug: "anecdotes" },
   { type: "OCCUPATION_DOMAIN", name: "Occupations to map", hint: "The domain of the people who hold each occupation", slug: "occupations" },
+  { type: "STORY", name: "Stories", hint: "A moment's story, drafted with Claude", slug: "stories" },
 ];
+
+/** Where a claim stands, in words. */
+export const STATUS: Record<ClaimStatus, string> = {
+  CANDIDATE: "waiting",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+  NEEDS_WORK: "kept for later",
+};
 
 export const queueOf = (type: ClaimType) => QUEUES.find((queue) => queue.type === type)!;
 
@@ -62,7 +72,19 @@ export function fieldOf(reason: string): Field {
   return PLACE_FIELDS[reason.split("_")[0]] ?? "claim";
 }
 
-export function describe(reason: string): string {
+/** What a new draft did to a story already reviewed: the workbench's refresh reasons, said for stories. */
+const STORY_REASONS: Record<string, string> = {
+  CHANGED_SINCE_APPROVED: "Claude drafted it again since you approved it",
+  CHANGED_SINCE_EDITED: "Claude drafted it again since you edited it: your edits are shown, the new draft below",
+};
+
+/**
+ * A reason in words: the workbench's codes translated, for the claim's [type] when it says otherwise, and its
+ * sentences (a story's findings) as they are.
+ */
+export function describe(reason: string, type?: ClaimType): string {
+  if (reason.includes(" ")) return reason;
+  if (type === "STORY" && STORY_REASONS[reason]) return STORY_REASONS[reason];
   const place = reason.match(/^P\d+_(.+)$/);
   return REASONS[place ? place[1] : reason] ?? reason.toLowerCase().replaceAll("_", " ");
 }

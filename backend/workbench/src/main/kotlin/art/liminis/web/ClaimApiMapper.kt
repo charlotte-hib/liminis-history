@@ -21,6 +21,7 @@ import art.liminis.curation.OccupationDomain
 import art.liminis.curation.Payload
 import art.liminis.curation.PersonFacts
 import art.liminis.curation.Queue
+import art.liminis.curation.Story
 import art.liminis.workbench.api.model.AnecdoteDto
 import art.liminis.workbench.api.model.ClaimDetailDto
 import art.liminis.workbench.api.model.ClaimDto
@@ -36,6 +37,7 @@ import art.liminis.workbench.api.model.OccupationDomainDto
 import art.liminis.workbench.api.model.PayloadDto
 import art.liminis.workbench.api.model.PersonFactsDto
 import art.liminis.workbench.api.model.QueueDto
+import art.liminis.workbench.api.model.StoryDto
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
@@ -70,6 +72,7 @@ abstract class ClaimApiMapper {
     @SubclassMapping(source = Event::class, target = EventDto::class)
     @SubclassMapping(source = Anecdote::class, target = AnecdoteDto::class)
     @SubclassMapping(source = OccupationDomain::class, target = OccupationDomainDto::class)
+    @SubclassMapping(source = Story::class, target = StoryDto::class)
     abstract fun toDto(payload: Payload): PayloadDto
 
     @Mapping(target = "type", constant = "PERSON_FACTS")
@@ -87,6 +90,9 @@ abstract class ClaimApiMapper {
     @Mapping(target = "type", constant = "OCCUPATION_DOMAIN")
     abstract fun toDto(occupation: OccupationDomain): OccupationDomainDto
 
+    @Mapping(target = "type", constant = "STORY")
+    abstract fun toDto(story: Story): StoryDto
+
     abstract fun toModel(claim: NewClaimDto): NewClaim
 
     @Mapping(target = "verdict", source = "action")
@@ -97,6 +103,7 @@ abstract class ClaimApiMapper {
     @SubclassMapping(source = EventDto::class, target = Event::class)
     @SubclassMapping(source = AnecdoteDto::class, target = Anecdote::class)
     @SubclassMapping(source = OccupationDomainDto::class, target = OccupationDomain::class)
+    @SubclassMapping(source = StoryDto::class, target = Story::class)
     abstract fun toModel(payload: PayloadDto): Payload
 
     abstract fun toModel(type: ClaimTypeDto): ClaimType

@@ -26,10 +26,13 @@ class WorkbenchSecurity {
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
         http {
             authorizeHttpRequests {
-                for (path in listOf("/api/queues", "/api/claims", "/api/claims/*", "/api/people", "/api/people/*/evidence", "/api/occupations/*")) {
+                for (path in listOf(
+                    "/api/queues", "/api/claims", "/api/claims/*", "/api/people", "/api/people/*/evidence", "/api/occupations/*",
+                    "/api/moments", "/api/moments/*", "/api/moments/*/people",
+                )) {
                     authorize(GET, path, hasAuthority(CURATION_READ))
                 }
-                for (path in listOf("/api/claims", "/api/claims/*/decisions", "/api/claims/*/undo")) {
+                for (path in listOf("/api/claims", "/api/claims/*/decisions", "/api/claims/*/undo", "/api/people/*/facts", "/api/moments/*/story")) {
                     authorize(POST, path, hasAuthority(CURATION_WRITE))
                 }
                 authorize(GET, "/api/publication", hasAuthority(CURATION_READ))
@@ -57,10 +60,10 @@ class WorkbenchSecurity {
     fun requestRejectedHandler(): RequestRejectedHandler = HttpStatusRequestRejectedHandler()
 
     companion object {
-        /** Queues, claims, people and their evidence: curate, and wb's queues. */
+        /** Queues, claims, people and their evidence, moments: curate, and wb's queues. */
         const val CURATION_READ = "SCOPE_curation:read"
 
-        /** Adding claims, deciding, undoing: curate. */
+        /** Adding claims, proposing a person's facts or a moment's story, deciding, undoing: curate. */
         const val CURATION_WRITE = "SCOPE_curation:write"
 
         /** Starting and following runs: wb. */

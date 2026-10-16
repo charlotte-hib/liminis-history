@@ -128,7 +128,7 @@ tasks.test {
 	systemProperty("compose.file", compose.path)
 }
 
-// Run from backend/, so story drafts land in backend/drafts as before. Its Postgres is compose.workbench.yaml, at the
+// Run from backend/, where its files land (dataset-export/, natural-earth/). Its Postgres is compose.workbench.yaml, at the
 // repository's root, not the site's backend/compose.yaml.
 tasks.bootRun {
 	workingDir = rootProject.projectDir

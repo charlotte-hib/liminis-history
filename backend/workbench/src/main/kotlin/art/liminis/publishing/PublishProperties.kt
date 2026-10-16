@@ -15,6 +15,11 @@ data class PublishProperties(
     /** How recently the curator must have used their passkey to publish. */
     val maxAge: Duration,
     val github: GitHubProperties,
+    /**
+     * Whether the data repository's releases carry the fetched dataset, and so its people: until they do, a story with
+     * a card showing a fetched person is held back.
+     */
+    val fetchedPeople: Boolean = false,
 )
 
 data class GitHubProperties(

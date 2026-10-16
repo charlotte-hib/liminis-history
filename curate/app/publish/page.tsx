@@ -93,6 +93,18 @@ function Changes({ publication }: { publication: Publication }) {
           <span className="font-mono">{publication.withoutEffect.join(", ")}</span>. Edit their record there instead.
         </p>
       )}
+      {publication.heldBack.length > 0 && (
+        <section aria-label="Stories held back" className="flex flex-col gap-1">
+          <h2 className="font-semibold">Approved stories not published</h2>
+          <ul className="flex flex-col gap-1 text-[13.5px]">
+            {publication.heldBack.map((held) => (
+              <li key={held.moment}>
+                <span className="font-mono">{held.moment}</span>: <span className="text-muted">{held.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </>
   );
 }

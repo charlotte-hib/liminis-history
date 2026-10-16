@@ -21,6 +21,8 @@ export function titleOf(payload: Payload): { title: string; detail: string } {
       return { title: payload.title, detail: `${payload.region} · ${year(payload.year)}` };
     case "OCCUPATION_DOMAIN":
       return { title: payload.label, detail: choiceLabel(payload.domain) };
+    case "STORY":
+      return { title: payload.moment, detail: `${payload.cards.length} cards · ${payload.hook.text}` };
   }
 }
 

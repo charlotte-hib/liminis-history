@@ -16,6 +16,9 @@ import art.liminis.domain.Moment
 /** Thrown when Claude returns no usable draft: a refusal, a truncated answer, or no structured output. */
 class DraftingException(message: String) : RuntimeException(message)
 
+/** A draft, with the model that wrote it and the tokens it took. */
+data class Drafted(val draft: StoryDraft, val model: String, val inputTokens: Long, val outputTokens: Long)
+
 private val SYSTEM_PROMPT = """
     You draft stories for Liminis, a history app where people step into a moment (one place over a few
     years) and meet the people who lived there, from rulers to washerwomen. A story is read one short card at a
@@ -24,9 +27,11 @@ private val SYSTEM_PROMPT = """
     Write 6 to 9 cards:
     - SCENE cards set the scene: who governs, how ordinary people live, what is being made. Kicker like
       "Setting the scene · Edo, 1830s"; a short title; two or three sentences.
-    - PERSON cards introduce someone who lived it, as they are during the moment. Set personSlug and the year.
-    - LIFE cards show a typical everyday life. Set lifeId.
-    - EVENT cards tell a documented event. Set eventId; the text adds context and does not repeat the event.
+    - PERSON cards introduce someone who lived it, as they are during the moment. Set personId to the id after
+      "person:" in their source's id (Q535 for person:Q535), and the year.
+    - LIFE cards show a typical everyday life. Set lifeId to the id after "life:".
+    - EVENT cards tell a documented event. Set eventId to the id after "event:"; the text adds context and does not
+      repeat the event.
     Mix powerful people, artists and thinkers, and everyday lives. Order the cards so they read as one story.
 
     Also write a hook of under 90 characters, and the world around the moment: one sentence each for who
@@ -53,7 +58,7 @@ class AnthropicConfiguration {
 @Component
 class StoryDrafter(@Lazy private val client: AnthropicClient, private val properties: DraftingProperties) {
 
-    fun draft(moment: Moment, sources: List<Source>): StoryDraft {
+    fun draft(moment: Moment, sources: List<Source>): Drafted {
         val params = MessageCreateParams.builder()
             .model(properties.model)
             .maxTokens(MAX_TOKENS)
@@ -77,8 +82,10 @@ class StoryDrafter(@Lazy private val client: AnthropicClient, private val proper
             StopReason.MAX_TOKENS -> throw DraftingException("The draft for ${moment.id} was cut off at $MAX_TOKENS tokens")
             else -> Unit
         }
-        return message.content().firstNotNullOfOrNull { block -> block.text().map { it.text() }.orElse(null) }
+        val draft = message.content().firstNotNullOfOrNull { block -> block.text().map { it.text() }.orElse(null) }
             ?: throw DraftingException("Claude returned no draft for ${moment.id}")
+        val usage = message.usage()
+        return Drafted(draft, message.model().asString(), usage.inputTokens(), usage.outputTokens())
     }
 
     private fun userPrompt(moment: Moment, sources: List<Source>) = buildString {

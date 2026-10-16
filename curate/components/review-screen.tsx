@@ -9,6 +9,7 @@ import { AnecdoteForm, FactsForm } from "@/components/edit-forms";
 import { FactsTable } from "@/components/facts";
 import { Intros } from "@/components/intros";
 import { CHOICES, OccupationView } from "@/components/occupation";
+import { StoryForm, StoryView } from "@/components/story";
 import type { components } from "@/lib/api-schema";
 import { describe, FLAG_STYLE, FLAGS, flagsOf, type QUEUES } from "@/lib/labels";
 import type { Review } from "@/lib/queue";
@@ -25,13 +26,13 @@ type Decided = { id: string; title: string; version: string; verdict: string };
 
 const VERDICTS: Record<Action, string> = { APPROVE: "Approved", REJECT: "Rejected", NEEDS_WORK: "Kept for later" };
 
-type Props = { queue: Queue; later: boolean; claims: ClaimSummary[]; current: Review | null };
+type Props = { queue: Queue; later: boolean; moment?: string; claims: ClaimSummary[]; current: Review | null };
 
 /**
  * A queue's claims beside the one under review. Keys: A approve, E edit, R reject, N keep for later, S or J the next
  * claim, K the previous one, U undo the last decision; for an occupation, 1 to 4 choose its domain and approve.
  */
-export function ReviewScreen({ queue, later, claims, current }: Props) {
+export function ReviewScreen({ queue, later, moment, claims, current }: Props) {
   const router = useRouter();
   const [last, setLast] = useState<Decided | null>(null);
   const [problem, setProblem] = useState<{ status: number; detail: string } | null>(null);
@@ -41,6 +42,7 @@ export function ReviewScreen({ queue, later, claims, current }: Props) {
     const query = new URLSearchParams();
     if (id) query.set("claim", id);
     if (later) query.set("later", "1");
+    if (moment) query.set("moment", moment);
     const search = query.toString();
     return `/review/${queue.slug}${search ? `?${search}` : ""}`;
   };
@@ -79,7 +81,17 @@ export function ReviewScreen({ queue, later, claims, current }: Props) {
     <div className="grid min-h-0 flex-1 grid-cols-[340px_minmax(0,1fr)]">
       <nav aria-label="Claims in this queue" className="flex flex-col overflow-y-auto border-r border-line bg-bar">
         <div className="flex items-baseline gap-2 border-b border-line px-4 py-3">
-          <h1 className="font-semibold">{queue.name}</h1>
+          <h1 className="font-semibold">
+            {queue.name}
+            {moment && (
+              <>
+                {" of "}
+                <Link href={`/moments/${moment}`} className="underline-offset-4 hover:underline">
+                  {moment}
+                </Link>
+              </>
+            )}
+          </h1>
           <span className="font-mono text-muted">
             {claims.length} {later ? "kept for later" : "waiting"}
           </span>
@@ -156,8 +168,13 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
   const { claim, evidence, person, occupation } = review;
   const payload = claim.payload;
   const [mode, setMode] = useState<"view" | "edit" | "REJECT" | "NEEDS_WORK">("view");
+  // A story redrafted after the curator's edits keeps them: the new draft is the claim's proposal, to edit from.
+  const [fromDraft, setFromDraft] = useState(false);
+  const proposal = claim.proposal as Payload;
+  const redrafted =
+    proposal.type === "STORY" && claim.flags.some((flag) => flag.reason === "CHANGED_SINCE_EDITED") ? proposal : null;
   const [note, setNote] = useState("");
-  const editable = payload.type === "PERSON_FACTS" || payload.type === "ANECDOTE";
+  const editable = payload.type === "PERSON_FACTS" || payload.type === "ANECDOTE" || payload.type === "STORY";
 
   useEffect(() => {
     if (mode !== "view") return;
@@ -197,7 +214,9 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
     <>
       <main className="flex flex-1 flex-col gap-4 px-7 py-5">
         <div className="flex items-baseline gap-3.5">
-          <h2 className="text-2xl font-semibold">{payload.type === "ANECDOTE" ? (person?.label ?? qid) : title}</h2>
+          <h2 className="text-2xl font-semibold">
+            {payload.type === "ANECDOTE" ? (person?.label ?? qid) : payload.type === "STORY" ? <Link href={`/moments/${payload.moment}`} className="underline-offset-4 hover:underline">The story of {payload.moment}</Link> : title}
+          </h2>
           {payload.type === "PERSON_FACTS" && payload.labelFr && <span className="text-muted">{payload.labelFr}</span>}
           <span className="ml-auto font-mono text-[12.5px] text-muted">{claim.id}</span>
           {qid && (
@@ -211,7 +230,7 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
         {claimFlags.map((flag) => (
           <div key={flag.reason} role="note" className={`flex items-center gap-3 rounded-lg px-4 py-2.5 ${FLAG_STYLE[flag.flag]}`}>
             <span className="font-mono text-xs font-medium">{FLAGS[flag.flag]}</span>
-            <span>{describe(flag.reason)}</span>
+            <span>{describe(flag.reason, payload.type)}</span>
           </div>
         ))}
 
@@ -219,6 +238,39 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
           <FactsForm payload={payload} pending={pending} onApprove={(p, n) => onDecide("APPROVE", p, n)} onCancel={() => setMode("view")} />
         ) : mode === "edit" && payload.type === "ANECDOTE" ? (
           <AnecdoteForm payload={payload} pending={pending} onApprove={(p, n) => onDecide("APPROVE", p, n)} onCancel={() => setMode("view")} />
+        ) : mode === "edit" && payload.type === "STORY" ? (
+          <StoryForm
+            payload={fromDraft && redrafted ? redrafted : payload}
+            pending={pending}
+            onApprove={(p, n) => onDecide("APPROVE", p, n)}
+            onCancel={() => {
+              setFromDraft(false);
+              setMode("view");
+            }}
+          />
+        ) : payload.type === "STORY" ? (
+          <>
+            <StoryView story={payload} />
+            {redrafted && (
+              <section aria-label="The new draft" className="flex flex-col gap-3 border-t border-line pt-4">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-semibold">Claude&apos;s new draft</h3>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      setFromDraft(true);
+                      setMode("edit");
+                    }}
+                    className="rounded-md border border-line px-3 py-1.5"
+                  >
+                    Edit from the new draft
+                  </button>
+                </div>
+                <StoryView story={redrafted} />
+              </section>
+            )}
+          </>
         ) : payload.type === "PERSON_FACTS" ? (
           <FactsTable facts={payload} evidence={evidence} flags={claim.flags} />
         ) : payload.type === "OCCUPATION_DOMAIN" ? (

@@ -290,9 +290,7 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
     fun find(query: String, limit: Int): List<PersonSummary> =
         jdbc.query(
             """
-            select p.qid as person, p.label, p.label_fr, p.born, p.died,
-                (select o.label from dataset.person_occupation po join dataset.occupation o on o.qid = po.occupation
-                 where po.person = p.qid order by po.position limit 1) as occupation
+            select $SUMMARY
             from dataset.person p
             where p.qid = ? or strpos(lower(p.label), lower(?)) > 0 or strpos(lower(p.label_fr), lower(?)) > 0
             order by p.qid = ? desc, starts_with(lower(p.label), lower(?)) desc, p.sitelinks desc, p.qid
@@ -313,9 +311,7 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
     fun summaries(qids: Collection<String>, limit: Int): List<PersonSummary> =
         jdbc.query(
             """
-            select p.qid as person, p.label, p.label_fr, p.born, p.died,
-                (select o.label from dataset.person_occupation po join dataset.occupation o on o.qid = po.occupation
-                 where po.person = p.qid order by po.position limit 1) as occupation
+            select $SUMMARY
             from dataset.person p
             where p.qid = any (?)
             order by p.sitelinks desc, p.qid
@@ -323,6 +319,31 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
             """.trimIndent(),
             DataClassRowMapper(PersonSummary::class.java), qids.toTypedArray(), limit,
         )
+
+    /**
+     * The people tied to [region] by a place of theirs (where they were born, died, worked or lived, by the country it
+     * lies in today) and alive at some time from [start] to [end]: the best known first, [limit] after [offset].
+     */
+    fun aliveIn(region: String, start: Int, end: Int, limit: Int, offset: Int = 0): List<PersonSummary> =
+        jdbc.query(
+            "select $SUMMARY from dataset.person p where $ALIVE_IN order by p.sitelinks desc, p.qid limit ? offset ?",
+            DataClassRowMapper(PersonSummary::class.java), end, start, region, limit, offset,
+        )
+
+    /** How many people [aliveIn] finds. */
+    fun countAliveIn(region: String, start: Int, end: Int): Int =
+        jdbc.queryForObject("select count(*) from dataset.person p where $ALIVE_IN", Int::class.java, end, start, region)!!
+
+    /** The Q-ids of everyone [aliveIn] finds. */
+    fun qidsAliveIn(region: String, start: Int, end: Int): List<String> =
+        jdbc.query("select p.qid from dataset.person p where $ALIVE_IN order by p.qid", { rs, _ -> rs.getString("qid") }, end, start, region)
+
+    /** The English Wikipedia intros of those of [qids] who have one, by person. */
+    fun intros(qids: Collection<String>): Map<String, Intro> =
+        jdbc.query(
+            "select person, title, url, extract from dataset.person_article where person = any (?) and language = 'en' and extract <> ''",
+            DataClassRowMapper(Intro::class.java), qids.toTypedArray(),
+        ).associateBy { it.person }
 
     /** The person's Wikipedia articles, by language. */
     fun articles(person: String): List<ArticleRow> =
@@ -357,8 +378,18 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
         }
         val ARTICLE = DataClassRowMapper(ArticleRow::class.java)
 
+        /** A person as lists show them, from `dataset.person p`. */
+        const val SUMMARY = """p.qid as person, p.label, p.label_fr, p.born, p.died, p.sitelinks,
+                (select o.label from dataset.person_occupation po join dataset.occupation o on o.qid = po.occupation
+                 where po.person = p.qid order by po.position limit 1) as occupation"""
+
         /** The ISO code of the country a place lies in today: by its coordinates, else its first country with one. */
         const val PLACE_COUNTRY = """coalesce(pl.coordinates_country,
             (select pc.iso from dataset.place_country pc where pc.place = pl.qid and pc.iso is not null order by pc.position limit 1))"""
+
+        /** Alive at some time from the first parameter's year to the second's, and tied to the region the third names. */
+        const val ALIVE_IN = """p.born <= ? and p.died >= ? and exists (
+                select 1 from dataset.person_place pp join dataset.place pl on pl.qid = pp.place
+                where pp.person = p.qid and $PLACE_COUNTRY = ?)"""
     }
 }

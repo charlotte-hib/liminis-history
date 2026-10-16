@@ -10,7 +10,7 @@ type Payload = components["schemas"]["Payload"];
 
 type Props<T> = { payload: T; pending: boolean; onApprove: (payload: Payload, note: string) => void; onCancel: () => void };
 
-const input = "rounded-md border border-line bg-surface px-3 py-2 font-[inherit] disabled:opacity-60";
+export const input = "rounded-md border border-line bg-surface px-3 py-2 font-[inherit] disabled:opacity-60";
 
 const PRECISIONS = [
   { value: 11, name: "day" },
@@ -21,7 +21,7 @@ const PRECISIONS = [
 ];
 
 /** A year typed in: an integer, negative for BCE, never 0. */
-function parseYear(text: string): number | null {
+export function parseYear(text: string): number | null {
   const value = Number(text.trim());
   return Number.isInteger(value) && value !== 0 && text.trim() !== "" ? value : null;
 }
@@ -160,7 +160,7 @@ export function AnecdoteForm({ payload, pending, onApprove, onCancel }: Props<An
   );
 }
 
-function Labelled({ name, was, children }: { name: string; was?: string; children: ReactNode }) {
+export function Labelled({ name, was, children }: { name: string; was?: string; children: ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5">
       <span className="text-[13px] text-muted">{name}</span>
@@ -171,7 +171,7 @@ function Labelled({ name, was, children }: { name: string; was?: string; childre
 }
 
 /** ⌘⏎ or Ctrl+⏎ approves with the changes, Esc drops them. */
-function EditFrame(props: { pending: boolean; problem: string | null; onSubmit: () => void; onCancel: () => void; children: ReactNode }) {
+export function EditFrame(props: { pending: boolean; problem: string | null; onSubmit: () => void; onCancel: () => void; children: ReactNode }) {
   const { pending, problem, onSubmit, onCancel, children } = props;
   const keys = (event: KeyboardEvent) => {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
