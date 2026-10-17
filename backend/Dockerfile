@@ -16,7 +16,9 @@ COPY --from=api openapi.yaml /api/openapi.yaml
 RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon :site:bootJar \
     && cp "$(find site/build/libs -name '*.jar' ! -name '*-plain.jar')" /app.jar
 
-FROM eclipse-temurin:25-jre
+# Ubuntu 24.04: the 26.04 base the plain 25-jre tag now carries ships pebble, built with a Go that has a critical
+# vulnerability, though this image never runs it. Back to 25-jre once a newer pebble lands there.
+FROM eclipse-temurin:25-jre-noble
 RUN useradd --system --home /app app
 WORKDIR /app
 COPY --from=build /app.jar app.jar
