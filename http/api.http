@@ -72,6 +72,24 @@ Accept: application/json
     });
 %}
 
+### Person's anecdotes: Hokusai's, among the years of his life, with their source
+GET {{baseUrl}}/api/people/katsushika-hokusai?year=1831
+Accept: application/json
+
+> {%
+    client.test("200 with JSON", () => {
+        client.assert(response.status === 200, `status ${response.status}`);
+        client.assert(response.contentType.mimeType === "application/json", `content type ${response.contentType.mimeType}`);
+    });
+    client.test("Two anecdotes, at 44 and 74, sourced, between his birth and death", () => {
+        const kinds = response.body.lifeline.map(l => l.kind).join(",");
+        client.assert(kinds === "BIRTH,ANECDOTE,OWN_EVENT,ANECDOTE,DEATH", `kinds ${kinds}`);
+        const anecdotes = response.body.lifeline.filter(l => l.kind === "ANECDOTE");
+        client.assert(anecdotes.map(l => l.age).join(",") === "44,74", `ages ${anecdotes.map(l => l.age)}`);
+        client.assert(anecdotes.every(l => l.source.url === "https://en.wikipedia.org/wiki/Hokusai"), "a source is missing");
+    });
+%}
+
 ### Search: people and moments, ignoring accents
 GET {{baseUrl}}/api/search?q=zola
 Accept: application/json

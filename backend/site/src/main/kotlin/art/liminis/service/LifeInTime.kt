@@ -1,11 +1,12 @@
 package art.liminis.service
 
+import art.liminis.domain.Anecdote
 import art.liminis.domain.Era
 import art.liminis.domain.Event
 import art.liminis.domain.Person
 import art.liminis.support.currentYear
 import art.liminis.support.yearsBetween
-import art.liminis.api.model.EraDto
+import art.liminis.web.ApiMapper
 import art.liminis.api.model.LifeLineDto
 import art.liminis.api.model.LifeLineKindDto
 
@@ -14,20 +15,21 @@ private const val MAX_BACKGROUND_EVENTS = 4
 
 /**
  * "Their life in their time": who governed when they were born, each change of regime during their life,
- * the documented events around them and their own, each with their age. Built only from dated records.
- * The birth and regime lines carry their era, so the page can open it.
+ * the documented events around them and their own, each with their age, and the anecdotes told about them. Built only
+ * from dated records. The birth and regime lines carry their era, so the page can open it; anecdotes, their source.
  */
-fun lifeInTime(person: Person, regionEras: List<Era>, regionEvents: List<Event>, toDto: (Era) -> EraDto): List<LifeLineDto> {
+fun lifeInTime(person: Person, regionEras: List<Era>, regionEvents: List<Event>, anecdotes: List<Anecdote>, mapper: ApiMapper): List<LifeLineDto> {
     val end = person.deathYear ?: currentYear()
-    val age = { year: Int -> yearsBetween(person.birthYear, year) }
+    // An anecdote may tell of a year outside their life (a legend, a burial): it then has no age.
+    val age = { year: Int -> yearsBetween(person.birthYear, year).takeIf { year in person.birthYear..end } }
     val lines = mutableListOf<LifeLineDto>()
 
     val bornUnder = regionEras.lastOrNull { person.birthYear in it.startYear..it.endYear }
-    lines += LifeLineDto(person.birthYear, null, LifeLineKindDto.BIRTH, "Born" + (bornUnder?.let { " ${regimePhrase(it.label)}" } ?: ""), null, bornUnder?.let(toDto))
+    lines += LifeLineDto(person.birthYear, null, LifeLineKindDto.BIRTH, "Born" + (bornUnder?.let { " ${regimePhrase(it.label)}" } ?: ""), null, bornUnder?.let(mapper::toDto), null)
 
     regionEras
         .filter { it.startYear > person.birthYear && it.startYear <= end }
-        .forEach { lines += LifeLineDto(it.startYear, age(it.startYear), LifeLineKindDto.ERA, "${withArticle(it.label)} begins", null, toDto(it)) }
+        .forEach { lines += LifeLineDto(it.startYear, age(it.startYear), LifeLineKindDto.ERA, "${withArticle(it.label)} begins", null, mapper.toDto(it), null) }
 
     var background = 0
     regionEvents
@@ -36,12 +38,14 @@ fun lifeInTime(person: Person, regionEras: List<Era>, regionEvents: List<Event>,
         .forEach { event ->
             val own = event.participants.firstOrNull { it.person.slug == person.slug }
             when {
-                own != null -> lines += LifeLineDto(event.year, age(event.year), LifeLineKindDto.OWN_EVENT, event.title, own.role, null)
-                background++ < MAX_BACKGROUND_EVENTS -> lines += LifeLineDto(event.year, age(event.year), LifeLineKindDto.EVENT, event.title, null, null)
+                own != null -> lines += LifeLineDto(event.year, age(event.year), LifeLineKindDto.OWN_EVENT, event.title, own.role, null, null)
+                background++ < MAX_BACKGROUND_EVENTS -> lines += LifeLineDto(event.year, age(event.year), LifeLineKindDto.EVENT, event.title, null, null, null)
             }
         }
 
-    person.deathYear?.let { lines += LifeLineDto(it, age(it), LifeLineKindDto.DEATH, "Dies", null, null) }
+    anecdotes.forEach { lines += LifeLineDto(it.year, age(it.year), LifeLineKindDto.ANECDOTE, it.text, null, null, mapper.toDto(it.source)) }
+
+    person.deathYear?.let { lines += LifeLineDto(it, age(it), LifeLineKindDto.DEATH, "Dies", null, null, null) }
     return lines.sortedWith(compareBy({ it.year }, { it.kind.ordinal }))
 }
 

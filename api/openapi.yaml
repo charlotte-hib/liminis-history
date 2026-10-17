@@ -754,13 +754,35 @@ components:
             $ref: "#/components/schemas/Door"
 
     LifeLineKind:
+      description: ANECDOTE is a short story told about them, approved by the curator.
       type: string
-      enum: [BIRTH, ERA, EVENT, OWN_EVENT, DEATH]
+      enum: [BIRTH, ERA, EVENT, OWN_EVENT, ANECDOTE, DEATH]
+
+    AnecdoteSource:
+      description: Where an anecdote was read or heard. A book has a title and a page; a podcast, a video or a documentary a title, and an episode, a minute or a URL; a web page a URL.
+      type: object
+      required: [title, page, episode, minute, url]
+      properties:
+        title:
+          type: string
+          nullable: true
+        page:
+          type: string
+          nullable: true
+        episode:
+          type: string
+          nullable: true
+        minute:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
 
     LifeLine:
-      description: One line of "their life in their time", a dated change around them, with their age.
+      description: One line of "their life in their time", a dated change around them or a story told about them, with their age.
       type: object
-      required: [year, age, kind, text, role, era]
+      required: [year, age, kind, text, role, era, source]
       properties:
         year:
           type: integer
@@ -781,6 +803,12 @@ components:
           type: object
           allOf:
             - $ref: "#/components/schemas/Era"
+          nullable: true
+        source:
+          description: Where an ANECDOTE line comes from; none on other lines.
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/AnecdoteSource"
           nullable: true
 
     Connection:
