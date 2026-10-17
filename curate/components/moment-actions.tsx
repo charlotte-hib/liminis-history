@@ -21,7 +21,7 @@ function elapsed(start: string, now: number): string {
 type DraftProps = { moment: string; draft?: Run; story?: ClaimStatus };
 
 /**
- * Generates the moment's story cards and header with Claude, and follows the run: the page looks again until it ends, then shows what it
+ * Generates the moment's story and header with Claude, and follows the run: the page looks again until it ends, then shows what it
  * came to and cost, and the way to the draft. While Claude drafts, a clock counts from the run's start, so it stays
  * right after a reload. Disabled while this draft runs; the workbench refuses one while another run runs, as it says.
  */

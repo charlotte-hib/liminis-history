@@ -547,6 +547,42 @@ function OpenCard({ card, number, count, subjects, missing, sources, onChange, o
         </span>
       </div>
 
+      <div role="group" aria-label="The card's type, year and what it shows" className="flex flex-col gap-2">
+        <div className="grid grid-cols-[130px_100px_minmax(0,1fr)] items-end gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="label">Type</span>
+            <select value={card.type} onChange={(e) => onChange({ type: e.target.value as CardType, label: undefined })} className={box}>
+              {(Object.keys(SHOWS) as CardType[]).map((type) => (
+                <option key={type} value={type}>
+                  {KINDS[type]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="label">Year</span>
+            <input value={card.when} onChange={(e) => onChange({ when: e.target.value })} className={`${box} font-mono`} />
+          </label>
+          {field ? (
+            <label className="flex flex-col gap-1.5">
+              <span className="label">The {field}&apos;s id</span>
+              <input value={card[field] ?? ""} onChange={(e) => onChange({ [field]: e.target.value, label: undefined })} className={`${box} font-mono`} />
+            </label>
+          ) : (
+            <span />
+          )}
+        </div>
+        {field && id && (
+          <p className="text-[12.5px] text-muted">
+            {found
+              ? `${found}, ${QID.test(id) ? "from the dataset: not on the site yet" : "from the release"}.`
+              : missing.has(`${field}:${id}`)
+                ? "Not found in the release or the dataset."
+                : "Looking it up…"}
+          </p>
+        )}
+      </div>
+
       {card.type === "SCENE" && (
         <div className="grid grid-cols-2 gap-4">
           <label className="flex flex-col gap-1.5">
@@ -577,42 +613,6 @@ function OpenCard({ card, number, count, subjects, missing, sources, onChange, o
         <p className="text-[12.5px] text-conflict">No quote: check it yourself.</p>
       )}
 
-      <details className="border-t border-line pt-3">
-        <summary className="cursor-pointer text-[13px] text-muted">The card: its type, year and what it shows</summary>
-        <div className="mt-3 grid grid-cols-[130px_100px_minmax(0,1fr)] items-end gap-3">
-          <label className="flex flex-col gap-1.5">
-            <span className="label">Type</span>
-            <select value={card.type} onChange={(e) => onChange({ type: e.target.value as CardType, label: undefined })} className={box}>
-              {(Object.keys(SHOWS) as CardType[]).map((type) => (
-                <option key={type} value={type}>
-                  {KINDS[type]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="label">Year</span>
-            <input value={card.when} onChange={(e) => onChange({ when: e.target.value })} className={`${box} font-mono`} />
-          </label>
-          {field ? (
-            <label className="flex flex-col gap-1.5">
-              <span className="label">The {field}&apos;s id</span>
-              <input value={card[field] ?? ""} onChange={(e) => onChange({ [field]: e.target.value, label: undefined })} className={`${box} font-mono`} />
-            </label>
-          ) : (
-            <span />
-          )}
-        </div>
-        {field && id && (
-          <p className="mt-2 text-[12.5px] text-muted">
-            {found
-              ? `${found}, ${QID.test(id) ? "from the dataset: not on the site yet" : "from the release"}.`
-              : missing.has(`${field}:${id}`)
-                ? "Not found in the release or the dataset."
-                : "Looking it up…"}
-          </p>
-        )}
-      </details>
 
       <div className="flex flex-wrap gap-2">
         <button type="button" className="button-small" disabled={number === 1} onClick={() => onMove(-1)}>

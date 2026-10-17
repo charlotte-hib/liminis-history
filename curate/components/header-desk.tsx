@@ -83,39 +83,53 @@ export function HeaderDesk({ moment, claim, version, art }: Props) {
   const start = current ?? releasedOf(moment);
   // A page drafted again after the curator's edits keeps them: the new draft is the claim's proposal.
   const redrafted = current && claim!.flags.some((flag) => flag.reason === "CHANGED_SINCE_EDITED") ? (claim!.proposal as MomentPage) : null;
+  const [from, setFrom] = useState<"mine" | "new">("mine");
   const [base, setBase] = useState(start);
   const [draft, setDraft] = useState(() => draftOf(start));
+  // The header changed on the workbench (a draft landed) while the curator had edits: kept, until they load it.
+  const [changed, setChanged] = useState(false);
+  // A decision or an undo taken here: the version it brings is followed whatever the form holds.
+  const [ours, setOurs] = useState(false);
   const [mode, setMode] = useState<"view" | "REJECT" | "NEEDS_WORK">("view");
   const [note, setNote] = useState("");
   const [last, setLast] = useState<Decided | null>(null);
   const [failure, setFailure] = useState<{ status: number; detail: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // A decision or an undo brings the claim back at a new version: edit from what it now holds.
+  const page = pageOf(draft, base);
+  const edited = JSON.stringify(page) !== JSON.stringify(pageOf(draftOf(start), start));
+
+  // A decision, an undo or a new draft brings the claim back at a new version: edit from what it now holds, unless
+  // that would throw away the curator's edits. The last decision can only be undone at the version it made.
   const [shown, setShown] = useState(version);
   if (shown !== version) {
     setShown(version);
-    setBase(start);
-    setDraft(draftOf(start));
+    setOurs(false);
+    if (last?.version !== version) setLast(null);
+    if (edited && !ours) setChanged(true);
+    else startFrom(start);
   }
-
-  const page = pageOf(draft, base);
-  const edited = JSON.stringify(page) !== JSON.stringify(pageOf(draftOf(start), start));
   const empty = !draft.hook.trim() || WORLD.some(({ key }) => !draft.world[key].trim());
   // Only a claim waiting or kept for later is approved as it stands; the release's own text needs a change first.
   const decidable = !!current && claim!.status !== "APPROVED";
 
-  const startFrom = (which: MomentPage) => {
+  function startFrom(which: MomentPage, side: "mine" | "new" = "mine") {
+    setFrom(side);
+    setChanged(false);
     setBase(which);
     setDraft(draftOf(which));
-  };
+  }
 
   const approve = () => {
     if (empty) return;
     startTransition(async () => {
       setFailure(null);
       if (!claim) {
-        const result = await writeMomentPage(moment.id, { hook: page.hook.text, world: draft.world, note: note.trim() || undefined });
+        const { governs, everyday, arts, meanwhile } = page.world;
+        const world = { governs: governs.text, everyday: everyday.text, arts: arts.text, meanwhile: meanwhile.text };
+        const result = await writeMomentPage(moment.id, { hook: page.hook.text, world, note: note.trim() || undefined });
+        // A draft landed first: show it, the curator's edits kept beside it.
+        if (!result.ok && result.status === 409) router.refresh();
         if (!result.ok) return setFailure(result);
         setLast({ verdict: "Approved" });
       } else {
@@ -124,6 +138,7 @@ export function HeaderDesk({ moment, claim, version, art }: Props) {
         setLast({ version: result.data.version, verdict: VERDICTS.APPROVE });
       }
       setNote("");
+      setOurs(true);
       router.refresh();
     });
   };
@@ -135,19 +150,23 @@ export function HeaderDesk({ moment, claim, version, art }: Props) {
       setLast({ version: result.data.version, verdict: VERDICTS[action] });
       setMode("view");
       setNote("");
+      setOurs(true);
       router.refresh();
     });
   const undoLast = () => {
     if (!last?.version) return;
     startTransition(async () => {
+      setFailure(null);
       const result = await undo(claim!.id, last.version!);
       if (!result.ok) return setFailure(result);
       setLast(null);
+      setOurs(true);
       router.refresh();
     });
   };
 
-  const findings = claim && current ? claim.flags.filter((flag) => flag.reason !== "CHANGED_SINCE_EDITED") : [];
+  // What the validator found; a new draft is said by the banner, not here.
+  const findings = claim && current ? claim.flags.filter((flag) => flag.flag !== "CONFLICT") : [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -161,15 +180,24 @@ export function HeaderDesk({ moment, claim, version, art }: Props) {
         art={art}
       />
 
-      {redrafted && (
+      {changed && (
+        <div role="note" className="flex flex-wrap items-center gap-3 rounded border border-line bg-note px-4 py-3">
+          <span>This header changed on the workbench while you edited it: your edits are kept.</span>
+          <button type="button" className="button-small" onClick={() => startFrom(start)}>
+            Load it instead
+          </button>
+        </div>
+      )}
+
+      {redrafted && !changed && (
         <div role="note" className="flex flex-wrap items-center gap-3 rounded border border-line bg-note px-4 py-3">
           <span>{describe("CHANGED_SINCE_EDITED", "MOMENT_PAGE")}.</span>
-          {base === redrafted ? (
+          {from === "new" ? (
             <button type="button" className="button-small" onClick={() => startFrom(current!)}>
               Back to my edits
             </button>
           ) : (
-            <button type="button" className="button-small" onClick={() => startFrom(redrafted)}>
+            <button type="button" className="button-small" onClick={() => startFrom(redrafted, "new")}>
               Start from the new draft
             </button>
           )}
@@ -214,7 +242,13 @@ export function HeaderDesk({ moment, claim, version, art }: Props) {
       <div className="flex flex-wrap items-center gap-3">
         {mode === "view" ? (
           <>
-            <button type="button" className="button-primary" disabled={pending || empty || (!edited && !decidable)} onClick={approve}>
+            <button
+              type="button"
+              className="button-primary"
+              disabled={pending || empty || (!edited && !decidable)}
+              aria-describedby={empty ? "header-problem" : undefined}
+              onClick={approve}
+            >
               {edited || !current ? "Approve my changes" : "Approve"}
             </button>
             {current && (
@@ -244,15 +278,24 @@ export function HeaderDesk({ moment, claim, version, art }: Props) {
             )}
             {last && (
               <span role="status" className="flex items-center gap-3 rounded-full bg-ink py-1 pr-1 pl-4 text-paper">
-                {last.verdict}
-                {last.version && (
-                  <button type="button" disabled={pending} onClick={undoLast} className="min-h-9 rounded-full border border-paper/60 px-3">
-                    Undo
-                  </button>
+                {last.version ? (
+                  <>
+                    {last.verdict}
+                    <button type="button" disabled={pending} onClick={undoLast} className="min-h-9 rounded-full border border-paper/60 px-3">
+                      Undo
+                    </button>
+                  </>
+                ) : (
+                  // A header written here starts approved: there is no earlier decision to go back to.
+                  <span className="pr-3">{last.verdict} · to go back to the release&apos;s text, reject it</span>
                 )}
               </span>
             )}
-            {empty && <span className="text-conflict">Write the hook and every line of the world around.</span>}
+            {empty && (
+              <span id="header-problem" className="text-conflict">
+                Write the hook and every line of the world around.
+              </span>
+            )}
           </>
         ) : (
           <form

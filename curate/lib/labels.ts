@@ -12,7 +12,7 @@ export const QUEUES: { type: ClaimType; name: string; hint: string; slug: string
   { type: "EVENT", name: "Events", hint: "A region, a year", slug: "events" },
   { type: "ANECDOTE", name: "Anecdotes", hint: "A short story about one person", slug: "anecdotes" },
   { type: "OCCUPATION_DOMAIN", name: "Occupations to map", hint: "The domain of the people who hold each occupation", slug: "occupations" },
-  { type: "STORY", name: "Stories", hint: "A moment's story cards, drafted with Claude", slug: "stories" },
+  { type: "STORY", name: "Stories", hint: "A moment's story, drafted with Claude", slug: "stories" },
   { type: "MOMENT_PAGE", name: "Moment headers", hint: "A moment's hook and world around, drafted with Claude", slug: "moment-headers" },
 ];
 

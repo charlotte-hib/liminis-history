@@ -47,8 +47,8 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
         </h2>
         {moment.story && (
           <p>
-            The story cards are {STATUS[moment.story]}
-            {moment.story === "APPROVED" && ": publishing writes them into the moment's file"}. The header below is approved on its own.
+            The story is {STATUS[moment.story]}
+            {moment.story === "APPROVED" && ": publishing writes it into the moment's file"}. The header below is approved on its own.
           </p>
         )}
         <DraftButton moment={moment.id} draft={moment.draft} story={moment.story} />
