@@ -5,6 +5,7 @@ import {
   failure,
   outcome,
   workbench,
+  type CardSubject,
   type NewClaim,
   type NewDecision,
   type Outcome,
@@ -12,6 +13,7 @@ import {
   type MomentPageText,
   type Publication,
   type StoryPreview,
+  type SubjectType,
 } from "@/lib/workbench";
 
 /** The claim's new version after a decision or an undo, to undo it in turn. */
@@ -62,6 +64,14 @@ export async function draftStory(moment: string): Promise<Outcome<{ id: number }
 export async function findPeople(q: string): Promise<PersonSummary[]> {
   if (q.trim().length < 2) return [];
   const { data } = await workbench.GET("/api/people", { params: { query: { q: q.trim().slice(0, 100), limit: 8 } } });
+  return data ?? [];
+}
+
+/** The people, lives or events a card of the moment's story can show, by name, the moment's own first. */
+export async function findSubjects(moment: string, type: SubjectType, q: string): Promise<CardSubject[]> {
+  if (q.trim().length < 2) return [];
+  const query = { type, q: q.trim().slice(0, 100), limit: 10 };
+  const { data } = await workbench.GET("/api/moments/{id}/subjects", { params: { path: { id: moment }, query } });
   return data ?? [];
 }
 

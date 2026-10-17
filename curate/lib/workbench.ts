@@ -5,6 +5,7 @@ import createClient, { type Middleware } from "openapi-fetch";
 import type { components, paths } from "@/lib/api-schema";
 import { readSession, SESSION_COOKIE } from "@/lib/auth";
 
+export type CardSubject = components["schemas"]["CardSubject"];
 export type Claim = components["schemas"]["Claim"];
 export type ClaimDetail = components["schemas"]["ClaimDetail"];
 export type ClaimType = components["schemas"]["ClaimType"];
@@ -18,6 +19,7 @@ export type PersonSummary = components["schemas"]["PersonSummary"];
 export type Problem = components["schemas"]["Problem"];
 export type Publication = components["schemas"]["Publication"];
 export type StoryPreview = components["schemas"]["StoryPreview"];
+export type SubjectType = components["schemas"]["SubjectType"];
 
 /** The workbench, on this computer only (`./gradlew :workbench:bootRun`). */
 const WORKBENCH_URL = process.env.WORKBENCH_URL ?? "http://127.0.0.1:8090";
