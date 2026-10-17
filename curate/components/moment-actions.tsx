@@ -21,7 +21,7 @@ function elapsed(start: string, now: number): string {
 type DraftProps = { moment: string; draft?: Run; story?: ClaimStatus };
 
 /**
- * Drafts the moment's story with Claude, and follows the run: the page looks again until it ends, then shows what it
+ * Generates the moment's story and header with Claude, and follows the run: the page looks again until it ends, then shows what it
  * came to and cost, and the way to the draft. While Claude drafts, a clock counts from the run's start, so it stays
  * right after a reload. Disabled while this draft runs; the workbench refuses one while another run runs, as it says.
  */
@@ -59,7 +59,7 @@ export function DraftButton({ moment, draft, story }: DraftProps) {
             href={`/moments/${moment}/story`}
             className="button-primary"
           >
-            {story === "CANDIDATE" ? "Review the draft" : "Open the story"}
+            {story === "CANDIDATE" ? "Review the story" : "Open the story"}
           </Link>
         )}
         <button
@@ -68,12 +68,12 @@ export function DraftButton({ moment, draft, story }: DraftProps) {
           onClick={start}
           className={review ? "button" : "button-primary"}
         >
-          {running ? `Claude is drafting… ${elapsed(draft.startedAt, now)}` : story ? "Draft again with Claude" : "Draft with Claude"}
+          {running ? `Claude is writing… ${elapsed(draft.startedAt, now)}` : story ? "Generate again" : "Generate story and moment header"}
         </button>
       </div>
       {running && (
         <p role="status" className="text-muted">
-          Usually 1 to 2 minutes. You can leave this page: the draft carries on and shows here when it&apos;s done.
+          Usually 1 to 2 minutes. You can leave this page: Claude carries on, and the story and header show here when they&apos;re done.
         </p>
       )}
       {draft && !running && (

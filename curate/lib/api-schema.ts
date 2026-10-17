@@ -227,10 +227,32 @@ export interface paths {
         put?: never;
         /**
          * Draft the moment's story
-         * @description Starts the run that drafts the moment's story with Claude and proposes it as the moment's `STORY` claim, as
-         *     `wb draft` does. The moment's `draft` follows it.
+         * @description Starts the run that drafts the moment's story with Claude and proposes its cards as the moment's `STORY` claim
+         *     and its hook and world around as its `MOMENT_PAGE` claim, as `wb draft` does. The moment's `draft` follows it.
          */
         post: operations["draftStory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/moments/{id}/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write a moment's page
+         * @description The curator's text for the top of the moment's page, written from the release's: added as the moment's
+         *     `MOMENT_PAGE` claim and approved at once, the release's text as its proposal. Refused when the moment's page has
+         *     a claim already, drafted or written: decide on that one.
+         */
+        post: operations["writeMomentPage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -380,10 +402,11 @@ export interface components {
          * @description `PERSON_FACTS`: a person's facts as fetched, one claim per person. `CONNECTION`: two people linked at a date.
          *     `EVENT`: something that happened in a region in a year. `ANECDOTE`: a short story about one person.
          *     `OCCUPATION_DOMAIN`: the domain of the people who hold an occupation, one claim per occupation or class.
-         *     `STORY`: a moment's story, drafted with Claude, one claim per moment.
+         *     `STORY`: a moment's story cards, drafted with Claude, one claim per moment. `MOMENT_PAGE`: the hook and the world
+         *     around at the top of a moment's page, drafted with Claude or written from the release's, one claim per moment.
          * @enum {string}
          */
-        ClaimType: "PERSON_FACTS" | "CONNECTION" | "EVENT" | "ANECDOTE" | "OCCUPATION_DOMAIN" | "STORY";
+        ClaimType: "PERSON_FACTS" | "CONNECTION" | "EVENT" | "ANECDOTE" | "OCCUPATION_DOMAIN" | "STORY" | "MOMENT_PAGE";
         /**
          * @description `CANDIDATE` waits for review; `NEEDS_WORK` was kept for later, with a note.
          * @enum {string}
@@ -439,7 +462,7 @@ export interface components {
             note?: string;
         };
         /** @description The record as it would ship, by claim type. */
-        Payload: components["schemas"]["PersonFacts"] | components["schemas"]["Connection"] | components["schemas"]["Event"] | components["schemas"]["Anecdote"] | components["schemas"]["OccupationDomain"] | components["schemas"]["Story"];
+        Payload: components["schemas"]["PersonFacts"] | components["schemas"]["Connection"] | components["schemas"]["Event"] | components["schemas"]["Anecdote"] | components["schemas"]["OccupationDomain"] | components["schemas"]["Story"] | components["schemas"]["MomentPage"];
         /**
          * @description A person's facts as Wikidata states them. Whether each statement has a reference shows in the claim's flags,
          *     not here: a reference added later does not change the facts.
@@ -547,8 +570,8 @@ export interface components {
         /** @enum {string} */
         OccupationChoice: "POWER" | "ARTS" | "EVERYDAY" | "NONE";
         /**
-         * @description A moment's story as it would ship into its file in `data/moments/`, each line with the quotes it rests on.
-         *     Publishing writes the hook, the world and the cards, and leaves the rest of the moment's file as it is.
+         * @description A moment's story cards as they would ship into its file in `data/moments/`, each with the quotes it rests on.
+         *     Publishing writes the cards, and leaves the rest of the moment's file as it is.
          */
         Story: {
             /**
@@ -557,9 +580,35 @@ export interface components {
              */
             type: "STORY";
             moment: components["schemas"]["MomentId"];
+            cards: components["schemas"]["StoryCard"][];
+        };
+        /**
+         * @description The text at the top of a moment's page as it would ship into its file in `data/moments/`: the hook under its
+         *     title and the world around, each line with the quotes it rests on, if drafted. Publishing writes the hook and
+         *     the world, and leaves the rest of the moment's file as it is.
+         */
+        MomentPage: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MOMENT_PAGE";
+            moment: components["schemas"]["MomentId"];
             hook: components["schemas"]["StoryLine"];
             world: components["schemas"]["StoryWorld"];
-            cards: components["schemas"]["StoryCard"][];
+        };
+        /** @description The text of a moment's page as the curator wrote it. */
+        MomentPageText: {
+            hook: string;
+            world: components["schemas"]["WorldText"];
+            note?: string;
+        };
+        /** @description The world around a moment, one line each. */
+        WorldText: {
+            governs: string;
+            everyday: string;
+            arts: string;
+            meanwhile: string;
         };
         StoryLine: {
             text: string;
@@ -615,11 +664,13 @@ export interface components {
             focus: components["schemas"]["Year"];
             /** @description The fetched people alive there, as the moment's people list counts them. */
             people: number;
-            /** @description The claims about the moment's people and its story waiting for review. */
+            /** @description The claims about the moment's people, its story and its page waiting for review. */
             waiting: number;
             /** @description The cards of the story the release has. */
             cards: number;
             story?: components["schemas"]["ClaimStatus"];
+            /** @description Where the claim on the moment's page stands, if there is one. */
+            page?: components["schemas"]["ClaimStatus"];
         };
         MomentDetail: components["schemas"]["MomentSummary"] & {
             /** @description The release's hook. */
@@ -859,7 +910,7 @@ export interface components {
             pullRequest?: components["schemas"]["PullRequest"];
             /** @description People written by hand in `people.jsonl` with a correction, which their record overrides. */
             withoutEffect: components["schemas"]["Qid"][];
-            /** @description Approved stories not published, and why. */
+            /** @description Approved stories and moment pages not published, and why. */
             heldBack: components["schemas"]["HeldBack"][];
             /**
              * Format: int32
@@ -879,7 +930,7 @@ export interface components {
             id: string;
             /** @enum {string} */
             change: "ADDED" | "CHANGED" | "REMOVED";
-            /** @description The record's line as `main` has it, JSON; a moment's story only, in its file. None when added. */
+            /** @description The record's line as `main` has it, JSON; a moment's hook, world and cards only, in its file. None when added. */
             before?: string;
             /** @description The record's line as publishing writes it, JSON. None when removed. */
             after?: string;
@@ -1336,6 +1387,38 @@ export interface operations {
                     "application/json": components["schemas"]["Run"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    writeMomentPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MomentPageText"];
+            };
+        };
+        responses: {
+            /** @description The moment's page claim, approved. */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

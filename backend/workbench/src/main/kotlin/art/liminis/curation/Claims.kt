@@ -50,6 +50,21 @@ class Claims(
         return detail(added)
     }
 
+    /**
+     * Adds a claim the curator wrote from [proposal], the text as it stands, and approves it at once as [payload]: the
+     * log keeps both. Refused when the claim exists: decide on it instead.
+     */
+    @Transactional
+    fun addApproved(payload: Payload, proposal: Payload, by: String, note: String?): ClaimDetail {
+        val id = ClaimRules.idOf(payload)
+        if (claims.existsById(id)) throw ConflictException("$id exists already: decide on it")
+        // Approved by the same rules as a decision on the proposal, edited.
+        val approved = ClaimRules.decide(ClaimState(ClaimStatus.CANDIDATE, proposal, proposal, emptyList()), NewDecision(Verdict.APPROVE, payload, note))
+        val added = claims.save(Claim(id, ClaimRules.typeOf(payload), approved.status, Origin.MANUAL, approved.payload, proposal, approved.flags))
+        decisions.save(Decision(id, by, null, added.status, proposal, added.payload, note))
+        return detail(added)
+    }
+
     /** Approves (the edited payload, if given), rejects or keeps the claim for later, if it is still at [version]. */
     @Transactional
     fun decide(id: String, version: Long, decision: NewDecision, by: String): ClaimDetail {

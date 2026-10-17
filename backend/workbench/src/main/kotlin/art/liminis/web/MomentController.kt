@@ -68,6 +68,7 @@ interface MomentApiMapper {
     @Mapping(target = "waiting", source = "overview.waiting")
     @Mapping(target = "cards", source = "overview.cards")
     @Mapping(target = "story", source = "overview.story")
+    @Mapping(target = "page", source = "overview.page")
     @Mapping(target = "storyCards", source = "cards")
     @Mapping(target = "draft", ignore = true)
     fun toDto(story: MomentStory): MomentDetailDto

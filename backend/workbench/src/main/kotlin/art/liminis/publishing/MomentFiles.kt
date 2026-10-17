@@ -9,6 +9,7 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.MapperFeature
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.databind.node.ObjectNode
+import art.liminis.curation.MomentPage
 import art.liminis.curation.Story
 import art.liminis.release.CardRecord
 import art.liminis.release.MomentRecord
@@ -17,10 +18,10 @@ import art.liminis.support.UnavailableException
 import kotlin.reflect.full.primaryConstructor
 
 /**
- * The moments' files of the data repository, `data/moments/<id>.json`, which publishing writes the approved stories
- * into. Only a story's fields change (the hook, the world, the cards); the rest of the file, written by hand, stays as
- * it is, in the same layout: two spaces per level, as the files were written. A card's painting, chosen by hand, stays
- * with a new card showing the same person, life or event.
+ * The moments' files of the data repository, `data/moments/<id>.json`, which publishing writes the approved pages and
+ * stories into. Only their fields change (a page's hook and world, a story's cards); the rest of the file, written by
+ * hand, stays as it is, in the same layout: two spaces per level, as the files were written. A card's painting, chosen
+ * by hand, stays with a new card showing the same person, life or event.
  */
 @Component
 class MomentFiles(jsonMapper: JsonMapper) {
@@ -40,16 +41,23 @@ class MomentFiles(jsonMapper: JsonMapper) {
 
     fun path(moment: String) = "data/moments/$moment.json"
 
-    /** [text], the moment's file, with [story] in place of its own: the fields in the release format's order. */
-    fun write(text: String, story: Story): String {
+    /**
+     * [text], the moment's file, with [page]'s hook and world and [story]'s cards in place of its own, those given: the
+     * fields in the release format's order.
+     */
+    fun write(text: String, page: MomentPage?, story: Story?): String {
         val file = read(text)
         val written = mapper.createObjectNode().apply {
-            put(HOOK, story.hook.text)
-            set(WORLD, mapper.valueToTree(with(story.world) { WorldRecord(governs.text, everyday.text, arts.text, meanwhile.text) }))
-            set(CARDS, mapper.valueToTree(story.cards.map { CardRecord(it.type, it.kicker, it.title, it.text, it.year, it.person, it.life, it.event) }))
+            page?.let {
+                put(HOOK, it.hook.text)
+                set(WORLD, mapper.valueToTree(with(it.world) { WorldRecord(governs.text, everyday.text, arts.text, meanwhile.text) }))
+            }
+            story?.let {
+                set(CARDS, mapper.valueToTree(it.cards.map { card -> CardRecord(card.type, card.kicker, card.title, card.text, card.year, card.person, card.life, card.event) }))
+            }
         }
         val paintings = file[CARDS]?.values().orEmpty().filter { it.has(ART) }.associate { shown(it) to it[ART] }
-        for (card in written[CARDS].values()) paintings[shown(card)]?.let { (card as ObjectNode).set(ART, it) }
+        for (card in written[CARDS]?.values().orEmpty()) paintings[shown(card)]?.let { (card as ObjectNode).set(ART, it) }
         val names = (file.propertyNames() + written.propertyNames()).distinct()
             .sortedBy { FIELDS.indexOf(it).takeIf { index -> index >= 0 } ?: FIELDS.size }
         val merged = mapper.createObjectNode()
@@ -57,8 +65,8 @@ class MomentFiles(jsonMapper: JsonMapper) {
         return mapper.writer().with(printer).writeValueAsString(merged) + "\n"
     }
 
-    /** The story in [text], a moment's file, as one line of JSON: to compare and to show. */
-    fun story(text: String): String {
+    /** The page and story in [text], a moment's file, as one line of JSON: to compare and to show. */
+    fun momentText(text: String): String {
         val file = read(text)
         return mapper.writeValueAsString(mapper.createObjectNode().apply { for (name in listOf(HOOK, WORLD, CARDS)) file[name]?.let { set(name, it) } })
     }

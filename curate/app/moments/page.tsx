@@ -43,7 +43,8 @@ export default async function Moments() {
                 <td className="px-4 py-3 font-mono">{moment.waiting}</td>
                 <td className="px-4 py-3">
                   {moment.cards ? `${moment.cards} cards` : <span className="text-muted">no cards yet</span>}
-                  {moment.story && <div className="text-[12.5px] text-lamp">draft {STATUS[moment.story]}</div>}
+                  {moment.story && <div className="text-[12.5px] text-lamp">story {STATUS[moment.story]}</div>}
+                  {moment.page && <div className="text-[12.5px] text-lamp">header {STATUS[moment.page]}</div>}
                 </td>
               </tr>
             ))}

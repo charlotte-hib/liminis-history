@@ -3,6 +3,7 @@ package art.liminis.publishing
 import org.junit.jupiter.api.Test
 import tools.jackson.module.kotlin.jacksonMapperBuilder
 import tools.jackson.module.kotlin.readValue
+import art.liminis.curation.MomentPage
 import art.liminis.curation.Story
 import art.liminis.curation.StoryCard
 import art.liminis.curation.StoryLine
@@ -15,34 +16,38 @@ import kotlin.io.path.readText
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** A story written into a moment's file, the rest of the file as it was written by hand. */
+/** A page and a story written into a moment's file, the rest of the file as it was written by hand. */
 class MomentFilesTests {
 
     private val mapper = jacksonMapperBuilder().build()
     private val files = MomentFiles(mapper)
     private val moments = Path.of(System.getProperty("app.release.dir"), "moments")
 
-    private fun storyOf(record: MomentRecord) = Story(
+    private fun pageOf(record: MomentRecord) = MomentPage(
         moment = record.id,
         hook = StoryLine(record.hook),
         world = record.world!!.let { StoryWorld(StoryLine(it.governs), StoryLine(it.everyday), StoryLine(it.arts), StoryLine(it.meanwhile)) },
+    )
+
+    private fun storyOf(record: MomentRecord) = Story(
+        moment = record.id,
         cards = record.cards.map { StoryCard(it.type, it.kicker, it.title, it.text, it.year, it.person, it.life, it.event) },
     )
 
     @Test
-    fun `writing back a moment's own story gives the same bytes, for every story of the sample, its cards' paintings kept`() {
+    fun `writing back a moment's own page and story gives the same bytes, for every story of the sample, its cards' paintings kept`() {
         val stories = moments.listDirectoryEntries("*.json").map { it to mapper.readValue<MomentRecord>(it.readText()) }
             .filter { (_, record) -> record.cards.isNotEmpty() }
         assertEquals(4, stories.size)
         assertTrue(stories.any { (_, record) -> record.cards.any { it.art != null } })
         for ((file, record) in stories) {
             val text = file.readText()
-            assertEquals(text, files.write(text, storyOf(record)), file.toString())
+            assertEquals(text, files.write(text, pageOf(record), storyOf(record)), file.toString())
         }
     }
 
     @Test
-    fun `a story goes where the release format puts it, and only the story changes`() {
+    fun `a page and a story go where the release format puts them, and only they change`() {
         val text = """
             {
               "id": "edo-1830s",
@@ -64,14 +69,13 @@ class MomentFilesTests {
 
         """.trimIndent()
         val line = StoryLine("A line.")
+        val page = MomentPage("edo-1830s", StoryLine("Hokusai's Great Wave."), StoryWorld(line, line, line, line))
         val story = Story(
             moment = "edo-1830s",
-            hook = StoryLine("Hokusai's Great Wave."),
-            world = StoryWorld(line, line, line, line),
             cards = listOf(StoryCard(CardType.PERSON, text = "A painter at seventy.", year = 1831, person = "Q5586", label = "Hokusai")),
         )
 
-        val written = files.write(text, story)
+        val written = files.write(text, page, story)
 
         assertEquals(
             """
@@ -113,8 +117,14 @@ class MomentFilesTests {
         assertEquals(
             """{"hook":"Hokusai's Great Wave.","world":{"governs":"A line.","everyday":"A line.","arts":"A line.","meanwhile":"A line."},""" +
                 """"cards":[{"type":"PERSON","text":"A painter at seventy.","year":1831,"person":"Q5586"}]}""",
-            files.story(written),
+            files.momentText(written),
         )
-        assertEquals("""{"hook":"Old hook."}""", files.story(text))
+        assertEquals("""{"hook":"Old hook."}""", files.momentText(text))
+        // Each alone leaves the other's fields as the file has them.
+        assertEquals("""{"hook":"Old hook.","cards":[{"type":"PERSON","text":"A painter at seventy.","year":1831,"person":"Q5586"}]}""", files.momentText(files.write(text, null, story)))
+        assertEquals(
+            """{"hook":"Hokusai's Great Wave.","world":{"governs":"A line.","everyday":"A line.","arts":"A line.","meanwhile":"A line."}}""",
+            files.momentText(files.write(text, page, null)),
+        )
     }
 }

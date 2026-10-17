@@ -24,11 +24,11 @@ class StoryDraftValidatorTests {
     @Test
     fun `a draft whose quotes are all in its sources passes, whatever the spacing, case or quote style`() {
         val draft = StoryDraft(line("Hook.", "person:emile-zola", "exoneration of Alfred Dreyfus"), world, List(4) { card(CardType.PERSON) })
-        assertEquals(emptyList(), StoryDraftValidator.problems(draft, sources, 1890, 1900))
+        assertEquals(DraftProblems(emptyList(), emptyList()), StoryDraftValidator.problems(draft, sources, 1890, 1900))
     }
 
     @Test
-    fun `invented quotes, unknown references and years outside the moment are reported`() {
+    fun `invented quotes, unknown references and years outside the moment are reported, the page's apart from the cards'`() {
         val draft = StoryDraft(
             line("Hook.", "person:emile-zola", "won the Nobel Prize"),
             world,
@@ -39,8 +39,9 @@ class StoryDraftValidatorTests {
                 card(CardType.PERSON),
             ),
         )
-        val problems = StoryDraftValidator.problems(draft, sources, 1890, 1900)
-        assertTrue(problems.any { "hook quotes text not found" in it }, problems.toString())
+        val found = StoryDraftValidator.problems(draft, sources, 1890, 1900)
+        assertEquals(listOf("hook quotes text not found in 'person:emile-zola': \"won the Nobel Prize\""), found.page)
+        val problems = found.cards
         assertTrue(problems.any { "unknown person 'victor-hugo'" in it }, problems.toString())
         assertTrue(problems.any { "set in 1850" in it }, problems.toString())
         assertTrue(problems.any { "unknown source 'person:nobody'" in it }, problems.toString())

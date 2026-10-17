@@ -18,6 +18,7 @@ import art.liminis.curation.Citation
 import art.liminis.curation.ClaimRepository
 import art.liminis.curation.Claim
 import art.liminis.curation.CurationFixtures
+import art.liminis.curation.MomentPage
 import art.liminis.curation.Origin
 import art.liminis.curation.Story
 import art.liminis.curation.StoryCard
@@ -315,27 +316,76 @@ class ClaimsApiTests(
 
     @Test
     fun `a story claim reads with its quotes, and approves as edited`() {
-        val line = StoryLine("A line.", listOf(Citation("person:Q535", "Victor Hugo (1802–1885), writer", "a writer")))
-        val story = Story("paris-1870s", line, StoryWorld(line, line, line, line), listOf(StoryCard(CardType.SCENE, title = "A city", text = "Boulevards.")))
+        val citations = listOf(Citation("person:Q535", "Victor Hugo (1802–1885), writer", "a writer"))
+        val story = Story("paris-1870s", listOf(StoryCard(CardType.SCENE, title = "A city", text = "Boulevards.", citations = citations)))
         claimRepository.save(Claim.candidate(story, Origin.CLAUDE, emptyList()))
 
         mockMvc.get("/api/claims/{id}", "story:paris-1870s") { signedIn() }.andExpect {
             jsonPath("$.payload.type") { value("STORY") }
-            jsonPath("$.payload.hook.citations[0].title") { value("Victor Hugo (1802–1885), writer") }
             jsonPath("$.payload.cards[0].type") { value("SCENE") }
+            jsonPath("$.payload.cards[0].citations[0].title") { value("Victor Hugo (1802–1885), writer") }
         }
         val edited = """
             {"action": "APPROVE", "payload": {"type": "STORY", "moment": "paris-1870s",
-              "hook": {"text": "A better hook.", "citations": []},
-              "world": {"governs": {"text": "g", "citations": []}, "everyday": {"text": "e", "citations": []},
-                        "arts": {"text": "a", "citations": []}, "meanwhile": {"text": "m", "citations": []}},
               "cards": [{"type": "PERSON", "person": "victor-hugo", "text": "Back.", "citations": []}]}}
         """.trimIndent()
         mockMvc.post("/api/claims/{id}/decisions", "story:paris-1870s") { json(edited); ifMatch(etag("story:paris-1870s")) }.andExpect {
             status { isOk() }
             jsonPath("$.status") { value("APPROVED") }
-            jsonPath("$.payload.hook.text") { value("A better hook.") }
             jsonPath("$.payload.cards[0].person") { value("victor-hugo") }
         }
     }
+
+    @Test
+    fun `a moment's page drafted with Claude approves as edited`() {
+        val line = StoryLine("A line.", listOf(Citation("person:Q535", "Victor Hugo (1802–1885), writer", "a writer")))
+        claimRepository.save(Claim.candidate(MomentPage("paris-1870s", line, StoryWorld(line, line, line, line)), Origin.CLAUDE, emptyList()))
+
+        mockMvc.get("/api/claims/{id}", "moment-page:paris-1870s") { signedIn() }.andExpect {
+            jsonPath("$.type") { value("MOMENT_PAGE") }
+            jsonPath("$.payload.type") { value("MOMENT_PAGE") }
+            jsonPath("$.payload.hook.citations[0].title") { value("Victor Hugo (1802–1885), writer") }
+        }
+        val edited = """
+            {"action": "APPROVE", "payload": {"type": "MOMENT_PAGE", "moment": "paris-1870s",
+              "hook": {"text": "A better hook.", "citations": []},
+              "world": {"governs": {"text": "g", "citations": []}, "everyday": {"text": "e", "citations": []},
+                        "arts": {"text": "a", "citations": []}, "meanwhile": {"text": "m", "citations": []}}}}
+        """.trimIndent()
+        mockMvc.post("/api/claims/{id}/decisions", "moment-page:paris-1870s") { json(edited); ifMatch(etag("moment-page:paris-1870s")) }.andExpect {
+            status { isOk() }
+            jsonPath("$.status") { value("APPROVED") }
+            jsonPath("$.payload.hook.text") { value("A better hook.") }
+        }
+        // Drafted already: written on the moment's page, it is refused.
+        mockMvc.post("/api/moments/{id}/page", "paris-1870s") { json(pageText("Mine.")) }.andExpect { status { isConflict() } }
+    }
+
+    @Test
+    fun `a moment's page written from the release's text is a claim approved at once, the release's text as its proposal`() {
+        mockMvc.post("/api/moments/{id}/page", "paris-1870s") { json(pageText("A republic, and its painters.")) }.andExpect {
+            status { isCreated() }
+            header { exists(HttpHeaders.ETAG) }
+            jsonPath("$.id") { value("moment-page:paris-1870s") }
+            jsonPath("$.status") { value("APPROVED") }
+            jsonPath("$.origin") { value("MANUAL") }
+            jsonPath("$.payload.hook.text") { value("A republic, and its painters.") }
+            jsonPath("$.proposal.hook.text") { value("A republic born out of defeat, and painters the Salon keeps rejecting.") }
+            jsonPath("$.decisions[0].to") { value("APPROVED") }
+            jsonPath("$.decisions[0].edited") { value(true) }
+        }
+        mockMvc.get("/api/moments/{id}", "paris-1870s") { signedIn() }.andExpect { jsonPath("$.page") { value("APPROVED") } }
+        mockMvc.post("/api/moments/{id}/page", "paris-1870s") { json(pageText("Again.")) }.andExpect { status { isConflict() } }
+        mockMvc.post("/api/moments/{id}/page", "atlantis-1000") { json(pageText("Nowhere.")) }.andExpect { status { isNotFound() } }
+        mockMvc.post("/api/moments/{id}/page", "paris-1890s") { json(pageText("")) }.andExpect { status { isBadRequest() } }
+        mockMvc.post("/api/moments/{id}/page", "paris-1890s") { json(pageText("   ")) }.andExpect { status { isBadRequest() } }
+        // Lines are stored trimmed, as curate sends a decision's.
+        mockMvc.post("/api/moments/{id}/page", "kyoto-1590s") { json(pageText("  A hook.\\n")) }.andExpect {
+            status { isCreated() }
+            jsonPath("$.payload.hook.text") { value("A hook.") }
+        }
+    }
+
+    private fun pageText(hook: String) =
+        """{"hook": "$hook", "world": {"governs": "g", "everyday": "e", "arts": "a", "meanwhile": "m"}}"""
 }

@@ -16,6 +16,7 @@ import art.liminis.domain.CardType
     JsonSubTypes.Type(Anecdote::class, name = "ANECDOTE"),
     JsonSubTypes.Type(OccupationDomain::class, name = "OCCUPATION_DOMAIN"),
     JsonSubTypes.Type(Story::class, name = "STORY"),
+    JsonSubTypes.Type(MomentPage::class, name = "MOMENT_PAGE"),
 )
 sealed interface Payload
 
@@ -80,10 +81,17 @@ data class OccupationDomain(val occupation: String, val label: String, val label
 enum class OccupationChoice { POWER, ARTS, EVERYDAY, NONE }
 
 /**
- * A moment's story, drafted with Claude: the hook, the world around the moment and the cards that publishing writes
- * into the moment's file. Each line keeps the quotes it was written from, which are not published.
+ * A moment's story, drafted with Claude: the cards that publishing writes into the moment's file. Each card keeps the
+ * quotes it was written from, which are not published.
  */
-data class Story(val moment: String, val hook: StoryLine, val world: StoryWorld, val cards: List<StoryCard>) : Payload
+data class Story(val moment: String, val cards: List<StoryCard>) : Payload
+
+/**
+ * The text at the top of a moment's page: the hook under its title and the world around it, which publishing writes
+ * into the moment's file. Drafted with Claude beside the story, or written from the release's text on the moment's
+ * page. Each line keeps the quotes it was written from, if any, which are not published.
+ */
+data class MomentPage(val moment: String, val hook: StoryLine, val world: StoryWorld) : Payload
 
 data class StoryLine(val text: String, val citations: List<Citation> = emptyList())
 

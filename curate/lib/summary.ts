@@ -22,7 +22,9 @@ export function titleOf(payload: Payload): { title: string; detail: string } {
     case "OCCUPATION_DOMAIN":
       return { title: payload.label, detail: choiceLabel(payload.domain) };
     case "STORY":
-      return { title: payload.moment, detail: `${payload.cards.length} cards · ${payload.hook.text}` };
+      return { title: payload.moment, detail: `${payload.cards.length} cards` };
+    case "MOMENT_PAGE":
+      return { title: payload.moment, detail: payload.hook.text };
   }
 }
 

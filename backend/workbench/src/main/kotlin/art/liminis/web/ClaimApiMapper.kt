@@ -21,6 +21,7 @@ import art.liminis.curation.OccupationDomain
 import art.liminis.curation.Payload
 import art.liminis.curation.PersonFacts
 import art.liminis.curation.Queue
+import art.liminis.curation.MomentPage
 import art.liminis.curation.Story
 import art.liminis.workbench.api.model.AnecdoteDto
 import art.liminis.workbench.api.model.ClaimDetailDto
@@ -31,6 +32,7 @@ import art.liminis.workbench.api.model.ConnectionDto
 import art.liminis.workbench.api.model.DecisionDto
 import art.liminis.workbench.api.model.EventDto
 import art.liminis.workbench.api.model.FlagDto
+import art.liminis.workbench.api.model.MomentPageDto
 import art.liminis.workbench.api.model.NewClaimDto
 import art.liminis.workbench.api.model.NewDecisionDto
 import art.liminis.workbench.api.model.OccupationDomainDto
@@ -73,6 +75,7 @@ abstract class ClaimApiMapper {
     @SubclassMapping(source = Anecdote::class, target = AnecdoteDto::class)
     @SubclassMapping(source = OccupationDomain::class, target = OccupationDomainDto::class)
     @SubclassMapping(source = Story::class, target = StoryDto::class)
+    @SubclassMapping(source = MomentPage::class, target = MomentPageDto::class)
     abstract fun toDto(payload: Payload): PayloadDto
 
     @Mapping(target = "type", constant = "PERSON_FACTS")
@@ -93,6 +96,9 @@ abstract class ClaimApiMapper {
     @Mapping(target = "type", constant = "STORY")
     abstract fun toDto(story: Story): StoryDto
 
+    @Mapping(target = "type", constant = "MOMENT_PAGE")
+    abstract fun toDto(page: MomentPage): MomentPageDto
+
     abstract fun toModel(claim: NewClaimDto): NewClaim
 
     @Mapping(target = "verdict", source = "action")
@@ -104,6 +110,7 @@ abstract class ClaimApiMapper {
     @SubclassMapping(source = AnecdoteDto::class, target = Anecdote::class)
     @SubclassMapping(source = OccupationDomainDto::class, target = OccupationDomain::class)
     @SubclassMapping(source = StoryDto::class, target = Story::class)
+    @SubclassMapping(source = MomentPageDto::class, target = MomentPage::class)
     abstract fun toModel(payload: PayloadDto): Payload
 
     abstract fun toModel(type: ClaimTypeDto): ClaimType

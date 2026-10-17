@@ -94,8 +94,8 @@ function Changes({ publication }: { publication: Publication }) {
         </p>
       )}
       {publication.heldBack.length > 0 && (
-        <section aria-label="Stories held back" className="flex flex-col gap-1">
-          <h2 className="section-title">Approved stories not published</h2>
+        <section aria-label="Held back" className="flex flex-col gap-1">
+          <h2 className="section-title">Approved, not published</h2>
           <ul className="flex flex-col gap-1 text-[13.5px]">
             {publication.heldBack.map((held) => (
               <li key={held.moment}>

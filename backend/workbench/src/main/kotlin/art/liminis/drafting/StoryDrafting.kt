@@ -8,6 +8,7 @@ import art.liminis.curation.ClaimRules
 import art.liminis.curation.Claims
 import art.liminis.curation.Flag
 import art.liminis.curation.FlagReason
+import art.liminis.curation.MomentPage
 import art.liminis.curation.Origin
 import art.liminis.curation.Proposal
 import art.liminis.curation.SourceKind
@@ -37,8 +38,9 @@ data class Price(val input: BigDecimal, val output: BigDecimal)
 
 /**
  * Drafts one moment's story with Claude (`wb draft edo-1830s`, or curate's moment page) and proposes it for review as
- * the moment's story claim, flagged with anything the validator found. Nothing is published until the curator
- * approves it and publishes. Needs an Anthropic API key in the environment.
+ * two claims, each flagged with anything the validator found in it: the moment's page (the hook and the world around)
+ * and its story's cards. Nothing is published until the curator approves them and publishes. Needs an Anthropic API
+ * key in the environment.
  */
 @Component
 class StoryDrafting(
@@ -52,7 +54,7 @@ class StoryDrafting(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    /** Drafts [momentId]'s story, proposes it, and says what it came to and cost. */
+    /** Drafts [momentId]'s story and page, proposes them, and says what they came to and cost. */
     fun draft(momentId: String): String {
         val moment = moments.findById(momentId).orElseThrow { IllegalArgumentException("Unknown moment: $momentId") }
         val momentSources = sources.forMoment(moment)
@@ -60,32 +62,48 @@ class StoryDrafting(
         val drafted = drafter.draft(moment, momentSources)
         val draft = drafted.draft.withBareIds()
         val problems = StoryDraftValidator.problems(draft, momentSources, moment.startYear, moment.endYear)
-        val story = story(moment, draft, momentSources)
-        val flags = (problems + fetchedPeople(story)).map { FlagReason(Flag.ODD, it) }
-        val counts = claims.propose(listOf(Proposal(story, Origin.CLAUDE, flags, articles(draft, momentSources))))
+        val byId = momentSources.associateBy { it.id }
+        val page = page(moment, draft, byId)
+        val story = story(moment, draft, byId)
+        val pageFlags = problems.page.map { FlagReason(Flag.ODD, it) }
+        val storyFlags = (problems.cards + fetchedPeople(story)).map { FlagReason(Flag.ODD, it) }
+        val pageLines = listOf(draft.hook, draft.world.governs, draft.world.everyday, draft.world.arts, draft.world.meanwhile)
+        val counts = claims.propose(
+            listOf(
+                Proposal(page, Origin.CLAUDE, pageFlags, articles(pageLines.flatMap { it.citations }, byId)),
+                Proposal(story, Origin.CLAUDE, storyFlags, articles(draft.cards.flatMap { it.citations }, byId)),
+            ),
+        )
+        val found = pageFlags.size + storyFlags.size
 
         val cost = cost(drafted)
         log.info("Drafted {} with {}: {} cards, {} problems, {} input and {} output tokens, \${}", momentId, drafted.model,
-            story.cards.size, flags.size, drafted.inputTokens, drafted.outputTokens, cost)
+            story.cards.size, found, drafted.inputTokens, drafted.outputTokens, cost)
         // A refusal can hand the draft to a fallback model, at its own price: the cost is then only a guide.
         val priced = if (drafted.model == properties.model) "" else " at ${properties.model}'s price, though ${drafted.model} wrote it"
-        return "Drafted ${ClaimRules.storyId(momentId)} ($counts): ${story.cards.size} cards, ${flags.size} to look at; " +
+        return "Drafted ${ClaimRules.pageId(momentId)} and ${ClaimRules.storyId(momentId)} ($counts): ${story.cards.size} cards, $found to look at; " +
             "%,d input and %,d output tokens, about \$%s%s".format(Locale.ROOT, drafted.inputTokens, drafted.outputTokens, cost, priced)
     }
 
-    /** The draft as the claim's record: each line with its quotes, and cards naming people written by hand by their id. */
-    private fun story(moment: Moment, draft: StoryDraft, sources: List<Source>): Story {
-        val byId = sources.associateBy { it.id }
+    /** The draft's hook and world around as the page claim's record, each line with its quotes. */
+    private fun page(moment: Moment, draft: StoryDraft, byId: Map<String, Source>): MomentPage {
+        fun line(line: DraftLine) = StoryLine(line.text, citations(line.citations, byId))
+        return MomentPage(
+            moment = moment.id,
+            hook = line(draft.hook),
+            world = with(draft.world) { StoryWorld(line(governs), line(everyday), line(arts), line(meanwhile)) },
+        )
+    }
+
+    /** The draft's cards as the story claim's record, naming people written by hand by their id. */
+    private fun story(moment: Moment, draft: StoryDraft, byId: Map<String, Source>): Story {
         val qids = draft.cards.mapNotNull { it.personId }
         val byHand = people.findByQidIn(qids).filter { it.id != it.qid }.associate { it.qid to it.id }
 
-        fun line(line: DraftLine) = StoryLine(line.text, citations(line.citations, byId))
         fun name(kind: String, id: String?) = id?.let { byId["$kind:$it"]?.name }
 
         return Story(
             moment = moment.id,
-            hook = line(draft.hook),
-            world = with(draft.world) { StoryWorld(line(governs), line(everyday), line(arts), line(meanwhile)) },
             cards = draft.cards.map { card ->
                 StoryCard(
                     type = card.type,
@@ -115,14 +133,10 @@ class StoryDrafting(
         "card $number shows ${card.label ?: card.person} (${card.person}), whom the site holds once its release carries the fetched dataset"
     }
 
-    /** The English Wikipedia articles the draft quotes. */
-    private fun articles(draft: StoryDraft, sources: List<Source>): List<SourceRef> {
-        val byId = sources.associateBy { it.id }
-        val lines = listOf(draft.hook, draft.world.governs, draft.world.everyday, draft.world.arts, draft.world.meanwhile)
-        val cited = (lines.flatMap { it.citations } + draft.cards.flatMap { it.citations }).map { it.sourceId }.distinct()
-        return cited.mapNotNull { byId[it]?.article }.distinct()
+    /** The English Wikipedia articles [citations] quote. */
+    private fun articles(citations: List<Citation>, byId: Map<String, Source>): List<SourceRef> =
+        citations.map { it.sourceId }.distinct().mapNotNull { byId[it]?.article }.distinct()
             .map { SourceRef(kind = SourceKind.WIKIPEDIA, language = "en", title = it) }
-    }
 
     /** What the draft cost at the model's price, in dollars, to the cent. */
     private fun cost(drafted: Drafted): BigDecimal =

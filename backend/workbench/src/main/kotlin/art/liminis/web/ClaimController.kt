@@ -8,7 +8,10 @@ import org.springframework.web.ErrorResponseException
 import org.springframework.web.bind.annotation.RestController
 import art.liminis.curation.ClaimDetail
 import art.liminis.curation.Claims
+import art.liminis.curation.MomentPage
 import art.liminis.curation.PersonFactsProposals
+import art.liminis.curation.StoryLine
+import art.liminis.curation.StoryWorld
 import art.liminis.moments.Moments
 import art.liminis.support.StaleException
 import art.liminis.web.WorkbenchSecurity.Companion.currentActor
@@ -18,6 +21,7 @@ import art.liminis.workbench.api.model.ClaimDto
 import art.liminis.workbench.api.model.ClaimStatusDto
 import art.liminis.workbench.api.model.ClaimTypeDto
 import art.liminis.workbench.api.model.FlagDto
+import art.liminis.workbench.api.model.MomentPageTextDto
 import art.liminis.workbench.api.model.NewClaimDto
 import art.liminis.workbench.api.model.NewDecisionDto
 import art.liminis.workbench.api.model.QueueDto
@@ -48,6 +52,15 @@ class ClaimController(
     override fun proposeFacts(qid: String): ClaimDetailDto = answer(claims.detail(personFacts.propose(qid)))
 
     override fun addClaim(newClaimDto: NewClaimDto): ClaimDetailDto = answer(claims.add(mapper.toModel(newClaimDto), currentActor()))
+
+    override fun writeMomentPage(id: String, momentPageTextDto: MomentPageTextDto): ClaimDetailDto {
+        // As curate sends a decision's lines: trimmed, so a stray space or line break never reaches the published file.
+        fun line(text: String) = StoryLine(text.trim())
+        val page = with(momentPageTextDto) {
+            MomentPage(id, line(hook), StoryWorld(line(world.governs), line(world.everyday), line(world.arts), line(world.meanwhile)))
+        }
+        return answer(moments.writePage(page, momentPageTextDto.note, currentActor()))
+    }
 
     override fun decide(id: String, newDecisionDto: NewDecisionDto, ifMatch: String?): ClaimDetailDto =
         answer(claims.decide(id, version(id, ifMatch), mapper.toModel(newDecisionDto), currentActor()))

@@ -32,7 +32,7 @@ class WorkbenchSecurity {
                 )) {
                     authorize(GET, path, hasAuthority(CURATION_READ))
                 }
-                for (path in listOf("/api/claims", "/api/claims/*/decisions", "/api/claims/*/undo", "/api/people/*/facts", "/api/moments/*/story")) {
+                for (path in listOf("/api/claims", "/api/claims/*/decisions", "/api/claims/*/undo", "/api/people/*/facts", "/api/moments/*/story", "/api/moments/*/page")) {
                     authorize(POST, path, hasAuthority(CURATION_WRITE))
                 }
                 authorize(GET, "/api/publication", hasAuthority(CURATION_READ))
