@@ -24,12 +24,15 @@ data class HeldBack(val moment: String, val reason: String)
 
 /**
  * What publishing makes of the data repository's [base] commit: the changes to each [DataFile] and to the moments'
- * files the approved pages and stories go into, the publish pull request open, if any, the people written by hand whom a
- * correction would not change, and the approved stories left out.
+ * files the approved pages and stories go into, the same in words ([people], [occupations], [moments]), the publish pull
+ * request open, if any, the people written by hand whom a correction would not change, and the approved stories left out.
  */
 data class Publication(
     val base: String,
     val files: List<FileChanges>,
+    val people: List<PersonChange>,
+    val occupations: List<OccupationChange>,
+    val moments: List<MomentChange>,
     val pullRequest: PullRequest?,
     val withoutEffect: List<String>,
     val heldBack: List<HeldBack>,
@@ -47,6 +50,7 @@ data class Publication(
 class Publishing(
     private val dataFiles: DataFiles,
     private val momentFiles: MomentFiles,
+    private val words: ChangesInWords,
     private val claims: ClaimRepository,
     private val github: GitHub,
     private val properties: PublishProperties,
@@ -88,12 +92,14 @@ class Publishing(
     private fun compare(base: String): Pair<Publication, Map<String, String?>> {
         val files = dataFiles.build()
         val changes = files.map { (file, lines) -> FileChanges(file.path, changes(dataFiles.read(file.path, github.file(file.path, base)), lines)) }
+        val changesOf = { file: DataFile -> changes.single { it.path == file.path }.changes }
         val byHand = dataFiles.qids(github.file(PEOPLE, base))
         val withoutEffect = files.getValue(DataFile.CORRECTIONS).keys.filter { it in byHand }
         val texts = files.entries.associate { (file, lines) -> file.path to lines.text() }
 
         val heldBack = mutableListOf<HeldBack>()
         val moments = mutableListOf<Pair<FileChanges, String>>()
+        val momentsInWords = mutableListOf<MomentChange>()
         val pages = approved<MomentPage>(ClaimType.MOMENT_PAGE).associateBy { it.moment }
         val stories = approved<Story>(ClaimType.STORY).associateBy { it.moment }
         for (moment in (pages.keys + stories.keys).sorted()) {
@@ -112,8 +118,13 @@ class Publishing(
             val after = momentFiles.write(before, page, story)
             val change = RecordChange(moment, Change.CHANGED, momentFiles.momentText(before), momentFiles.momentText(after)).takeIf { before != after }
             moments += FileChanges(path, listOfNotNull(change)) to after
+            if (change != null) momentsInWords += words.moment(moment, before, after, story)
         }
-        val publication = Publication(base, changes + moments.map { it.first }, github.openPullRequest(properties.branch), withoutEffect, heldBack)
+        val publication = Publication(
+            base, changes + moments.map { it.first },
+            words.people(changesOf(DataFile.CORRECTIONS)), words.occupations(changesOf(DataFile.OCCUPATIONS)), momentsInWords,
+            github.openPullRequest(properties.branch), withoutEffect, heldBack,
+        )
         return publication to texts + moments.associate { (file, text) -> file.path to text }
     }
 
@@ -152,13 +163,9 @@ class Publishing(
             }
         }
 
-    /** The changes counted, file by file, for the commit and the pull request. */
-    private fun summary(publication: Publication): String = publication.files.filter { it.changes.isNotEmpty() }.joinToString("\n") { file ->
-        val counts = Change.entries.mapNotNull { change ->
-            file.changes.count { it.change == change }.takeIf { it > 0 }?.let { "$it ${change.name.lowercase()}" }
-        }
-        "- `${file.path}`: ${counts.joinToString(", ")}"
-    }
+    /** The changes in words, for the commit and the pull request. */
+    private fun summary(publication: Publication): String =
+        words.summary(publication.people, publication.occupations, publication.moments)
 
     private companion object {
         const val PEOPLE = "data/people.jsonl"

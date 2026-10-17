@@ -1,0 +1,322 @@
+package art.liminis.publishing
+
+import org.springframework.stereotype.Component
+import art.liminis.curation.ClaimRepository
+import art.liminis.curation.ClaimRules
+import art.liminis.curation.OccupationChoice
+import art.liminis.curation.OccupationDomain
+import art.liminis.curation.PersonFacts
+import art.liminis.curation.Story
+import art.liminis.dataset.DatasetStore
+import art.liminis.domain.CardType
+import art.liminis.domain.Domain
+import art.liminis.release.CardRecord
+import art.liminis.release.CorrectionRecord
+import art.liminis.release.WorldRecord
+import art.liminis.repository.EventRepository
+import art.liminis.repository.LifeRepository
+import art.liminis.repository.PersonRepository
+import java.text.Collator
+import java.util.Locale
+
+/** A person whose correction changes, with each fact the site would show otherwise: in effect on main, then after. */
+data class PersonChange(val person: String, val name: String, val change: Change, val facts: List<FactChange>)
+
+data class FactChange(val fact: Fact, val before: String?, val after: String?)
+
+enum class Fact { NAME, FRENCH_NAME, BORN, DIED, DATES_APPROXIMATE, OCCUPATIONS }
+
+/** An occupation whose domain changes: [before] none when main does not map it, [after] none when it no longer is. */
+data class OccupationChange(val occupation: String, val label: String, val change: Change, val before: OccupationChoice?, val after: OccupationChoice?)
+
+/** A moment whose header or story changes: its hook, if it changes, the lines of its world that do, and its cards. */
+data class MomentChange(
+    val moment: String,
+    val title: String,
+    val hook: TextChange?,
+    val world: List<WorldChange>,
+    val cards: List<CardChange>,
+    val unchangedCards: Int,
+)
+
+data class TextChange(val before: String?, val after: String?)
+
+data class WorldChange(val part: WorldPart, val before: String?, val after: String?)
+
+enum class WorldPart { GOVERNS, EVERYDAY, ARTS, MEANWHILE }
+
+/** A card added, removed, changed or [moved] among the others, numbered [from] on main and [to] once published. */
+data class CardChange(
+    val change: Change,
+    val type: CardType,
+    val shows: String?,
+    val label: String?,
+    val from: Int?,
+    val to: Int?,
+    val moved: Boolean,
+    val fields: List<CardFieldChange>,
+)
+
+data class CardFieldChange(val field: CardField, val before: String?, val after: String?)
+
+enum class CardField { KICKER, TITLE, TEXT, YEAR }
+
+/**
+ * The changes of a publish in words, for the curator to read before publishing and in the pull request: people by
+ * name with the facts the site would show otherwise, occupations by label with their domains, and each moment's header
+ * lines and cards. A correction holds only the fields corrected, so a fact's value in effect is the correction's, else
+ * Wikidata's, from the person's claim.
+ */
+@Component
+class ChangesInWords(
+    private val dataFiles: DataFiles,
+    private val momentFiles: MomentFiles,
+    private val claims: ClaimRepository,
+    private val releasePeople: PersonRepository,
+    private val releaseLives: LifeRepository,
+    private val releaseEvents: EventRepository,
+    private val dataset: DatasetStore,
+) {
+
+    private val byName: Collator = Collator.getInstance(Locale.ENGLISH).apply { strength = Collator.PRIMARY }
+
+    /** The people of [changes], those of `corrections.jsonl`, by name. */
+    fun people(changes: List<RecordChange>): List<PersonChange> {
+        val facts = claims.findAllById(changes.map { ClaimRules.factsId(it.id) }).associateBy { it.id }
+        return changes.map { change ->
+            val claim = facts[ClaimRules.factsId(change.id)]
+            val proposal = claim?.proposal as PersonFacts?
+            val approved = claim?.payload as PersonFacts?
+            val before = change.before?.let(dataFiles::readCorrection)
+            val after = change.after?.let(dataFiles::readCorrection)
+            val labels = (proposal?.occupations.orEmpty() + approved?.occupations.orEmpty()).associate { it.occupation to it.label }
+
+            fun <T> fact(fact: Fact, corrected: (CorrectionRecord) -> T?, wikidata: (PersonFacts) -> T?, words: (T) -> String): FactChange? {
+                val was = before?.let(corrected) ?: proposal?.let(wikidata)
+                val will = after?.let(corrected) ?: proposal?.let(wikidata)
+                return if (was == will) null else FactChange(fact, was?.let(words), will?.let(words))
+            }
+            val name = approved?.label ?: proposal?.label ?: after?.name ?: before?.name ?: change.id
+            PersonChange(
+                change.id, name, change.change,
+                listOfNotNull(
+                    fact(Fact.NAME, CorrectionRecord::name, PersonFacts::label) { it },
+                    fact(Fact.FRENCH_NAME, CorrectionRecord::nameFr, PersonFacts::labelFr) { it },
+                    fact(Fact.BORN, CorrectionRecord::born, PersonFacts::born, ::year),
+                    fact(Fact.DIED, CorrectionRecord::died, PersonFacts::died, ::year),
+                    fact(Fact.DATES_APPROXIMATE, CorrectionRecord::approximate, PersonFacts::datesApproximate) { if (it) "yes" else "no" },
+                    fact(Fact.OCCUPATIONS, CorrectionRecord::occupations, { facts -> facts.occupations.map { it.occupation } }) { ids ->
+                        ids.joinToString(", ") { labels[it] ?: it }
+                    },
+                ),
+            )
+        }.sortedWith(compareBy(byName) { it: PersonChange -> it.name }.thenBy { it.person })
+    }
+
+    /** The occupations of [changes], those of `occupations.jsonl`, by label. */
+    fun occupations(changes: List<RecordChange>): List<OccupationChange> {
+        val labels = claims.findAllById(changes.map { ClaimRules.occupationId(it.id) })
+            .map { it.payload as OccupationDomain }.associate { it.occupation to it.label }
+        return changes.map { change ->
+            OccupationChange(
+                change.id, labels[change.id] ?: change.id, change.change,
+                change.before?.let { choice(dataFiles.readOccupation(it).domain) },
+                change.after?.let { choice(dataFiles.readOccupation(it).domain) },
+            )
+        }.sortedWith(compareBy(byName) { it: OccupationChange -> it.label }.thenBy { it.occupation })
+    }
+
+    /** What changes in [moment]'s file from [before] to [after], its [story] naming whom or what its new cards show. */
+    fun moment(moment: String, before: String, after: String, story: Story?): MomentChange {
+        val was = momentFiles.content(before)
+        val will = momentFiles.content(after)
+        val labels = story?.cards.orEmpty().mapNotNull { card -> card.label?.let { shown(card.type, card.person, card.life, card.event) to it } }.toMap()
+        val (cards, unchanged) = cards(was.cards, will.cards, labels)
+        val world = listOf(
+            WorldPart.GOVERNS to { w: WorldRecord -> w.governs },
+            WorldPart.EVERYDAY to { w -> w.everyday },
+            WorldPart.ARTS to { w -> w.arts },
+            WorldPart.MEANWHILE to { w -> w.meanwhile },
+        ).mapNotNull { (part, line) ->
+            val old = was.world?.let(line)
+            val new = will.world?.let(line)
+            if (old == new) null else WorldChange(part, old, new)
+        }
+        return MomentChange(
+            moment, will.title, TextChange(was.hook, will.hook).takeIf { was.hook != will.hook }, world, cards, unchanged,
+        )
+    }
+
+    /**
+     * The cards of [after] against those of [before]: the same card is the next one showing the same person, life or
+     * event (a scene card, the next of its type). A card moved is one out of the longest run that keeps its order.
+     */
+    private fun cards(before: List<CardRecord>, after: List<CardRecord>, known: Map<Shown, String>): Pair<List<CardChange>, Int> {
+        val unused = before.indices.toMutableList()
+        val matched = after.map { card -> unused.firstOrNull { shown(before[it]) == shown(card) }?.also { unused.remove(it) } }
+        val kept = inOrder(matched.filterNotNull())
+        val labels = labels((before + after).map(::shown).filter { it !in known }.toSet()) + known
+
+        var unchanged = 0
+        val changes = mutableListOf<CardChange>()
+        after.forEachIndexed { to, card ->
+            val from = matched[to]
+            val old = from?.let(before::get)
+            val fields = fields(old, card)
+            val moved = from != null && from !in kept
+            if (old != null && fields.isEmpty() && !moved) unchanged++
+            else changes += change(if (old == null) Change.ADDED else Change.CHANGED, card, labels, from?.plus(1), to + 1, moved, fields)
+        }
+        for (from in unused) changes += change(Change.REMOVED, before[from], labels, from + 1, null, false, fields(before[from], null))
+        return changes to unchanged
+    }
+
+    private fun change(change: Change, card: CardRecord, labels: Map<Shown, String>, from: Int?, to: Int?, moved: Boolean, fields: List<CardFieldChange>) =
+        shown(card).let { CardChange(change, card.type, it.id, labels[it], from, to, moved, fields) }
+
+    private fun fields(before: CardRecord?, after: CardRecord?): List<CardFieldChange> = listOf(
+        CardField.KICKER to { card: CardRecord -> card.kicker },
+        CardField.TITLE to { card -> card.title },
+        CardField.TEXT to { card -> card.text },
+        CardField.YEAR to { card -> card.year?.let(::year) },
+    ).mapNotNull { (field, value) ->
+        val old = before?.let(value)
+        val new = after?.let(value)
+        if (old == new) null else CardFieldChange(field, old, new)
+    }
+
+    /** The names of whom and what [shown] cards show: the release's people, lives and events, else the dataset's people. */
+    private fun labels(shown: Set<Shown>): Map<Shown, String> {
+        val ids = { type: CardType -> shown.filter { it.type == type }.mapNotNull { it.id } }
+        val people = releasePeople.findAllById(ids(CardType.PERSON)).associate { it.id to it.name }
+        val fetched = ids(CardType.PERSON).filter { it !in people }
+        val names = people +
+            dataset.summaries(fetched, fetched.size).associate { it.person to it.label } +
+            releaseLives.findAllById(ids(CardType.LIFE)).associate { it.id to it.label } +
+            releaseEvents.findAllById(ids(CardType.EVENT)).associate { it.id to it.title }
+        return shown.mapNotNull { card -> card.id?.let(names::get)?.let { card to it } }.toMap()
+    }
+
+    /**
+     * The publication in words, as Markdown for the pull request and its commit: each person's facts, the
+     * occupations changed or removed one by one and the ones added by domain, and each moment's header and cards.
+     * Cut short within GitHub's limit on a pull request's body.
+     */
+    fun summary(people: List<PersonChange>, occupations: List<OccupationChange>, moments: List<MomentChange>): String {
+        val lines = mutableListOf<String>()
+        if (people.isNotEmpty()) {
+            lines += "**People's facts** (${people.size})"
+            lines += people.map { person ->
+                "- ${person.name} (${person.person}): " +
+                    person.facts.joinToString("; ") { "${FACTS.getValue(it.fact)} ${it.before ?: "none"} → ${it.after ?: "none"}" }
+                        .ifEmpty { "no change the site shows" }
+            }
+        }
+        if (occupations.isNotEmpty()) {
+            if (lines.isNotEmpty()) lines += ""
+            lines += "**Occupations** (${occupations.size})"
+            lines += occupations.filter { it.before != null }.map { "- ${it.label}: ${domain(it.before)} → ${domain(it.after)}" }
+            lines += occupations.filter { it.before == null }.groupBy { it.after!! }.toSortedMap().map { (choice, added) ->
+                val shown = added.take(NAMES_PER_DOMAIN).joinToString(", ") { it.label }
+                val more = (added.size - NAMES_PER_DOMAIN).takeIf { it > 0 }?.let { " and $it more" }.orEmpty()
+                "- ${domain(choice)} (${added.size}): $shown$more"
+            }
+        }
+        if (moments.isNotEmpty()) {
+            if (lines.isNotEmpty()) lines += ""
+            lines += "**Moments** (${moments.size})"
+            lines += moments.map { moment ->
+                val parts = listOfNotNull(moment.hook?.let { "hook changed" }) +
+                    moment.world.map { "${WORLD.getValue(it.part)} changed" } +
+                    moment.cards.map(::cardInWords)
+                "- ${moment.title} (${moment.moment}): ${parts.joinToString("; ")}"
+            }
+        }
+        val text = StringBuilder()
+        for ((index, line) in lines.withIndex()) {
+            if (text.length + line.length > MAX_SUMMARY) {
+                text.append("- … and ${lines.size - index} more lines: the files show every change.\n")
+                break
+            }
+            text.append(line).append('\n')
+        }
+        return text.toString().trimEnd()
+    }
+
+    private fun cardInWords(card: CardChange): String {
+        val shows = card.label ?: card.shows ?: card.type.name.lowercase()
+        val name = "card ${card.to}, $shows"
+        return when (card.change) {
+            Change.ADDED -> "$name added"
+            Change.REMOVED -> "$shows removed (card ${card.from} before)"
+            Change.CHANGED -> listOfNotNull(
+                card.fields.takeIf { it.isNotEmpty() }?.joinToString(", ") { CARD_FIELDS.getValue(it.field) }?.let { "$it changed" },
+                "moved from card ${card.from}".takeIf { card.moved },
+            ).joinToString(", ").let { "$name: $it" }
+        }
+    }
+
+    private fun choice(domain: Domain?) = domain?.let { OccupationChoice.valueOf(it.name) } ?: OccupationChoice.NONE
+
+    /** A domain as curate names it when the curator chooses it. */
+    private fun domain(choice: OccupationChoice?) = when (choice) {
+        null -> "not mapped"
+        OccupationChoice.POWER -> "Power"
+        OccupationChoice.ARTS -> "Arts and ideas"
+        OccupationChoice.EVERYDAY -> "Everyday"
+        OccupationChoice.NONE -> "None"
+    }
+
+    /** Whom or what a card shows: its type and the id it names. */
+    private data class Shown(val type: CardType, val id: String?)
+
+    private fun shown(card: CardRecord) = shown(card.type, card.person, card.life, card.event)
+
+    private fun shown(type: CardType, person: String?, life: String?, event: String?) = Shown(type, person ?: life ?: event)
+
+    private companion object {
+        const val NAMES_PER_DOMAIN = 100
+
+        /** Below GitHub's 65,536 characters for a pull request's body, with room for its last paragraph. */
+        const val MAX_SUMMARY = 60_000
+
+        val FACTS = mapOf(
+            Fact.NAME to "name", Fact.FRENCH_NAME to "French name", Fact.BORN to "born", Fact.DIED to "died",
+            Fact.DATES_APPROXIMATE to "dates approximate", Fact.OCCUPATIONS to "occupations",
+        )
+        // As curate names them.
+        val WORLD = mapOf(
+            WorldPart.GOVERNS to "who governs", WorldPart.EVERYDAY to "everyday life", WorldPart.ARTS to "arts and ideas",
+            WorldPart.MEANWHILE to "meanwhile, elsewhere",
+        )
+        val CARD_FIELDS = mapOf(
+            CardField.KICKER to "kicker", CardField.TITLE to "title", CardField.TEXT to "what visitors read", CardField.YEAR to "year",
+        )
+
+        /** A year in words: BCE for the negative ones. */
+        fun year(year: Int) = if (year < 0) "${-year} BCE" else "$year"
+
+        /**
+         * The before-indices of [matched] (in the order of the cards after) that keep their order: the longest
+         * increasing run. The others moved.
+         */
+        fun inOrder(matched: List<Int>): Set<Int> {
+            if (matched.isEmpty()) return emptySet()
+            val length = IntArray(matched.size) { 1 }
+            val previous = IntArray(matched.size) { -1 }
+            for (i in matched.indices) for (j in 0 until i) {
+                if (matched[j] < matched[i] && length[j] + 1 > length[i]) {
+                    length[i] = length[j] + 1
+                    previous[i] = j
+                }
+            }
+            val run = mutableSetOf<Int>()
+            var at = length.indices.maxBy { length[it] }
+            while (at >= 0) {
+                run += matched[at]
+                at = previous[at]
+            }
+            return run
+        }
+    }
+}
