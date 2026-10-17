@@ -1,0 +1,8 @@
+# Grype's settings for the vulnerability scan (.github/workflows/scan.yml).
+# Ignore a finding only when it can't affect us: each entry under `ignore` carries, in a comment, why and an expiry
+# date (Grype has none of its own), and is removed by then so the finding is checked again. For example:
+#   # Only reachable through X, which we never call. Expires 2026-12-31.
+#   - vulnerability: CVE-2026-12345
+#     package:
+#       name: example
+ignore: []

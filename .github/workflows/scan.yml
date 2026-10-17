@@ -1,0 +1,84 @@
+# Known vulnerabilities in the two images, with Grype. Called by ci.yml on the images it has just built, so a pull
+# request shows them and main deploys nothing that fails; daily on the images in production, for CVEs published
+# after their release. Every finding goes to the Security tab; only a critical one with a fixed version fails.
+name: Vulnerability scan
+
+on:
+  workflow_call:
+    inputs:
+      built:
+        description: Scan the images built earlier in the calling run, from its artifacts.
+        type: boolean
+        required: true
+  schedule:
+    - cron: "43 6 * * *" # After the daily smoke test.
+  workflow_dispatch: # Scan production by hand.
+
+permissions:
+  contents: read
+
+jobs:
+  grype:
+    name: Grype (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [backend, frontend]
+    permissions:
+      contents: read
+      deployments: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .grype.yaml
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: inputs.built
+        with:
+          name: image-${{ matrix.service }}
+          path: ${{ runner.temp }}
+      - name: Choose the image
+        id: image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ inputs.built }}" = true ]; then
+            echo "ref=docker-archive:$RUNNER_TEMP/image.tar" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Production runs the commit of the newest successful deployment: older ones turn inactive, failed ones
+          # never succeed, and a deploy that rolls back fails its job.
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/deployments?environment=production&per_page=30" --jq '.[].id'); do
+            if [ "$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses?per_page=1" --jq '.[0].state')" = success ]; then
+              sha=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id" --jq .sha)
+              echo "ref=ghcr.io/$GITHUB_REPOSITORY-${{ matrix.service }}:sha-$sha" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "No successful deployment to production found" >&2
+          exit 1
+      - name: Scan for every known vulnerability
+        id: scan
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: ${{ steps.image.outputs.ref }}
+          fail-build: false
+          severity-cutoff: high
+          cache-db: true
+      - name: Report them in the Security tab
+        # Dependabot's pull requests get a read-only token: their scan still fails or passes below.
+        if: github.actor != 'dependabot[bot]'
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+          category: grype-${{ matrix.service }}
+      - name: Fail on a critical vulnerability with a fix
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: ${{ steps.image.outputs.ref }}
+          only-fixed: true
+          severity-cutoff: critical
+          output-format: table
+          cache-db: true

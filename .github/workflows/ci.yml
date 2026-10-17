@@ -1,5 +1,6 @@
-# Pull requests: test, build each image once, then run the API and end-to-end tests against those images.
-# Main: also publish the same images to GHCR, signed, and deploy them to the VPS once every test has passed.
+# Pull requests: test, build each image once, then run the API and end-to-end tests and the vulnerability scan against
+# those images. Main: also publish the same images to GHCR, signed, and deploy them to the VPS once every check has
+# passed.
 # No long-lived secrets: GHCR uses the job token, Tailscale and SSH use GitHub's OIDC identity.
 name: CI/CD
 
@@ -254,9 +255,20 @@ jobs:
         working-directory: .
         run: $COMPOSE logs
 
+  scan:
+    name: Vulnerability scan
+    needs: images
+    uses: ./.github/workflows/scan.yml
+    with:
+      built: true
+    permissions:
+      contents: read
+      deployments: read
+      security-events: write
+
   deploy:
     name: Deploy to production
-    needs: [images, api, e2e]
+    needs: [images, api, e2e, scan]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
