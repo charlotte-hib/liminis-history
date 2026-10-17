@@ -13,4 +13,8 @@ plugins {
 subprojects {
 	group = "art.liminis"
 	version = "0.0.1-SNAPSHOT"
+	// Past the versions Spring Boot 4.1.1 manages, for known vulnerabilities fixed since: Tomcat 11.0.24 has critical
+	// ones, Jackson 3.1.5 high ones. Remove each once Spring Boot manages that version or a newer one.
+	extra["tomcat.version"] = "11.0.27"
+	extra["jackson-bom.version"] = "3.1.7"
 }

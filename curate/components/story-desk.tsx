@@ -7,6 +7,7 @@ import { decide, draftStory, previewOf, undo } from "@/app/actions";
 import { History } from "@/components/claim-parts";
 import { parseYear } from "@/components/edit-forms";
 import { artOf, Slide, subjectsOf, type Subjects } from "@/components/slide";
+import { SubjectSearch } from "@/components/subject-search";
 import type { components } from "@/lib/api-schema";
 import { describe, STATUS } from "@/lib/labels";
 import { year } from "@/lib/years";
@@ -357,6 +358,7 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
           </figure>
           <OpenCard
             key={card.key}
+            moment={moment.id}
             card={card}
             number={index + 1}
             count={draft.cards.length}
@@ -518,6 +520,7 @@ function CardTile({ card, number, name, art, fetched, open, onOpen, onDrop }: Ti
 }
 
 type OpenProps = {
+  moment: string;
   card: DraftCard;
   number: number;
   count: number;
@@ -530,7 +533,7 @@ type OpenProps = {
 };
 
 /** The open card: what visitors read, what it shows, and the quotes it rests on. */
-function OpenCard({ card, number, count, subjects, missing, sources, onChange, onMove, onRemove }: OpenProps) {
+function OpenCard({ moment, card, number, count, subjects, missing, sources, onChange, onMove, onRemove }: OpenProps) {
   const field = SHOWS[card.type];
   const id = field ? card[field]?.trim() : undefined;
   const found = id ? (field === "person" ? subjects.people[id]?.name : field === "life" ? subjects.lives[id]?.label : subjects.events[id]?.title) : undefined;
@@ -564,21 +567,27 @@ function OpenCard({ card, number, count, subjects, missing, sources, onChange, o
             <input value={card.when} onChange={(e) => onChange({ when: e.target.value })} className={`${box} font-mono`} />
           </label>
           {field ? (
-            <label className="flex flex-col gap-1.5">
-              <span className="label">The {field}&apos;s id</span>
-              <input value={card[field] ?? ""} onChange={(e) => onChange({ [field]: e.target.value, label: undefined })} className={`${box} font-mono`} />
-            </label>
+            <SubjectSearch
+              key={field}
+              moment={moment}
+              type={card.type as Exclude<CardType, "SCENE">}
+              label={`The ${field}`}
+              name={found ?? card.label ?? id ?? ""}
+              onChoose={(subject) => onChange({ [field]: subject.id, label: subject.label })}
+            />
           ) : (
             <span />
           )}
         </div>
         {field && id && (
           <p className="text-[12.5px] text-muted">
+            <span className="font-mono">{id}</span>
+            {" · "}
             {found
-              ? `${found}, ${QID.test(id) ? "from the dataset: not on the site yet" : "from the release"}.`
+              ? QID.test(id) ? "from the dataset: not on the site yet" : "from the release"
               : missing.has(`${field}:${id}`)
-                ? "Not found in the release or the dataset."
-                : "Looking it up…"}
+                ? "not found in the release or the dataset"
+                : "looking it up…"}
           </p>
         )}
       </div>

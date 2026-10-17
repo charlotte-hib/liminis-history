@@ -7,14 +7,18 @@ import org.springframework.web.bind.annotation.RestController
 import art.liminis.curation.ClaimStatus
 import art.liminis.curation.StoryCard
 import art.liminis.domain.WorldAround
+import art.liminis.moments.CardSubject
+import art.liminis.moments.CardSubjects
 import art.liminis.moments.MomentOverview
 import art.liminis.moments.MomentPeople
 import art.liminis.moments.MomentPerson
 import art.liminis.moments.MomentStory
 import art.liminis.moments.Moments
 import art.liminis.moments.StoryPreview
+import art.liminis.moments.SubjectType
 import art.liminis.runs.Runs
 import art.liminis.workbench.api.MomentsApi
+import art.liminis.workbench.api.model.CardSubjectDto
 import art.liminis.workbench.api.model.ClaimStatusDto
 import art.liminis.workbench.api.model.MomentDetailDto
 import art.liminis.workbench.api.model.MomentPeopleDto
@@ -24,10 +28,16 @@ import art.liminis.workbench.api.model.RunDto
 import art.liminis.workbench.api.model.RunKindDto
 import art.liminis.workbench.api.model.StoryCardDto
 import art.liminis.workbench.api.model.StoryPreviewDto
+import art.liminis.workbench.api.model.SubjectTypeDto
 import art.liminis.workbench.api.model.WorldDto
 
 @RestController
-class MomentController(private val moments: Moments, private val runs: Runs, private val mapper: MomentApiMapper) : MomentsApi {
+class MomentController(
+    private val moments: Moments,
+    private val subjects: CardSubjects,
+    private val runs: Runs,
+    private val mapper: MomentApiMapper,
+) : MomentsApi {
 
     override fun listMoments(): List<MomentSummaryDto> = moments.all().map(mapper::toDto)
 
@@ -42,6 +52,9 @@ class MomentController(private val moments: Moments, private val runs: Runs, pri
 
     override fun getStoryPreview(id: String, person: List<String>?, life: List<String>?, event: List<String>?): StoryPreviewDto =
         mapper.toDto(moments.preview(id, person.orEmpty(), life.orEmpty(), event.orEmpty()))
+
+    override fun findCardSubjects(id: String, type: SubjectTypeDto, q: String, limit: Int): List<CardSubjectDto> =
+        subjects.find(id, mapper.toModel(type), q, limit).map(mapper::toDto)
 }
 
 /** The workspace's moments to the API's models. Every target field is mapped or ignored on purpose. */
@@ -91,4 +104,8 @@ interface MomentApiMapper {
     fun toDto(person: MomentPerson): MomentPersonDto
 
     fun toDto(preview: StoryPreview): StoryPreviewDto
+
+    fun toDto(subject: CardSubject): CardSubjectDto
+
+    fun toModel(type: SubjectTypeDto): SubjectType
 }

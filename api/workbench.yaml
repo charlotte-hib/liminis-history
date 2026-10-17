@@ -261,8 +261,8 @@ paths:
         - auth: ["curation:read"]
       summary: Find people by name
       description: |
-        The fetched people whose English or French label contains `q`, ignoring case, those it starts with first, then
-        the best known. A Q-id finds that person.
+        The fetched people whose English or French label contains `q`, ignoring case and accents, those it starts with
+        first, then the best known. A Q-id finds that person.
       parameters:
         - name: q
           in: query
@@ -521,6 +521,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MomentPeople"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/moments/{id}/subjects:
+    get:
+      tags: [moments]
+      operationId: findCardSubjects
+      security:
+        - auth: ["curation:read"]
+      summary: Find what a story card can show
+      description: |
+        The people, lives or events whose name contains `q`, ignoring case and accents, for a card of the moment's
+        story. People come from the release (written by hand) and the dataset (fetched): someone the release holds is
+        listed once, as the release's. The moment's own come first: people alive during it and tied to its region by
+        any place, lives and events of its region in its years. Then those whose name starts with `q`, then the best
+        known. An id, or a person's Q-id, finds that one first.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/MomentId"
+        - name: type
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/SubjectType"
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+            default: 10
+      responses:
+        "200":
+          description: At most `limit`, best first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CardSubject"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1439,6 +1495,39 @@ components:
           type: string
         art:
           $ref: "#/components/schemas/Artwork"
+
+    SubjectType:
+      type: string
+      description: What a card shows, by its type.
+      enum: [PERSON, LIFE, EVENT]
+
+    CardSubject:
+      type: object
+      description: Someone or something a story card can show, as a search lists them.
+      required: [id, label, fetched]
+      properties:
+        id:
+          type: string
+          description: The id a card names them by.
+        label:
+          type: string
+        from:
+          description: When a person was born, a life starts, an event happened.
+          allOf:
+            - $ref: "#/components/schemas/Year"
+        to:
+          description: When a person died, a life ends.
+          allOf:
+            - $ref: "#/components/schemas/Year"
+        detail:
+          type: string
+          description: A person's first occupation, the one the site shows.
+        picture:
+          type: string
+          description: A person's portrait, a life's picture.
+        fetched:
+          type: boolean
+          description: A person in the dataset only, whom the site doesn't hold yet.
 
     PreviewPerson:
       type: object

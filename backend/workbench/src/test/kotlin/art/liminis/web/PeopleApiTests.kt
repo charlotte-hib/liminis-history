@@ -1,6 +1,7 @@
 package art.liminis.web
 
 import org.hamcrest.Matchers.contains
+import org.hamcrest.Matchers.hasItem
 import org.hamcrest.Matchers.startsWith
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -78,7 +79,8 @@ class PeopleApiTests(
             signedIn()
             param("q", "néférou")
         }.andExpect {
-            jsonPath("$[*].person") { value(contains("Q228951")) }
+            // Accents ignored, the search also finds those whose labels hold "neferou".
+            jsonPath("$[*].person") { value(hasItem("Q228951")) }
         }
     }
 

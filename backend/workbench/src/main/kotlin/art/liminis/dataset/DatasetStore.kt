@@ -284,19 +284,47 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
     }
 
     /**
-     * The people whose English or French label contains [query], ignoring case, those it starts with first, then the
-     * best known; the person [query] names first when it is a Q-id.
+     * The people whose English or French label contains [query], ignoring case and accents, those it starts with first,
+     * then the best known; the person [query] names first when it is a Q-id.
      */
     fun find(query: String, limit: Int): List<PersonSummary> =
         jdbc.query(
             """
             select $SUMMARY
             from dataset.person p
-            where p.qid = ? or strpos(lower(p.label), lower(?)) > 0 or strpos(lower(p.label_fr), lower(?)) > 0
-            order by p.qid = ? desc, starts_with(lower(p.label), lower(?)) desc, p.sitelinks desc, p.qid
+            where $NAMED
+            order by p.qid = ? desc, starts_with(${fold("p.label")}, ${fold("?")}) desc, p.sitelinks desc, p.qid
             limit ?
             """.trimIndent(),
             DataClassRowMapper(PersonSummary::class.java), query, query, query, query, query, limit,
+        )
+
+    /**
+     * The people [find] finds, but those in [except], as a story card of a moment lists them: the person [query]
+     * names first when it is a Q-id, then those [aliveIn] the moment's [region] from [start] to [end], then as [find]
+     * orders them.
+     */
+    fun findAround(query: String, region: String, start: Int, end: Int, except: Collection<String>, limit: Int): List<FoundPerson> =
+        jdbc.query(
+            // The moment's people once, materialized: as a subquery per person found, Postgres took seconds.
+            """
+            with here as materialized (select p.qid from dataset.person p where $ALIVE_IN),
+            found as (
+                select p.qid, p.sitelinks, p.qid = ? as exact, p.qid in (select qid from here) as here,
+                    starts_with(${fold("p.label")}, ${fold("?")}) as starts
+                from dataset.person p
+                where ($NAMED) and p.qid <> all (?)
+                order by exact desc, here desc, starts desc, p.sitelinks desc, p.qid
+                limit ?
+            )
+            select $SUMMARY, f.exact, f.here, f.starts,
+                (select a.thumbnail_url from dataset.person_article a
+                 where a.person = p.qid and a.thumbnail_url is not null order by a.language limit 1) as portrait
+            from found f join dataset.person p on p.qid = f.qid
+            order by f.exact desc, f.here desc, f.starts desc, f.sitelinks desc, f.qid
+            """.trimIndent(),
+            DataClassRowMapper(FoundPerson::class.java),
+            end, start, region, query.uppercase(), query, query.uppercase(), query, query, except.toTypedArray(), limit,
         )
 
     /** Each person's first three occupations, the ones the site shows and takes their domain from, in order. */
@@ -402,6 +430,15 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
         /** The ISO code of the country a place lies in today: by its coordinates, else its first country with one. */
         const val PLACE_COUNTRY = """coalesce(pl.coordinates_country,
             (select pc.iso from dataset.place_country pc where pc.place = pl.qid and pc.iso is not null order by pc.position limit 1))"""
+
+        /**
+         * Lowercase and without accents ("Émile" becomes "emile"), as the release's `fold_for_search` does; that
+         * function lives in the release's schema, the extension in schema `extensions`, made by core's migrations.
+         */
+        fun fold(sql: String) = "lower(extensions.unaccent('extensions.unaccent'::regdictionary, $sql))"
+
+        /** The person the first parameter names by Q-id, or whose label contains the second or the third. */
+        val NAMED = """p.qid = ? or strpos(${fold("p.label")}, ${fold("?")}) > 0 or strpos(${fold("p.label_fr")}, ${fold("?")}) > 0"""
 
         /** Alive at some time from the first parameter's year to the second's, and tied to the region the third names. */
         const val ALIVE_IN = """p.born <= ? and p.died >= ? and exists (
