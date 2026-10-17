@@ -34,3 +34,25 @@ test("a story is edited on its desk, its preview following, then approved and un
   await expect(page.getByRole("heading", { level: 1 })).toContainText("a draft waiting for you");
   await expect(page.getByRole("figure").getByText(line)).toBeHidden();
 });
+
+test("a card's person is chosen by searching, a fetched one by Q-id", async ({ page }) => {
+  await page.goto("/review/stories");
+  test.skip(!/\/moments\/[a-z0-9-]+\/story$/.test(new URL(page.url()).pathname), "No story waits for review");
+
+  const cards = page.getByRole("list", { name: "Cards" });
+  await cards.getByRole("button", { name: /^Card \d+, Person/ }).first().click();
+  const search = page.getByRole("combobox", { name: "The person" });
+
+  await search.fill("hugo");
+  await page.getByRole("option", { name: /^Victor Hugo/ }).click();
+  await expect(search).toHaveValue("Victor Hugo");
+  await expect(page.getByText("victor-hugo · from the release")).toBeVisible();
+  await expect(page.getByRole("figure").getByText("Victor Hugo").first()).toBeVisible();
+
+  // Typed whole, a Q-id is the first result, and Enter takes it: Rousseau, fetched, not in the release.
+  await search.fill("Q6527");
+  await expect(page.getByRole("option").first()).toContainText("not on the site yet");
+  await search.press("Enter");
+  await expect(page.getByText("Q6527 · from the dataset: not on the site yet")).toBeVisible();
+  await expect(cards.getByRole("button", { name: /not on the site yet$/ }).first()).toBeVisible();
+});

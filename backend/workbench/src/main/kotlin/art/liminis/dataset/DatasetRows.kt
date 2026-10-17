@@ -58,5 +58,23 @@ data class PersonPortrait(
     val intro: String?,
 )
 
+/**
+ * A person a search found for a story card: [portrait] is a Wikipedia thumbnail; [exact] when the search named their
+ * Q-id, [here] when they lived in the card's moment, [starts] when their label starts with the search.
+ */
+data class FoundPerson(
+    val person: String,
+    val label: String,
+    val labelFr: String?,
+    val born: Int,
+    val died: Int,
+    val occupation: String?,
+    val sitelinks: Int,
+    val portrait: String?,
+    val exact: Boolean,
+    val here: Boolean,
+    val starts: Boolean,
+)
+
 /** A person's English Wikipedia intro, for drafting from. */
 data class Intro(val person: String, val title: String, val url: String, val extract: String)

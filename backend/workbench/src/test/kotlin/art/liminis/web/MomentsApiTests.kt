@@ -1,6 +1,7 @@
 package art.liminis.web
 
 import org.junit.jupiter.api.BeforeEach
+import org.hamcrest.Matchers.contains
 import org.hamcrest.Matchers.startsWith
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -140,6 +141,75 @@ class MomentsApiTests(
             jsonPath("$.people.length()") { value(0) }
         }
         mockMvc.get("/api/moments/{id}/preview", "atlantis-0") { signedIn() }.andExpect { status { isNotFound() } }
+    }
+
+    @Test
+    fun `a card's person is found by name, ignoring accents, the moment's own first, the release's once`() {
+        // As well known as Napoleon, but alive long before Paris in the 1870s.
+        val elsewhere = CurationFixtures.person("Q9001", "Lesser Elsewhere", 1600, 1650, sitelinks = 999, birthplace = "Q90")
+        CurationFixtures.map(dataset, CurationFixtures.PEOPLE + elsewhere)
+        mockMvc.get("/api/moments/{id}/subjects", "paris-1870s") { signedIn(); param("type", "PERSON"); param("q", "lesser") }.andExpect {
+            status { isOk() }
+            jsonPath("$.length()") { value(2) }
+            jsonPath("$[0].id") { value("Q3008") }
+            jsonPath("$[0].label") { value("Lesser Known") }
+            jsonPath("$[0].from") { value(1830) }
+            jsonPath("$[0].fetched") { value(true) }
+            jsonPath("$[1].id") { value("Q9001") }
+        }
+        // The release holds Zola (Q504): he shows once, by the release's id. sample/'s dataset slice gives it Durkheim.
+        mockMvc.get("/api/moments/{id}/subjects", "paris-1870s") { signedIn(); param("type", "PERSON"); param("q", "emile") }.andExpect {
+            jsonPath("$[*].id") { value(contains("emile-zola", "Q15948")) }
+            jsonPath("$[0].label") { value("Émile Zola") }
+            jsonPath("$[0].fetched") { value(false) }
+        }
+        mockMvc.get("/api/moments/{id}/subjects", "paris-1870s") { signedIn(); param("type", "PERSON"); param("q", "q504") }.andExpect {
+            jsonPath("$[0].id") { value("emile-zola") }
+        }
+        mockMvc.get("/api/moments/{id}/subjects", "paris-1870s") { signedIn(); param("type", "PERSON"); param("q", "Q3008") }.andExpect {
+            jsonPath("$[0].id") { value("Q3008") }
+        }
+        mockMvc.get("/api/moments/{id}/subjects", "paris-1870s") { signedIn(); param("type", "SCENE"); param("q", "zola") }.andExpect {
+            status { isBadRequest() }
+        }
+        mockMvc.get("/api/moments/{id}/subjects", "paris-1870s") { signedIn(); param("type", "PERSON"); param("q", "z") }.andExpect {
+            status { isBadRequest() }
+        }
+        mockMvc.get("/api/moments/{id}/subjects", "atlantis-0") { signedIn(); param("type", "PERSON"); param("q", "zola") }.andExpect {
+            status { isNotFound() }
+        }
+    }
+
+    @Test
+    fun `a card's life or event is found by name, those of the moment's region and years first`() {
+        mockMvc.get("/api/moments/{id}/subjects", "paris-1870s") { signedIn(); param("type", "LIFE"); param("q", " in ") }.andExpect {
+            status { isOk() }
+            jsonPath("$[0].id") { value("a-farmhand-in-the-loire-valley") }
+            jsonPath("$[0].from") { value(1870) }
+            jsonPath("$[0].to") { value(1890) }
+            jsonPath("$[1].id") { value("a-silk-weaver-in-lyon") }
+        }
+        mockMvc.get("/api/moments/{id}/subjects", "paris-1870s") { signedIn(); param("type", "LIFE"); param("q", "washer") }.andExpect {
+            jsonPath("$[0].id") { value("a-washerwoman-on-the-seine") }
+            jsonPath("$[0].picture") { exists() }
+        }
+        mockMvc.get("/api/moments/{id}/subjects", "paris-1870s") { signedIn(); param("type", "EVENT"); param("q", "opera") }.andExpect {
+            jsonPath("$.length()") { value(1) }
+            jsonPath("$[0].id") { value("carmen-premiere") }
+            jsonPath("$[0].label") { value("Carmen opens at the Opéra-Comique") }
+            jsonPath("$[0].from") { value(1875) }
+        }
+        // Zola's three events all lie outside the 1870s; the first Impressionist exhibition is the moment's own.
+        mockMvc.get("/api/moments/{id}/subjects", "paris-1870s") { signedIn(); param("type", "EVENT"); param("q", "the") }.andExpect {
+            jsonPath("$[0].id") { value("first-impressionist-exhibition") }
+        }
+    }
+
+    @Test
+    fun `the dataset's people are found ignoring accents`() {
+        mockMvc.get("/api/people") { signedIn(); param("q", "emile") }.andExpect {
+            jsonPath("$[0].person") { value("Q504") }
+        }
     }
 
     @Test

@@ -121,8 +121,8 @@ export interface paths {
         };
         /**
          * Find people by name
-         * @description The fetched people whose English or French label contains `q`, ignoring case, those it starts with first, then
-         *     the best known. A Q-id finds that person.
+         * @description The fetched people whose English or French label contains `q`, ignoring case and accents, those it starts with
+         *     first, then the best known. A Q-id finds that person.
          */
         get: operations["findPeople"];
         put?: never;
@@ -273,6 +273,30 @@ export interface paths {
          *     at a time, each with their facts claim if they have one.
          */
         get: operations["listMomentPeople"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/moments/{id}/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find what a story card can show
+         * @description The people, lives or events whose name contains `q`, ignoring case and accents, for a card of the moment's
+         *     story. People come from the release (written by hand) and the dataset (fetched): someone the release holds is
+         *     listed once, as the release's. The moment's own come first: people alive during it and tied to its region by
+         *     any place, lives and events of its region in its years. Then those whose name starts with `q`, then the best
+         *     known. An id, or a person's Q-id, finds that one first.
+         */
+        get: operations["findCardSubjects"];
         put?: never;
         post?: never;
         delete?: never;
@@ -705,6 +729,27 @@ export interface components {
             life?: string;
             event?: string;
             art: components["schemas"]["Artwork"];
+        };
+        /**
+         * @description What a card shows, by its type.
+         * @enum {string}
+         */
+        SubjectType: "PERSON" | "LIFE" | "EVENT";
+        /** @description Someone or something a story card can show, as a search lists them. */
+        CardSubject: {
+            /** @description The id a card names them by. */
+            id: string;
+            label: string;
+            /** @description When a person was born, a life starts, an event happened. */
+            from?: components["schemas"]["Year"];
+            /** @description When a person died, a life ends. */
+            to?: components["schemas"]["Year"];
+            /** @description A person's first occupation, the one the site shows. */
+            detail?: string;
+            /** @description A person's portrait, a life's picture. */
+            picture?: string;
+            /** @description A person in the dataset only, whom the site doesn't hold yet. */
+            fetched: boolean;
         };
         PreviewPerson: {
             /** @description The id a card names them by. */
@@ -1446,6 +1491,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MomentPeople"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    findCardSubjects: {
+        parameters: {
+            query: {
+                type: components["schemas"]["SubjectType"];
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["schemas"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description At most `limit`, best first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardSubject"][];
                 };
             };
             400: components["responses"]["BadRequest"];

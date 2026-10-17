@@ -42,6 +42,7 @@ class WorkbenchSecurityTests(
         "GET /api/moments/{id}" to CURATION_READ,
         "GET /api/moments/{id}/people" to CURATION_READ,
         "GET /api/moments/{id}/preview" to CURATION_READ,
+        "GET /api/moments/{id}/subjects" to CURATION_READ,
         "POST /api/people/{qid}/facts" to CURATION_WRITE,
         "POST /api/moments/{id}/story" to CURATION_WRITE,
         "POST /api/moments/{id}/page" to CURATION_WRITE,
