@@ -43,13 +43,16 @@ object ClaimRules {
         is Connection -> "connection:${payload.people.sorted().joinToString("|")}:${slugify(payload.kind)}"
         is Event -> "event:${payload.region}:${payload.year}:${slugify(payload.title)}"
         is Anecdote -> "anecdote:${payload.person}:${payload.year}:${sha256(payload.text.trim()).take(12)}"
-        is OccupationDomain -> "occupation:${payload.occupation}"
+        is OccupationDomain -> occupationId(payload.occupation)
         is Story -> storyId(payload.moment)
         is MomentPage -> pageId(payload.moment)
     }
 
     /** The id of the claim on [person]'s facts. */
     fun factsId(person: String) = "person-facts:$person"
+
+    /** The id of the claim on [occupation]'s domain. */
+    fun occupationId(occupation: String) = "occupation:$occupation"
 
     /** The id of the claim on [moment]'s story. */
     fun storyId(moment: String) = "story:$moment"

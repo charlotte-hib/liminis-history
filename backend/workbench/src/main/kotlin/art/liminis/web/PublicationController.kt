@@ -13,10 +13,12 @@ import art.liminis.publishing.FileChanges
 import art.liminis.publishing.Publication
 import art.liminis.publishing.PublishProperties
 import art.liminis.publishing.Publishing
+import art.liminis.publishing.TextChange
 import art.liminis.workbench.api.PublicationApi
 import art.liminis.workbench.api.model.FileChangesDto
 import art.liminis.workbench.api.model.NewPublicationDto
 import art.liminis.workbench.api.model.PublicationDto
+import art.liminis.workbench.api.model.TextChangeDto
 import java.time.Instant
 
 /**
@@ -67,4 +69,7 @@ interface PublicationApiMapper {
     fun toDto(publication: Publication, maxAge: Int): PublicationDto
 
     fun toDto(changes: FileChanges): FileChangesDto
+
+    // Every field of the generated class has a default, so MapStruct would take its constructor without arguments.
+    fun toDto(change: TextChange?): TextChangeDto? = change?.let { TextChangeDto(it.before, it.after) }
 }

@@ -126,7 +126,7 @@ A moment's story is reviewed on its own page (`/moments/<id>/story`): every card
 
 ### Publishing
 
-Approved claims reach the site through the private data repository, as a pull request the curator reads and merges. curate's "Publish" page shows what a publish would change: the files of `data/` the workbench writes whole from the approved claims, record by record, against the data repository's `main` (`GET /api/publication`).
+Approved claims reach the site through the private data repository, as a pull request the curator reads and merges. curate's "Publish" page shows what a publish would change on the site, in words, against the data repository's `main` (`GET /api/publication`): each person by name with the facts the site would show otherwise ("born 1802 → 1801": the correction in effect, else Wikidata's value), the occupations by domain, and each moment's hook, world around and cards with the changed words marked (jsdiff). A story's cards are matched by the person, life or event they show, so a card dragged elsewhere reads as moved, not as every card changed. The lines of the files the workbench writes whole from the approved claims stay behind "Show the file lines", and the pull request's description says the same in words.
 
 - `data/occupations.jsonl`: each occupation mapped, with its domain, or none.
 - `data/moments/<id>.json`: each approved header's hook and world around, and each approved story's cards; the rest of the file stays as written by hand.

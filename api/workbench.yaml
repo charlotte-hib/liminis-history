@@ -764,8 +764,10 @@ paths:
         The approved claims as the files of `data/` that publishing writes whole (`data/occupations.jsonl`,
         `data/corrections.jsonl`), compared with those files on the data repository's `main`: each record added,
         changed or removed; and the approved stories written into their moments' files (`data/moments/<id>.json`),
-        each a story changed. Also the publish pull request open, if any, the corrections for people written by hand
-        in `people.jsonl`, which the release gives no effect, and the approved stories held back.
+        each a story changed. The same changes in words: each person's facts as the site shows them before and after,
+        each occupation's domain, each moment's header lines and cards. Also the publish pull request open, if any, the
+        corrections for people written by hand in `people.jsonl`, which the release gives no effect, and the approved
+        stories held back.
       responses:
         "200":
           description: The changes.
@@ -1896,7 +1898,7 @@ components:
 
     Publication:
       type: object
-      required: [base, files, withoutEffect, heldBack, maxAge]
+      required: [base, files, people, occupations, moments, withoutEffect, heldBack, maxAge]
       properties:
         base:
           type: string
@@ -1907,6 +1909,21 @@ components:
           description: The files publishing writes, with their changes, in the same order every time.
           items:
             $ref: "#/components/schemas/FileChanges"
+        people:
+          type: array
+          description: The people whose facts the corrections change, by name, accents ignored.
+          items:
+            $ref: "#/components/schemas/PersonChange"
+        occupations:
+          type: array
+          description: The occupations whose domain changes, by label.
+          items:
+            $ref: "#/components/schemas/OccupationChange"
+        moments:
+          type: array
+          description: The moments whose header or story changes, by id.
+          items:
+            $ref: "#/components/schemas/MomentChange"
         pullRequest:
           $ref: "#/components/schemas/PullRequest"
         withoutEffect:
@@ -1946,14 +1963,162 @@ components:
           type: string
           description: The record's id, a Q-id, or the moment's id in a moment's file.
         change:
-          type: string
-          enum: [ADDED, CHANGED, REMOVED]
+          $ref: "#/components/schemas/Change"
         before:
           type: string
           description: The record's line as `main` has it, JSON; a moment's hook, world and cards only, in its file. None when added.
         after:
           type: string
           description: The record's line as publishing writes it, JSON. None when removed.
+
+    Change:
+      type: string
+      enum: [ADDED, CHANGED, REMOVED]
+
+    PersonChange:
+      type: object
+      description: |
+        A person whose line in `corrections.jsonl` changes (`change`), with each fact the site would show otherwise:
+        before, the value in effect on `main` (its correction, else Wikidata's), after, the one once published, in words.
+      required: [person, name, change, facts]
+      properties:
+        person:
+          $ref: "#/components/schemas/Qid"
+        name:
+          type: string
+          description: The person's name as approved, else as Wikidata gives it.
+        change:
+          $ref: "#/components/schemas/Change"
+        facts:
+          type: array
+          items:
+            $ref: "#/components/schemas/FactChange"
+
+    FactChange:
+      type: object
+      required: [fact]
+      properties:
+        fact:
+          type: string
+          enum: [NAME, FRENCH_NAME, BORN, DIED, DATES_APPROXIMATE, OCCUPATIONS]
+        before:
+          type: string
+          description: None when there is none.
+          example: "1802"
+        after:
+          type: string
+          description: None when there is none.
+          example: "1801"
+
+    OccupationChange:
+      type: object
+      description: |
+        An occupation whose line in `occupations.jsonl` changes: its domain on `main` (`before`, none when not mapped
+        there) and once published (`after`, none when no longer mapped).
+      required: [occupation, label, change]
+      properties:
+        occupation:
+          $ref: "#/components/schemas/Qid"
+        label:
+          type: string
+          example: lithographer
+        change:
+          $ref: "#/components/schemas/Change"
+        before:
+          $ref: "#/components/schemas/OccupationChoice"
+        after:
+          $ref: "#/components/schemas/OccupationChoice"
+
+    MomentChange:
+      type: object
+      description: |
+        A moment whose header or story changes. Its hook (none when it stays as it is), the lines of its world around
+        that change, and its cards added, removed, changed or moved, in the story's new order, removed ones last. A card
+        is the same card before and after when it shows the same person, life or event (a scene card: the same type),
+        in order.
+      required: [moment, title, world, cards, unchangedCards]
+      properties:
+        moment:
+          $ref: "#/components/schemas/MomentId"
+        title:
+          type: string
+          example: Edo, 1830s
+        hook:
+          $ref: "#/components/schemas/TextChange"
+        world:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorldChange"
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardChange"
+        unchangedCards:
+          type: integer
+          format: int32
+
+    TextChange:
+      type: object
+      properties:
+        before:
+          type: string
+        after:
+          type: string
+
+    WorldChange:
+      type: object
+      required: [part]
+      properties:
+        part:
+          type: string
+          enum: [GOVERNS, EVERYDAY, ARTS, MEANWHILE]
+        before:
+          type: string
+        after:
+          type: string
+
+    CardChange:
+      type: object
+      required: [change, type, moved, fields]
+      properties:
+        change:
+          $ref: "#/components/schemas/Change"
+        type:
+          $ref: "#/components/schemas/CardType"
+        shows:
+          type: string
+          description: The id of the person, life or event the card shows. None on a scene card.
+        label:
+          type: string
+          description: Who or what the card shows, by name.
+        from:
+          type: integer
+          format: int32
+          description: The card's number on `main`. None when added.
+        to:
+          type: integer
+          format: int32
+          description: The card's number once published. None when removed.
+        moved:
+          type: boolean
+          description: The card changed places among the others, not only its number.
+        fields:
+          type: array
+          description: Its texts and year that change.
+          items:
+            $ref: "#/components/schemas/CardFieldChange"
+
+    CardFieldChange:
+      type: object
+      required: [field]
+      properties:
+        field:
+          type: string
+          enum: [KICKER, TITLE, TEXT, YEAR]
+        before:
+          type: string
+        after:
+          type: string
 
     HeldBack:
       type: object
