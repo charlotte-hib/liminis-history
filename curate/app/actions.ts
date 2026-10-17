@@ -9,6 +9,7 @@ import {
   type NewDecision,
   type Outcome,
   type PersonSummary,
+  type MomentPageText,
   type Publication,
   type StoryPreview,
 } from "@/lib/workbench";
@@ -43,7 +44,16 @@ export async function proposeFacts(qid: string): Promise<Outcome<{ id: string }>
   return result.ok ? { ok: true, data: { id: result.data.id } } : result;
 }
 
-/** Starts drafting the moment's story with Claude: 409 while another run runs. */
+/**
+ * Writes the moment's header from the release's text, approved at once: 409 when it has a claim already, to decide on
+ * instead.
+ */
+export async function writeMomentPage(moment: string, text: MomentPageText): Promise<Outcome<{ id: string }>> {
+  const result = await outcome(workbench.POST("/api/moments/{id}/page", { params: { path: { id: moment } }, body: text }));
+  return result.ok ? { ok: true, data: { id: result.data.id } } : result;
+}
+
+/** Starts drafting the moment's story and header with Claude: 409 while another run runs. */
 export async function draftStory(moment: string): Promise<Outcome<{ id: number }>> {
   const result = await outcome(workbench.POST("/api/moments/{id}/story", { params: { path: { id: moment } } }));
   return result.ok ? { ok: true, data: { id: result.data.id } } : result;

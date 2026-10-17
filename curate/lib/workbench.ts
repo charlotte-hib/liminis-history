@@ -9,6 +9,7 @@ export type Claim = components["schemas"]["Claim"];
 export type ClaimDetail = components["schemas"]["ClaimDetail"];
 export type ClaimType = components["schemas"]["ClaimType"];
 export type Evidence = components["schemas"]["Evidence"];
+export type MomentPageText = components["schemas"]["MomentPageText"];
 export type NewClaim = components["schemas"]["NewClaim"];
 export type NewDecision = components["schemas"]["NewDecision"];
 export type OccupationEvidence = components["schemas"]["OccupationEvidence"];

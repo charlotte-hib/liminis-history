@@ -1,41 +1,34 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { MomentHeader } from "@/components/moment-header";
+import { HeaderDesk } from "@/components/header-desk";
 import { DraftButton, FactsStatus, ReviewButton } from "@/components/moment-actions";
 import { STATUS } from "@/lib/labels";
 import type { components } from "@/lib/api-schema";
-import { workbench } from "@/lib/workbench";
+import { etag, workbench } from "@/lib/workbench";
 import { year } from "@/lib/years";
 
 type MomentDetail = components["schemas"]["MomentDetail"];
-type Story = components["schemas"]["Story"];
 
 /** People a page lists, the best known first. */
 const PAGE = 50;
 
-/** One moment: its story, drafted and published, and everyone alive there with their claims. */
+/** One moment: its story and header, drafted and published, and everyone alive there with their claims. */
 export default async function MomentPage({ params, searchParams }: PageProps<"/moments/[id]">) {
   await connection();
   const { id } = await params;
   const query = await searchParams;
   const page = Math.max(1, Number(query.page) || 1);
-  const [{ data: moment }, { data: people }, { data: preview }, { data: claim }] = await Promise.all([
+  const [{ data: moment }, { data: people }, { data: preview }, header] = await Promise.all([
     workbench.GET("/api/moments/{id}", { params: { path: { id } } }),
     workbench.GET("/api/moments/{id}/people", { params: { path: { id }, query: { offset: (page - 1) * PAGE, limit: PAGE } } }),
     workbench.GET("/api/moments/{id}/preview", { params: { path: { id } } }),
-    workbench.GET("/api/claims/{id}", { params: { path: { id: `story:${id}` } } }),
+    workbench.GET("/api/claims/{id}", { params: { path: { id: `moment-page:${id}` } } }),
   ]);
   if (!moment || !people) notFound();
-  // The hook and the world around are drafted with the cards, in the story's claim: shown here from it while there is
-  // one not rejected, else as the release has them.
-  const drafted = claim && claim.status !== "REJECTED" ? (claim.payload as Story) : null;
-  const world = drafted
-    ? { governs: drafted.world.governs.text, everyday: drafted.world.everyday.text, arts: drafted.world.arts.text, meanwhile: drafted.world.meanwhile.text }
-    : moment.world;
   const pages = Math.max(1, Math.ceil(people.total / PAGE));
-  // The moment's waiting claims count its story's too, which has its own link.
-  const waitingFacts = moment.waiting - (moment.story === "CANDIDATE" ? 1 : 0);
+  // The moment's waiting claims count its story's and header's too, which are shown above.
+  const waitingFacts = moment.waiting - (moment.story === "CANDIDATE" ? 1 : 0) - (moment.page === "CANDIDATE" ? 1 : 0);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-10 py-8">
@@ -54,37 +47,26 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
         </h2>
         {moment.story && (
           <p>
-            A draft is {STATUS[moment.story]}
-            {moment.story === "APPROVED" && ": publishing writes it into the moment's file"}.
+            The story cards are {STATUS[moment.story]}
+            {moment.story === "APPROVED" && ": publishing writes them into the moment's file"}. The header below is approved on its own.
           </p>
         )}
         <DraftButton moment={moment.id} draft={moment.draft} story={moment.story} />
         <Published moment={moment} />
       </section>
 
-      <section aria-labelledby="page" className="flex flex-col gap-3">
+      <section id="header" aria-labelledby="header-title" className="flex scroll-mt-6 flex-col gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="page" className="section-title">
-            The moment&apos;s page
+          <h2 id="header-title" className="section-title">
+            Moment header
           </h2>
           <span className="text-muted">
-            {drafted ? `The hook and the world around from the draft, ${STATUS[claim!.status]}` : "The hook and the world around as the release has them"}
+            {header.data && header.data.status !== "REJECTED"
+              ? `The hook and the world around, ${header.data.origin === "CLAUDE" ? "drafted by Claude" : "as you wrote them"}, ${STATUS[header.data.status]}`
+              : "The hook and the world around as the release has them: edit them below"}
           </span>
-          {drafted && (
-            <Link href={`/moments/${moment.id}/story`} className="ml-auto text-lamp hover:underline">
-              Edit them with the story
-            </Link>
-          )}
         </div>
-        <MomentHeader
-          title={`${moment.place}, ${moment.period}`}
-          region={moment.region}
-          start={moment.start}
-          end={moment.end}
-          hook={drafted?.hook.text ?? moment.hook}
-          world={world}
-          art={preview?.art}
-        />
+        <HeaderDesk moment={moment} claim={header.data ?? null} version={header.data ? etag(header.response) : null} art={preview?.art} />
       </section>
 
       <section aria-labelledby="people" className="flex flex-col gap-3">

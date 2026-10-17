@@ -21,15 +21,6 @@ type StoryPreview = components["schemas"]["StoryPreview"];
 type Source = components["schemas"]["Source"];
 type Action = components["schemas"]["NewDecision"]["action"];
 
-const WORLD = [
-  { key: "governs", name: "Who governs" },
-  { key: "everyday", name: "Everyday life" },
-  { key: "arts", name: "Arts and ideas" },
-  { key: "meanwhile", name: "Meanwhile, elsewhere" },
-] as const;
-
-type WorldKey = (typeof WORLD)[number]["key"];
-
 /** What each card type shows, by the field naming it. */
 const SHOWS: Record<CardType, "person" | "life" | "event" | null> = { SCENE: null, PERSON: "person", LIFE: "life", EVENT: "event" };
 
@@ -41,29 +32,17 @@ const QID = /^Q\d+$/;
 /** A card being edited: its year as typed, and a key that follows it when it moves. */
 type DraftCard = StoryCard & { when: string; key: number };
 
-/** A story being edited: its lines as typed, the quotes kept as drafted. */
-type Draft = { hook: string; world: Record<WorldKey, string>; cards: DraftCard[] };
+/** A story being edited: its cards as typed, the quotes kept as drafted. */
+type Draft = { cards: DraftCard[] };
 
 function draftOf(story: Story): Draft {
-  return {
-    hook: story.hook.text,
-    world: { governs: story.world.governs.text, everyday: story.world.everyday.text, arts: story.world.arts.text, meanwhile: story.world.meanwhile.text },
-    cards: story.cards.map((card, key) => ({ ...card, when: card.year?.toString() ?? "", key })),
-  };
+  return { cards: story.cards.map((card, key) => ({ ...card, when: card.year?.toString() ?? "", key })) };
 }
 
 /** The draft as the claim's payload: trimmed, each card with only the field naming what its type shows. */
 function storyOf(draft: Draft, base: Story): Story {
-  const line = (text: string, citations: Citation[]) => ({ text: text.trim(), citations });
   return {
     ...base,
-    hook: line(draft.hook, base.hook.citations),
-    world: {
-      governs: line(draft.world.governs, base.world.governs.citations),
-      everyday: line(draft.world.everyday, base.world.everyday.citations),
-      arts: line(draft.world.arts, base.world.arts.citations),
-      meanwhile: line(draft.world.meanwhile, base.world.meanwhile.citations),
-    },
     cards: draft.cards.map(({ when, ...card }) => {
       const field = SHOWS[card.type];
       return {
@@ -84,8 +63,6 @@ function storyOf(draft: Draft, base: Story): Story {
 
 /** Why the draft can't be approved yet, if it can't. [missing] holds the ids looked up and found nowhere, by kind. */
 function problemOf(draft: Draft, missing: Set<string>): string | null {
-  if (!draft.hook.trim()) return "Write the hook.";
-  if (WORLD.some(({ key }) => !draft.world[key].trim())) return "Write every line of the world around.";
   if (!draft.cards.length) return "Keep at least one card.";
   for (const [i, card] of draft.cards.entries()) {
     if (card.when.trim() && parseYear(card.when) === null) return `Card ${i + 1}: the year is a whole number, negative for BCE, never 0.`;
@@ -138,7 +115,7 @@ const VERDICTS: Record<Action, string> = { APPROVE: "Approved", REJECT: "Rejecte
 type Props = { moment: MomentDetail; claim: ClaimDetail; version: string; preview: StoryPreview };
 
 /**
- * A moment's story laid out as on a desk: the hook, every card as an index card, and the open card beside its preview
+ * A moment's story laid out as on a desk: every card as an index card, and the open card beside its preview
  * as visitors will see it, with the quotes it rests on pinned beside it. Everything is edited in place; approving
  * saves the edits with the decision. Keys: A approve, R reject, N keep for later, ← → the open card, U undo.
  */
@@ -320,19 +297,12 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
       )}
 
       <section aria-label="The story at a glance" className="flex flex-col gap-3.5 px-10 pt-5">
-        <label className="flex flex-col gap-1">
-          <span className="label">The hook · on the moment&apos;s page, under its title</span>
-          <textarea
-            aria-describedby="quotes-hook"
-            value={draft.hook}
-            maxLength={400}
-            rows={2}
-            onChange={(e) => setDraft({ ...draft, hook: e.target.value })}
-            className="field-sizing-content resize-none bg-transparent font-serif text-[26px] leading-tight outline-none focus:bg-surface"
-          />
-        </label>
-        <Quotes id="quotes-hook" citations={base.hook.citations} sources={claim.sources} compact />
-        <span className="text-[12.5px] text-muted">The whole story at a glance · drag a card to move it</span>
+        <span className="text-[12.5px] text-muted">
+          The whole story at a glance · drag a card to move it · the hook and the world around are in the{" "}
+          <Link href={`/moments/${moment.id}#header`} className="text-lamp hover:underline">
+            moment header
+          </Link>
+        </span>
         <ol aria-label="Cards" className="grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-3">
           {draft.cards.map((c, i) => (
             <CardTile
@@ -400,30 +370,7 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
         </div>
       )}
 
-      <section aria-labelledby="world" className="flex flex-col gap-4 border-t border-line px-10 py-6">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="world" className="section-title">
-            The world around
-          </h2>
-          <span className="text-muted">On the moment&apos;s page, under its painting: drafted with the cards, approved with them</span>
-        </div>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(360px,100%),1fr))] gap-x-8 gap-y-5">
-          {WORLD.map(({ key, name }) => (
-            <div key={key} className="flex flex-col gap-1.5">
-              <label className="flex flex-col gap-1.5">
-                <span className="label">{name}</span>
-                <textarea
-                  value={draft.world[key]}
-                  maxLength={400}
-                  aria-describedby={`quotes-${key}`}
-                  onChange={(e) => setDraft({ ...draft, world: { ...draft.world, [key]: e.target.value } })}
-                  className="field-sizing-content min-h-16 resize-none border-b border-edge bg-transparent pb-2 font-serif text-[17px] leading-normal outline-none focus:border-ink"
-                />
-              </label>
-              <Quotes id={`quotes-${key}`} citations={base.world[key].citations} sources={claim.sources} compact />
-            </div>
-          ))}
-        </div>
+      <section aria-label="History" className="flex flex-col gap-4 border-t border-line px-10 py-6">
         {moment.draft && moment.draft.status !== "RUNNING" && <p className="text-[12.5px] text-muted">Last draft: {moment.draft.result}</p>}
         <History decisions={claim.decisions} />
       </section>
@@ -446,7 +393,7 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
               </button>
             ) : (
               <button type="button" className="button" disabled={pending} onClick={draftAgain}>
-                Draft again
+                Generate again
               </button>
             )}
             {last && (
@@ -711,7 +658,7 @@ function PinnedSource({ citation, sources, tilt }: { citation: Citation; sources
 }
 
 /** The quotes a line was written from, under it. */
-function Quotes({ id, citations, sources, compact }: { id?: string; citations: Citation[]; sources: Source[]; compact?: boolean }) {
+export function Quotes({ id, citations, sources, compact }: { id?: string; citations: Citation[]; sources: Source[]; compact?: boolean }) {
   if (!citations.length)
     return (
       <p id={id} className="text-[12.5px] text-conflict">

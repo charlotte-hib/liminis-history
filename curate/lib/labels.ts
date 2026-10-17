@@ -12,7 +12,8 @@ export const QUEUES: { type: ClaimType; name: string; hint: string; slug: string
   { type: "EVENT", name: "Events", hint: "A region, a year", slug: "events" },
   { type: "ANECDOTE", name: "Anecdotes", hint: "A short story about one person", slug: "anecdotes" },
   { type: "OCCUPATION_DOMAIN", name: "Occupations to map", hint: "The domain of the people who hold each occupation", slug: "occupations" },
-  { type: "STORY", name: "Stories", hint: "A moment's story, drafted with Claude", slug: "stories" },
+  { type: "STORY", name: "Stories", hint: "A moment's story cards, drafted with Claude", slug: "stories" },
+  { type: "MOMENT_PAGE", name: "Moment headers", hint: "A moment's hook and world around, drafted with Claude", slug: "moment-headers" },
 ];
 
 /** Where a claim stands, in words. */
@@ -72,7 +73,7 @@ export function fieldOf(reason: string): Field {
   return PLACE_FIELDS[reason.split("_")[0]] ?? "claim";
 }
 
-/** What a new draft did to a story already reviewed: the workbench's refresh reasons, said for stories. */
+/** What a new draft did to a story or header already reviewed: the workbench's refresh reasons, said for them. */
 const STORY_REASONS: Record<string, string> = {
   CHANGED_SINCE_APPROVED: "Claude drafted it again since you approved it",
   CHANGED_SINCE_EDITED: "Claude drafted it again since you edited it: your edits are shown",
@@ -84,7 +85,7 @@ const STORY_REASONS: Record<string, string> = {
  */
 export function describe(reason: string, type?: ClaimType): string {
   if (reason.includes(" ")) return reason;
-  if (type === "STORY" && STORY_REASONS[reason]) return STORY_REASONS[reason];
+  if ((type === "STORY" || type === "MOMENT_PAGE") && STORY_REASONS[reason]) return STORY_REASONS[reason];
   const place = reason.match(/^P\d+_(.+)$/);
   return REASONS[place ? place[1] : reason] ?? reason.toLowerCase().replaceAll("_", " ");
 }
