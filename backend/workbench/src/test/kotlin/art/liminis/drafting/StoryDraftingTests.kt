@@ -16,6 +16,7 @@ import art.liminis.curation.Claims
 import art.liminis.curation.CurationFixtures
 import art.liminis.curation.Flag
 import art.liminis.curation.FlagReason
+import art.liminis.curation.MomentPage
 import art.liminis.curation.Origin
 import art.liminis.curation.SourceKind
 import art.liminis.curation.SourceRef
@@ -76,7 +77,7 @@ class StoryDraftingTests(
     )
 
     @Test
-    fun `a draft becomes the moment's story claim, hand-written people by their id, with what the validator found`() {
+    fun `a draft becomes the moment's page and story claims, hand-written people by their id, each with what the validator found in it`() {
         doReturn(Drafted(draft, "claude-opus-5-5", 40_000, 8_000)).`when`(drafter).draft(anyOf(), anyOf())
 
         val result = drafting.draft("paris-1870s")
@@ -90,7 +91,6 @@ class StoryDraftingTests(
         assertEquals(listOf("victor-hugo", "Q3008", null, null), story.cards.map { it.person })
         assertEquals(listOf("Victor Hugo", "Lesser Known", "A washerwoman on the Seine", null), story.cards.map { it.label })
         assertEquals("a-washerwoman-on-the-seine", story.cards[2].life)
-        assertEquals("Victor Hugo (1802–1885), writer", story.hook.citations.single().title)
         assertEquals(
             listOf(
                 FlagReason(Flag.ODD, "card 3 (LIFE) quotes text not found in 'person:Q3008': \"invented\""),
@@ -98,6 +98,12 @@ class StoryDraftingTests(
             ),
             detail.claim.flags,
         )
+        val page = claims.detail("moment-page:paris-1870s")
+        assertEquals(ClaimStatus.CANDIDATE, page.claim.status)
+        assertEquals(Origin.CLAUDE, page.claim.origin)
+        assertEquals("A republic, and its old poet.", (page.claim.payload as MomentPage).hook.text)
+        assertEquals("Victor Hugo (1802–1885), writer", (page.claim.payload as MomentPage).hook.citations.single().title)
+        assertEquals(emptyList(), page.claim.flags)
         assertEquals(
             listOf("Title of Q535", "Title of Q3008").map { SourceRef(SourceKind.WIKIPEDIA, language = "en", title = it) },
             detail.sources,

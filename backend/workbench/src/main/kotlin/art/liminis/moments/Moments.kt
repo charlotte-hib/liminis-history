@@ -3,10 +3,15 @@ package art.liminis.moments
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import art.liminis.curation.Claim
+import art.liminis.curation.ClaimDetail
 import art.liminis.curation.ClaimRepository
 import art.liminis.curation.ClaimRules
 import art.liminis.curation.ClaimStatus
+import art.liminis.curation.Claims
+import art.liminis.curation.MomentPage
 import art.liminis.curation.StoryCard
+import art.liminis.curation.StoryLine
+import art.liminis.curation.StoryWorld
 import art.liminis.dataset.DatasetStore
 import art.liminis.dataset.PersonSummary
 import art.liminis.domain.Artwork
@@ -23,7 +28,7 @@ import art.liminis.support.NotFoundException
 import art.liminis.support.dropHatnote
 import art.liminis.support.leadSentences
 
-/** A moment of the release, with how many people lived there, the claims about them and its story that wait. */
+/** A moment of the release, with how many people lived there, the claims about them, its story and its page that wait. */
 data class MomentOverview(
     val moment: Moment,
     val people: Int,
@@ -32,6 +37,8 @@ data class MomentOverview(
     val cards: Int,
     /** Where the moment's story claim stands, if one was drafted. */
     val story: ClaimStatus?,
+    /** Where the claim on the moment's page stands, if one was drafted or written. */
+    val page: ClaimStatus?,
 )
 
 /** A moment with the story the release has: its hook, the world around it and its cards. */
@@ -82,6 +89,7 @@ class Moments(
     private val releaseEvents: EventRepository,
     private val dataset: DatasetStore,
     private val claims: ClaimRepository,
+    private val curation: Claims,
 ) {
 
     @Transactional(readOnly = true)
@@ -101,6 +109,21 @@ class Moments(
             )
         }
         return MomentStory(overview(moment, storyCards.size), moment.hook, moment.world, storyCards)
+    }
+
+    /**
+     * The text of a moment's [page] as the curator wrote it from the release's: a claim approved at once, the release's
+     * text as its proposal. Refused when the moment's page has a claim already, drafted or written: decide on that one.
+     */
+    @Transactional
+    fun writePage(page: MomentPage, note: String?, by: String): ClaimDetail {
+        val moment = find(page.moment)
+        val released = MomentPage(
+            moment = moment.id,
+            hook = StoryLine(moment.hook),
+            world = moment.world?.let(::worldOf) ?: StoryWorld(StoryLine(""), StoryLine(""), StoryLine(""), StoryLine("")),
+        )
+        return curation.addApproved(page, released, by, note)
     }
 
     /** A page of the people alive in the moment, the best known first. */
@@ -144,7 +167,7 @@ class Moments(
         )
     }
 
-    /** The ids of the claims about the moment: its people's facts and its story. */
+    /** The ids of the claims about the moment: its people's facts, its story and its page. */
     @Transactional(readOnly = true)
     fun claimIds(id: String): List<String> = claimIds(find(id))
 
@@ -153,15 +176,16 @@ class Moments(
         val found: List<Claim> = claims.findAllById(ids)
         return MomentOverview(
             moment = moment,
-            people = ids.size - 1,
+            people = ids.size - 2,
             waiting = found.count { it.status == ClaimStatus.CANDIDATE },
             cards = cards,
             story = found.firstOrNull { it.id == storyOf(moment) }?.status,
+            page = found.firstOrNull { it.id == pageOf(moment) }?.status,
         )
     }
 
     private fun claimIds(moment: Moment): List<String> =
-        dataset.qidsAliveIn(moment.region.code, moment.startYear, moment.endYear).map(::factsOf) + storyOf(moment)
+        dataset.qidsAliveIn(moment.region.code, moment.startYear, moment.endYear).map(::factsOf) + storyOf(moment) + pageOf(moment)
 
     /** Throws [NotFoundException] unless the release has the moment [id]. */
     fun requireExists(id: String) {
@@ -176,4 +200,9 @@ class Moments(
     private fun bioOf(intro: String) = dropHatnote(intro).takeIf { it.isNotBlank() }?.let(::leadSentences)
 
     private fun storyOf(moment: Moment) = ClaimRules.storyId(moment.id)
+
+    private fun pageOf(moment: Moment) = ClaimRules.pageId(moment.id)
+
+    private fun worldOf(world: WorldAround) =
+        StoryWorld(StoryLine(world.governs), StoryLine(world.everyday), StoryLine(world.arts), StoryLine(world.meanwhile))
 }

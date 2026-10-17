@@ -416,8 +416,8 @@ paths:
         - auth: ["curation:write"]
       summary: Draft the moment's story
       description: |
-        Starts the run that drafts the moment's story with Claude and proposes it as the moment's `STORY` claim, as
-        `wb draft` does. The moment's `draft` follows it.
+        Starts the run that drafts the moment's story with Claude and proposes its cards as the moment's `STORY` claim
+        and its hook and world around as its `MOMENT_PAGE` claim, as `wb draft` does. The moment's `draft` follows it.
       parameters:
         - name: id
           in: path
@@ -431,6 +431,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Run"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/moments/{id}/page:
+    post:
+      tags: [claims]
+      operationId: writeMomentPage
+      security:
+        - auth: ["curation:write"]
+      summary: Write a moment's page
+      description: |
+        The curator's text for the top of the moment's page, written from the release's: added as the moment's
+        `MOMENT_PAGE` claim and approved at once, the release's text as its proposal. Refused when the moment's page has
+        a claim already, drafted or written: decide on that one.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/MomentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MomentPageText"
+      responses:
+        "201":
+          description: The moment's page claim, approved.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -818,8 +862,9 @@ components:
         `PERSON_FACTS`: a person's facts as fetched, one claim per person. `CONNECTION`: two people linked at a date.
         `EVENT`: something that happened in a region in a year. `ANECDOTE`: a short story about one person.
         `OCCUPATION_DOMAIN`: the domain of the people who hold an occupation, one claim per occupation or class.
-        `STORY`: a moment's story, drafted with Claude, one claim per moment.
-      enum: [PERSON_FACTS, CONNECTION, EVENT, ANECDOTE, OCCUPATION_DOMAIN, STORY]
+        `STORY`: a moment's story cards, drafted with Claude, one claim per moment. `MOMENT_PAGE`: the hook and the world
+        around at the top of a moment's page, drafted with Claude or written from the release's, one claim per moment.
+      enum: [PERSON_FACTS, CONNECTION, EVENT, ANECDOTE, OCCUPATION_DOMAIN, STORY, MOMENT_PAGE]
 
     ClaimStatus:
       type: string
@@ -933,6 +978,7 @@ components:
         - $ref: "#/components/schemas/Anecdote"
         - $ref: "#/components/schemas/OccupationDomain"
         - $ref: "#/components/schemas/Story"
+        - $ref: "#/components/schemas/MomentPage"
       discriminator:
         propertyName: type
         mapping:
@@ -942,6 +988,7 @@ components:
           ANECDOTE: "#/components/schemas/Anecdote"
           OCCUPATION_DOMAIN: "#/components/schemas/OccupationDomain"
           STORY: "#/components/schemas/Story"
+          MOMENT_PAGE: "#/components/schemas/MomentPage"
 
     PersonFacts:
       type: object
@@ -1122,9 +1169,28 @@ components:
     Story:
       type: object
       description: |
-        A moment's story as it would ship into its file in `data/moments/`, each line with the quotes it rests on.
-        Publishing writes the hook, the world and the cards, and leaves the rest of the moment's file as it is.
-      required: [type, moment, hook, world, cards]
+        A moment's story cards as they would ship into its file in `data/moments/`, each with the quotes it rests on.
+        Publishing writes the cards, and leaves the rest of the moment's file as it is.
+      required: [type, moment, cards]
+      properties:
+        type:
+          type: string
+        moment:
+          $ref: "#/components/schemas/MomentId"
+        cards:
+          type: array
+          minItems: 1
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/StoryCard"
+
+    MomentPage:
+      type: object
+      description: |
+        The text at the top of a moment's page as it would ship into its file in `data/moments/`: the hook under its
+        title and the world around, each line with the quotes it rests on, if drafted. Publishing writes the hook and
+        the world, and leaves the rest of the moment's file as it is.
+      required: [type, moment, hook, world]
       properties:
         type:
           type: string
@@ -1134,12 +1200,43 @@ components:
           $ref: "#/components/schemas/StoryLine"
         world:
           $ref: "#/components/schemas/StoryWorld"
-        cards:
-          type: array
-          minItems: 1
-          maxItems: 12
-          items:
-            $ref: "#/components/schemas/StoryCard"
+
+    MomentPageText:
+      type: object
+      description: The text of a moment's page as the curator wrote it.
+      required: [hook, world]
+      properties:
+        hook:
+          type: string
+          minLength: 1
+          maxLength: 400
+        world:
+          $ref: "#/components/schemas/WorldText"
+        note:
+          type: string
+          maxLength: 2000
+
+    WorldText:
+      type: object
+      description: The world around a moment, one line each.
+      required: [governs, everyday, arts, meanwhile]
+      properties:
+        governs:
+          type: string
+          minLength: 1
+          maxLength: 400
+        everyday:
+          type: string
+          minLength: 1
+          maxLength: 400
+        arts:
+          type: string
+          minLength: 1
+          maxLength: 400
+        meanwhile:
+          type: string
+          minLength: 1
+          maxLength: 400
 
     StoryLine:
       type: object
@@ -1256,12 +1353,16 @@ components:
           description: The fetched people alive there, as the moment's people list counts them.
         waiting:
           type: integer
-          description: The claims about the moment's people and its story waiting for review.
+          description: The claims about the moment's people, its story and its page waiting for review.
         cards:
           type: integer
           description: The cards of the story the release has.
         story:
           $ref: "#/components/schemas/ClaimStatus"
+        page:
+          description: Where the claim on the moment's page stands, if there is one.
+          allOf:
+            - $ref: "#/components/schemas/ClaimStatus"
 
     MomentDetail:
       allOf:
@@ -1726,7 +1827,7 @@ components:
             $ref: "#/components/schemas/Qid"
         heldBack:
           type: array
-          description: Approved stories not published, and why.
+          description: Approved stories and moment pages not published, and why.
           items:
             $ref: "#/components/schemas/HeldBack"
         maxAge:
@@ -1760,7 +1861,7 @@ components:
           enum: [ADDED, CHANGED, REMOVED]
         before:
           type: string
-          description: The record's line as `main` has it, JSON; a moment's story only, in its file. None when added.
+          description: The record's line as `main` has it, JSON; a moment's hook, world and cards only, in its file. None when added.
         after:
           type: string
           description: The record's line as publishing writes it, JSON. None when removed.

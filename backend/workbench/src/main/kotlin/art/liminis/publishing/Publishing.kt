@@ -5,6 +5,7 @@ import art.liminis.curation.ClaimRepository
 import art.liminis.curation.ClaimRules
 import art.liminis.curation.ClaimStatus
 import art.liminis.curation.ClaimType
+import art.liminis.curation.MomentPage
 import art.liminis.curation.Story
 import art.liminis.support.StaleException
 import art.liminis.support.UnavailableException
@@ -15,15 +16,15 @@ enum class Change { ADDED, CHANGED, REMOVED }
 /** One record's change: its line before and after, as JSON. */
 data class RecordChange(val id: String, val change: Change, val before: String?, val after: String?)
 
-/** The changes to the file at [path]: its records', or a moment's story, under the moment's id. */
+/** The changes to the file at [path]: its records', or a moment's page and story, under the moment's id. */
 data class FileChanges(val path: String, val changes: List<RecordChange>)
 
-/** An approved story publishing leaves out, and why. */
+/** An approved story, or page, publishing leaves out, and why. */
 data class HeldBack(val moment: String, val reason: String)
 
 /**
  * What publishing makes of the data repository's [base] commit: the changes to each [DataFile] and to the moments'
- * files the approved stories go into, the publish pull request open, if any, the people written by hand whom a
+ * files the approved pages and stories go into, the publish pull request open, if any, the people written by hand whom a
  * correction would not change, and the approved stories left out.
  */
 data class Publication(
@@ -92,28 +93,36 @@ class Publishing(
         val texts = files.entries.associate { (file, lines) -> file.path to lines.text() }
 
         val heldBack = mutableListOf<HeldBack>()
-        val stories = mutableListOf<Pair<FileChanges, String>>()
-        for (story in approvedStories()) {
-            val path = momentFiles.path(story.moment)
+        val moments = mutableListOf<Pair<FileChanges, String>>()
+        val pages = approved<MomentPage>(ClaimType.MOMENT_PAGE).associateBy { it.moment }
+        val stories = approved<Story>(ClaimType.STORY).associateBy { it.moment }
+        for (moment in (pages.keys + stories.keys).sorted()) {
+            val path = momentFiles.path(moment)
             val before = github.file(path, base)
-            val reason = holdBack(story) ?: if (before == null) "There is no $path on the data repository's main" else null
-            if (reason != null) {
-                heldBack += HeldBack(story.moment, reason)
+            if (before == null) {
+                heldBack += HeldBack(moment, "There is no $path on the data repository's main")
                 continue
             }
-            val after = momentFiles.write(before!!, story)
-            val change = RecordChange(story.moment, Change.CHANGED, momentFiles.story(before), momentFiles.story(after)).takeIf { before != after }
-            stories += FileChanges(path, listOfNotNull(change)) to after
+            // A story held back leaves its moment's page to go alone.
+            val reason = stories[moment]?.let(::holdBack)
+            if (reason != null) heldBack += HeldBack(moment, reason)
+            val story = stories[moment].takeIf { reason == null }
+            val page = pages[moment]
+            if (page == null && story == null) continue
+            val after = momentFiles.write(before, page, story)
+            val change = RecordChange(moment, Change.CHANGED, momentFiles.story(before), momentFiles.story(after)).takeIf { before != after }
+            moments += FileChanges(path, listOfNotNull(change)) to after
         }
-        val publication = Publication(base, changes + stories.map { it.first }, github.openPullRequest(properties.branch), withoutEffect, heldBack)
-        return publication to texts + stories.associate { (file, text) -> file.path to text }
+        val publication = Publication(base, changes + moments.map { it.first }, github.openPullRequest(properties.branch), withoutEffect, heldBack)
+        return publication to texts + moments.associate { (file, text) -> file.path to text }
     }
 
     /**
-     * The approved stories, every one written on every publish: the claim is the story's source, so a hand edit of its
-     * fields in `data/` shows in the preview as a change back, and goes with the next publish.
+     * The approved pages or stories, every one written on every publish: the claim is their source, so a hand edit of
+     * their fields in `data/` shows in the preview as a change back, and goes with the next publish.
      */
-    private fun approvedStories() = claims.findByTypeAndStatusOrderById(ClaimType.STORY, ClaimStatus.APPROVED).map { it.payload as Story }
+    private inline fun <reified T> approved(type: ClaimType): List<T> =
+        claims.findByTypeAndStatusOrderById(type, ClaimStatus.APPROVED).map { it.payload as T }
 
     /**
      * Why [story] cannot be published yet: cards showing fetched people (named by Q-id), whom the release holds only

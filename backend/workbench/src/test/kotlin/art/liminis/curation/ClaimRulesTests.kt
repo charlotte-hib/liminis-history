@@ -117,16 +117,25 @@ class ClaimRulesTests {
         assertEquals(approved.copy(flags = emptyList()), ClaimRules.refresh(approved, proposal(facts)))
     }
 
-    private fun story(hook: String) = Story(
+    private fun story(text: String) = Story(
+        moment = "paris-1870s",
+        cards = listOf(
+            StoryCard(
+                CardType.PERSON, text = text, year = 1871, person = "victor-hugo", label = "Victor Hugo",
+                citations = listOf(Citation("person:Q535", "Victor Hugo", "a French writer")),
+            ),
+        ),
+    )
+
+    private fun page(hook: String) = MomentPage(
         moment = "paris-1870s",
         hook = StoryLine(hook, listOf(Citation("person:Q535", "Victor Hugo", "a French writer"))),
         world = StoryLine("A line.").let { StoryWorld(it, it, it, it) },
-        cards = listOf(StoryCard(CardType.PERSON, text = "Back from exile.", year = 1871, person = "victor-hugo", label = "Victor Hugo")),
     )
 
     @Test
     fun `a story is one claim per moment, and its cards name what they show`() {
-        val draft = story("A republic born out of defeat.")
+        val draft = story("Back from exile.")
         assertEquals("story:paris-1870s", ClaimRules.idOf(draft))
         assertThrows<InvalidRequestException> { ClaimRules.flagsOfNew(NewClaim(draft, listOf(SourceRef(SourceKind.WEB, url = "https://example.org")))) }
 
@@ -163,5 +172,23 @@ class ClaimRulesTests {
 
         // Rejected: the edits went with it.
         assertEquals(second.payload, ClaimRules.refresh(state(ClaimStatus.REJECTED, edited, first), second).payload)
+    }
+
+    @Test
+    fun `a moment's page is one claim per moment, written on the moment's page rather than added, and drafted again like a story`() {
+        val first = page("First draft.")
+        assertEquals("moment-page:paris-1870s", ClaimRules.idOf(first))
+        assertThrows<InvalidRequestException> { ClaimRules.flagsOfNew(NewClaim(first, listOf(SourceRef(SourceKind.WEB, url = "https://example.org")))) }
+        assertThrows<InvalidRequestException> {
+            ClaimRules.decide(state(ClaimStatus.CANDIDATE, first, first), NewDecision(Verdict.APPROVE, first.copy(moment = "paris-1890s")))
+        }
+
+        val edited = page("Edited by the curator.")
+        val second = Proposal(page("Second draft."), Origin.CLAUDE, emptyList(), emptyList())
+        assertEquals(state(ClaimStatus.CANDIDATE, second.payload, second.payload, emptyList()), ClaimRules.refresh(state(ClaimStatus.REJECTED, first, first), second))
+        val keptEdits = ClaimRules.refresh(state(ClaimStatus.APPROVED, edited, first), second)
+        assertEquals(ClaimStatus.CANDIDATE, keptEdits.status)
+        assertEquals(edited, keptEdits.payload)
+        assertEquals(listOf(changedSinceEdited), keptEdits.flags)
     }
 }

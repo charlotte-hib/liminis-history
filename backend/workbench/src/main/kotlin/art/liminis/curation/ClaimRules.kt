@@ -29,12 +29,14 @@ object ClaimRules {
         is Anecdote -> ClaimType.ANECDOTE
         is OccupationDomain -> ClaimType.OCCUPATION_DOMAIN
         is Story -> ClaimType.STORY
+        is MomentPage -> ClaimType.MOMENT_PAGE
     }
 
     /**
      * A claim's id, from what it is about, so the same thing proposed again lands on the same claim:
      * `person-facts:Q535`, `connection:Q296|Q535:friends`, `event:FR:-52:vercingetorix-surrenders-at-alesia`,
-     * `anecdote:Q535:1851:` and the start of the text's SHA-256, `occupation:Q1028181`, `story:paris-1870s`.
+     * `anecdote:Q535:1851:` and the start of the text's SHA-256, `occupation:Q1028181`, `story:paris-1870s`,
+     * `moment-page:paris-1870s`.
      */
     fun idOf(payload: Payload): String = when (payload) {
         is PersonFacts -> factsId(payload.person)
@@ -43,6 +45,7 @@ object ClaimRules {
         is Anecdote -> "anecdote:${payload.person}:${payload.year}:${sha256(payload.text.trim()).take(12)}"
         is OccupationDomain -> "occupation:${payload.occupation}"
         is Story -> storyId(payload.moment)
+        is MomentPage -> pageId(payload.moment)
     }
 
     /** The id of the claim on [person]'s facts. */
@@ -50,6 +53,9 @@ object ClaimRules {
 
     /** The id of the claim on [moment]'s story. */
     fun storyId(moment: String) = "story:$moment"
+
+    /** The id of the claim on the text of [moment]'s page. */
+    fun pageId(moment: String) = "moment-page:$moment"
 
     /**
      * The cards of [story] showing a fetched person, named by Q-id, by their number: the site holds them only once its
@@ -68,6 +74,7 @@ object ClaimRules {
         is Anecdote -> payload.person
         is OccupationDomain -> payload.occupation
         is Story -> payload.moment
+        is MomentPage -> payload.moment
     }
 
     /**
@@ -78,6 +85,7 @@ object ClaimRules {
         if (claim.payload is PersonFacts) invalid("A person's facts are fetched from Wikidata, not added by hand")
         if (claim.payload is OccupationDomain) invalid("Occupations are proposed from the dataset, not added by hand")
         if (claim.payload is Story) invalid("Stories are drafted with Claude, not added by hand")
+        if (claim.payload is MomentPage) invalid("A moment's page is written on the moment's page, from the release's text")
         check(claim.payload)
         claim.sources.forEach(::check)
         return if (claim.sources.size == 1) listOf(ONE_SOURCE) else emptyList()
@@ -116,14 +124,14 @@ object ClaimRules {
      * What a new [proposal] makes of a claim in [state], keeping the conflicts earlier refreshes found until the
      * curator decides again. A claim not yet decided takes the new proposal, unless the curator edited it. An approved
      * one goes back to review, flagged: what it rests on changed. A rejected one stays rejected. A story is drafted
-     * again only when the curator asks: [redraft].
+     * and its page are drafted again only when the curator asks: [redraft].
      */
     fun refresh(state: ClaimState, proposal: Proposal): ClaimState {
         val conflicts = state.flags - fetchedFlags(state.flags).toSet()
         val flags = proposal.flags + conflicts
         if (state.proposal == proposal.payload) return state.copy(flags = flags)
         val refreshed = state.copy(proposal = proposal.payload)
-        if (proposal.payload is Story) return redraft(refreshed, state, flags)
+        if (proposal.payload is Story || proposal.payload is MomentPage) return redraft(refreshed, state, flags)
         return when {
             state.status == ClaimStatus.REJECTED -> refreshed.copy(flags = flags)
             state.status == ClaimStatus.APPROVED ->
@@ -134,7 +142,7 @@ object ClaimRules {
     }
 
     /**
-     * A new draft of a story, whatever became of the last one, waits for review: in place of the last one, unless the
+     * A new draft of a story or a moment's page, whatever became of the last one, waits for review: in place of the last one, unless the
      * curator edited it (and did not reject it), which keeps the edits, flagged. One approved is flagged too.
      */
     private fun redraft(refreshed: ClaimState, state: ClaimState, flags: List<FlagReason>): ClaimState {
@@ -166,6 +174,7 @@ object ClaimRules {
             is Anecdote -> listOf(payload.year)
             is OccupationDomain -> emptyList()
             is Story -> payload.cards.mapNotNull { it.year }
+            is MomentPage -> emptyList()
         }
         if (0 in years) invalid("There is no year 0: 1 BCE is followed by 1 CE")
         if (payload is Connection && payload.people.distinct().size != 2) invalid("A connection links two different people")

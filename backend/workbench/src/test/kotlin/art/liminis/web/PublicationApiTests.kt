@@ -16,6 +16,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
 import com.nimbusds.jose.crypto.RSASSAVerifier
 import com.nimbusds.jwt.SignedJWT
 import org.hamcrest.Matchers.containsString
+import org.hamcrest.Matchers.not
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -40,6 +41,7 @@ import art.liminis.curation.ClaimStatus
 import art.liminis.curation.CurationFixtures
 import art.liminis.curation.Occupation
 import art.liminis.curation.OccupationChoice
+import art.liminis.curation.MomentPage
 import art.liminis.curation.OccupationDomain
 import art.liminis.curation.Origin
 import art.liminis.curation.Payload
@@ -313,13 +315,13 @@ class PublicationApiTests(
 
     private fun story(moment: String, person: String) = Story(
         moment = moment,
-        hook = StoryLine("A new hook."),
-        world = StoryLine("A line.").let { StoryWorld(it, it, it, it) },
         cards = listOf(StoryCard(CardType.PERSON, text = "Someone there.", year = 1875, person = person, label = "Someone")),
     )
 
+    private fun page(moment: String) = MomentPage(moment, StoryLine("A new hook."), StoryLine("A line.").let { StoryWorld(it, it, it, it) })
+
     @Test
-    fun `writes an approved story into its moment's file, and holds back one showing a fetched person`() {
+    fun `writes an approved page and story into their moment's file, and holds back a story showing a fetched person, not its page`() {
         val paris = """{
   "id": "paris-1870s",
   "hook": "Old hook.",
@@ -328,21 +330,26 @@ class PublicationApiTests(
 """
         file("data/moments/paris-1870s.json", paris)
         file("data/moments/edo-1830s.json", "{}")
-        val approved = { story: Story -> claims.save(Claim.candidate(story, Origin.CLAUDE, emptyList()).apply { status = ClaimStatus.APPROVED }) }
+        val approved = { payload: Payload -> claims.save(Claim.candidate(payload, Origin.CLAUDE, emptyList()).apply { status = ClaimStatus.APPROVED }) }
         approved(story("paris-1870s", "victor-hugo"))
+        approved(page("paris-1870s"))
         approved(story("edo-1830s", "Q5586").let { it.copy(cards = it.cards + StoryCard(CardType.PERSON, text = "A shogun.", person = "Q439717", label = "Tokugawa Ienari")) })
+        approved(page("edo-1830s"))
         approved(story("london-1600", "william-shakespeare"))
         file("data/moments/london-1600.json", null)
         file("data/corrections.jsonl", null)
 
         mockMvc.get("/api/publication") { signedIn() }.andExpect {
             status { isOk() }
-            jsonPath("$.files[2].path") { value("data/moments/paris-1870s.json") }
-            jsonPath("$.files[2].changes[0].id") { value("paris-1870s") }
-            jsonPath("$.files[2].changes[0].change") { value("CHANGED") }
-            jsonPath("$.files[2].changes[0].before") { value("""{"hook":"Old hook."}""") }
-            jsonPath("$.files[2].changes[0].after") { value(containsString(""""cards":[{"type":"PERSON","text":"Someone there.","year":1875,"person":"victor-hugo"}]""")) }
-            jsonPath("$.files.length()") { value(3) }
+            jsonPath("$.files[2].path") { value("data/moments/edo-1830s.json") }
+            jsonPath("$.files[2].changes[0].after") { value(containsString(""""hook":"A new hook.""")) }
+            jsonPath("$.files[2].changes[0].after") { value(not(containsString("cards"))) }
+            jsonPath("$.files[3].path") { value("data/moments/paris-1870s.json") }
+            jsonPath("$.files[3].changes[0].id") { value("paris-1870s") }
+            jsonPath("$.files[3].changes[0].change") { value("CHANGED") }
+            jsonPath("$.files[3].changes[0].before") { value("""{"hook":"Old hook."}""") }
+            jsonPath("$.files[3].changes[0].after") { value(containsString(""""cards":[{"type":"PERSON","text":"Someone there.","year":1875,"person":"victor-hugo"}]""")) }
+            jsonPath("$.files.length()") { value(4) }
             jsonPath("$.heldBack[0].moment") { value("edo-1830s") }
             jsonPath("$.heldBack[0].reason") { value(containsString("2 cards show fetched people")) }
             jsonPath("$.heldBack[0].reason") { value(containsString("card 1, Someone (Q5586); card 2, Tokugawa Ienari (Q439717)")) }
@@ -353,7 +360,7 @@ class PublicationApiTests(
         stubWrites()
         publish().andExpect { status { isOk() } }
         val tree = github.findAll(postRequestedFor(urlPathEqualTo("$repo/git/trees"))).single().bodyAsString
-        assertTrue("data/moments/paris-1870s.json" in tree && "edo-1830s" !in tree, tree)
+        assertTrue("data/moments/paris-1870s.json" in tree && "data/moments/edo-1830s.json" in tree, tree)
         assertTrue("""\"hook\": \"A new hook.\"""" in tree, tree)
     }
 }
