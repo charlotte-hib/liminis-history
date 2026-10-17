@@ -1,6 +1,7 @@
 package art.liminis.release
 
 import org.junit.jupiter.api.Test
+import art.liminis.domain.AnecdoteSource
 import art.liminis.domain.ArtFit
 import art.liminis.domain.CardType
 import art.liminis.domain.Domain
@@ -21,7 +22,7 @@ class ReleaseCompilerTests {
             EraRecord("fr-fifth-republic", "FR", "Fifth Republic", start = 1958),
         ),
         people = listOf(
-            PersonRecord("emile-zola", name = "Émile Zola", born = 1840, died = 1902, region = "FR", domain = Domain.ARTS, occupation = "novelist"),
+            PersonRecord("emile-zola", qid = "Q504", name = "Émile Zola", born = 1840, died = 1902, region = "FR", domain = Domain.ARTS, occupation = "novelist"),
             PersonRecord("paul-cezanne", name = "Paul Cézanne", born = 1839, died = 1906, region = "FR", domain = Domain.ARTS, occupation = "painter", wikipedia = "Cézanne"),
         ),
         lives = listOf(LifeRecord("a-laundress", "FR", "A laundress", "Washes linen.", 1870, 1900)),
@@ -93,6 +94,20 @@ class ReleaseCompilerTests {
     fun `a connection links two different people`() {
         val connection = ConnectionRecord(listOf("emile-zola", "emile-zola"), "friends", 1860, "Himself.", "https://example.org")
         assertEquals("connections.jsonl emile-zola emile-zola friends: a connection links two different people", problem(release.copy(connections = listOf(connection))))
+    }
+
+    @Test
+    fun `an anecdote is tied to its person by Q-id, with a source that has a title or a URL`() {
+        val anecdote = AnecdoteRecord("anecdote:Q504:1898:aaaa", "Q504", 1898, "He leaves for London.", AnecdoteSourceRecord(title = "A book", page = "112"))
+        val compiled = ReleaseCompiler.compile(release.copy(anecdotes = listOf(anecdote)))
+
+        assertEquals(compiled.people.first(), compiled.anecdotes.single().person)
+        assertEquals(AnecdoteSource("A book", "112", null, null, null), compiled.anecdotes.single().source)
+        assertEquals("anecdotes.jsonl anecdote:Q504:1898:aaaa: no person Q999", problem(release.copy(anecdotes = listOf(anecdote.copy(person = "Q999")))))
+        assertEquals(
+            "anecdotes.jsonl anecdote:Q504:1898:aaaa: the source has a title or a URL",
+            problem(release.copy(anecdotes = listOf(anecdote.copy(source = AnecdoteSourceRecord(page = "112"))))),
+        )
     }
 
     @Test

@@ -84,6 +84,24 @@ data class ParticipantRecord(val person: String, val role: String)
 /** A line of `connections.jsonl`: two different people, how they were linked, when, and the source. */
 data class ConnectionRecord(val people: List<String>, val kind: String, val year: Int, val text: String, val source: String)
 
+/**
+ * A line of `anecdotes.jsonl`: a short story about one person, by Q-id, in a [year], and where it was read or heard.
+ * Written by the workbench's publish from the anecdotes the curator approved.
+ */
+data class AnecdoteRecord(val id: String, val person: String, val year: Int, val text: String, val source: AnecdoteSourceRecord)
+
+/**
+ * Where an anecdote comes from: a book ([title], [page]), a podcast, a video or a documentary ([title], [episode],
+ * [minute]), or a web page ([url]). It has a title or a URL.
+ */
+data class AnecdoteSourceRecord(
+    val title: String? = null,
+    val page: String? = null,
+    val episode: String? = null,
+    val minute: String? = null,
+    val url: String? = null,
+)
+
 /** A file in `moments/`, named after its id. People tied to the place [placeQid] come first in its lists. */
 data class MomentRecord(
     val id: String,
@@ -158,6 +176,7 @@ data class Release(
     val lives: List<LifeRecord>,
     val events: List<EventRecord>,
     val connections: List<ConnectionRecord>,
+    val anecdotes: List<AnecdoteRecord> = emptyList(),
     val moments: List<MomentRecord>,
 )
 

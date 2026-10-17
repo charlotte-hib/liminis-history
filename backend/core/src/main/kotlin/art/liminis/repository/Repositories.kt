@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import java.util.Optional
+import art.liminis.domain.Anecdote
 import art.liminis.domain.CardType
 import art.liminis.domain.Connection
 import art.liminis.domain.Domain
@@ -163,6 +164,10 @@ interface ConnectionRepository : JpaRepository<Connection, Long> {
         """
     )
     fun findInvolving(slug: String): List<Connection>
+}
+
+interface AnecdoteRepository : JpaRepository<Anecdote, String> {
+    fun findByPersonIdOrderByYearAscIdAsc(personId: String): List<Anecdote>
 }
 
 interface MomentRepository : JpaRepository<Moment, String> {

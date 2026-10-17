@@ -1,6 +1,49 @@
 {
   "$schema" : "https://json-schema.org/draft/2020-12/schema",
   "$defs" : {
+    "AnecdoteRecord" : {
+      "type" : "object",
+      "properties" : {
+        "id" : {
+          "type" : "string"
+        },
+        "person" : {
+          "type" : "string"
+        },
+        "source" : {
+          "$ref" : "#/$defs/AnecdoteSourceRecord"
+        },
+        "text" : {
+          "type" : "string"
+        },
+        "year" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [ "id", "person", "source", "text", "year" ],
+      "additionalProperties" : false
+    },
+    "AnecdoteSourceRecord" : {
+      "type" : "object",
+      "properties" : {
+        "episode" : {
+          "type" : "string"
+        },
+        "minute" : {
+          "type" : "string"
+        },
+        "page" : {
+          "type" : "string"
+        },
+        "title" : {
+          "type" : "string"
+        },
+        "url" : {
+          "type" : "string"
+        }
+      },
+      "additionalProperties" : false
+    },
     "ArtFit" : {
       "type" : "string",
       "enum" : [ "COVER", "CONTAIN" ]
@@ -417,6 +460,12 @@
   },
   "type" : "object",
   "properties" : {
+    "anecdotes" : {
+      "type" : "array",
+      "items" : {
+        "$ref" : "#/$defs/AnecdoteRecord"
+      }
+    },
     "connections" : {
       "type" : "array",
       "items" : {

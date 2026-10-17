@@ -18,6 +18,7 @@ At startup the backend reads the directory in `app.release.dir`, checks it (`Rel
 | `lives.jsonl` | typical life, set in the era that covers its `start`, drawn with a public-domain `art` (`url`, `credit`, `source`, and optionally `position`, two percentages as in CSS `object-position`, and `fit`, `COVER` or `CONTAIN`) or else an `icon` | region |
 | `events.jsonl` | dated, sourced event, set in the era that covers its `year` | region, people |
 | `connections.jsonl` | two people, how they knew each other, when, and the source | people |
+| `anecdotes.jsonl` (optional) | short story about a person, by their Wikidata id, in a `year`, with its `source`: a book (`title`, `page`), a podcast, a video or a documentary (`title`, `episode`, `minute`), or a web page (`url`), at least a title or a URL. Shown among the years of their life. Written by the workbench's publish | people |
 | `moments/<id>.json` | moment: the world around it, its story cards and its doors, and the Wikidata id of its place (`placeQid`) | region, people, lives, events, moments |
 | `dataset/` (optional) | the fetched dataset, as the workbench's `wb export` writes it: `manifest.json`, then `people`, `articles`, `places` and `occupations` as gzipped JSON Lines. Here only a slice, written by `wb sample`: the people above, and the 30 most written about of each moment's place | |
 
