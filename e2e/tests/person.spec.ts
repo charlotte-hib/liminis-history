@@ -45,3 +45,20 @@ test("an era opens over a person's panel and closes back to them", async ({ page
   await expect(era).toBeHidden();
   await expect(person.getByRole("heading", { level: 1, name: "Émile Zola" })).toBeVisible();
 });
+
+// An anecdote (sample/anecdotes.jsonl) is a row of their life, at its year and age, with its source; the same in the
+// panel opened from search.
+test("an anecdote is told among the years of their life, with its source", async ({ page }) => {
+  const daruma = /At a festival in Edo, Hokusai paints the monk Daruma/;
+
+  await page.goto("/person/katsushika-hokusai?year=1831");
+  const row = page.getByRole("listitem").filter({ hasText: daruma });
+  await expect(row).toContainText("1804");
+  await expect(row).toContainText("44");
+  await expect(row.getByRole("link", { name: "Source: wikipedia:Hokusai" })).toHaveAttribute("href", "https://en.wikipedia.org/wiki/Hokusai");
+
+  await page.goto("/");
+  await page.getByRole("combobox", { name: "Search people and moments" }).fill("hokusai");
+  await page.getByRole("option", { name: /Katsushika Hokusai/ }).click();
+  await expect(page.getByRole("dialog", { name: "Someone who lived it" }).getByText(daruma)).toBeVisible();
+});
