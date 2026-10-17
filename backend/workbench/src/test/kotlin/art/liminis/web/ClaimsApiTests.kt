@@ -378,6 +378,12 @@ class ClaimsApiTests(
         mockMvc.post("/api/moments/{id}/page", "paris-1870s") { json(pageText("Again.")) }.andExpect { status { isConflict() } }
         mockMvc.post("/api/moments/{id}/page", "atlantis-1000") { json(pageText("Nowhere.")) }.andExpect { status { isNotFound() } }
         mockMvc.post("/api/moments/{id}/page", "paris-1890s") { json(pageText("")) }.andExpect { status { isBadRequest() } }
+        mockMvc.post("/api/moments/{id}/page", "paris-1890s") { json(pageText("   ")) }.andExpect { status { isBadRequest() } }
+        // Lines are stored trimmed, as curate sends a decision's.
+        mockMvc.post("/api/moments/{id}/page", "kyoto-1590s") { json(pageText("  A hook.\\n")) }.andExpect {
+            status { isCreated() }
+            jsonPath("$.payload.hook.text") { value("A hook.") }
+        }
     }
 
     private fun pageText(hook: String) =

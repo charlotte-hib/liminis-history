@@ -186,9 +186,27 @@ class ClaimRulesTests {
         val edited = page("Edited by the curator.")
         val second = Proposal(page("Second draft."), Origin.CLAUDE, emptyList(), emptyList())
         assertEquals(state(ClaimStatus.CANDIDATE, second.payload, second.payload, emptyList()), ClaimRules.refresh(state(ClaimStatus.REJECTED, first, first), second))
-        val keptEdits = ClaimRules.refresh(state(ClaimStatus.APPROVED, edited, first), second)
+        val keptEdits = ClaimRules.refresh(state(ClaimStatus.NEEDS_WORK, edited, first), second)
         assertEquals(ClaimStatus.CANDIDATE, keptEdits.status)
         assertEquals(edited, keptEdits.payload)
         assertEquals(listOf(changedSinceEdited), keptEdits.flags)
+
+        // An approved page stays as approved: new cards were asked for, not a new page.
+        for (approved in listOf(state(ClaimStatus.APPROVED, first, first), state(ClaimStatus.APPROVED, edited, first))) {
+            assertFalse(ClaimRules.changes(approved, second))
+            assertEquals(approved, ClaimRules.refresh(approved, second))
+        }
+    }
+
+    @Test
+    fun `a moment's page needs every line written, edited or as drafted`() {
+        val blank = page("Hook.").let { it.copy(world = it.world.copy(arts = StoryLine("  "))) }
+        val drafted = page("Hook.")
+        assertThrows<InvalidRequestException> { ClaimRules.decide(state(ClaimStatus.CANDIDATE, drafted, drafted), NewDecision(Verdict.APPROVE, blank)) }
+        assertThrows<InvalidRequestException> { ClaimRules.decide(state(ClaimStatus.CANDIDATE, blank, blank), NewDecision(Verdict.APPROVE)) }
+        assertThrows<InvalidRequestException> {
+            ClaimRules.decide(state(ClaimStatus.CANDIDATE, drafted, drafted), NewDecision(Verdict.APPROVE, drafted.copy(hook = StoryLine(""))))
+        }
+        ClaimRules.decide(state(ClaimStatus.CANDIDATE, blank, blank), NewDecision(Verdict.REJECT, note = "Arts left empty"))
     }
 }

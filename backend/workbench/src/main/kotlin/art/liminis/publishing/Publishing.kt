@@ -110,7 +110,7 @@ class Publishing(
             val page = pages[moment]
             if (page == null && story == null) continue
             val after = momentFiles.write(before, page, story)
-            val change = RecordChange(moment, Change.CHANGED, momentFiles.story(before), momentFiles.story(after)).takeIf { before != after }
+            val change = RecordChange(moment, Change.CHANGED, momentFiles.momentText(before), momentFiles.momentText(after)).takeIf { before != after }
             moments += FileChanges(path, listOfNotNull(change)) to after
         }
         val publication = Publication(base, changes + moments.map { it.first }, github.openPullRequest(properties.branch), withoutEffect, heldBack)

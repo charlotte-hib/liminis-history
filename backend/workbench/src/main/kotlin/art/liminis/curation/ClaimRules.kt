@@ -102,7 +102,7 @@ object ClaimRules {
                 invalid("An edit must stay a ${typeOf(state.payload)} about ${subjectOf(state.payload)}")
             }
             check(payload)
-        } else if (decision.verdict == Verdict.APPROVE && payload is Story) {
+        } else if (decision.verdict == Verdict.APPROVE && (payload is Story || payload is MomentPage)) {
             // A draft is checked by the validator, which only flags: approved as drafted, it must still hold together.
             check(payload)
         }
@@ -116,17 +116,25 @@ object ClaimRules {
         return state.copy(status = status, payload = payload, flags = fetchedFlags(state.flags))
     }
 
-    /** Whether [proposal] differs from what the claim in [state] was last proposed with. */
+    /** Whether [proposal] differs from what the claim in [state] was last proposed with, and may change it. */
     fun changes(state: ClaimState, proposal: Proposal): Boolean =
-        state.proposal != proposal.payload || fetchedFlags(state.flags) != proposal.flags
+        !keeps(state, proposal) && (state.proposal != proposal.payload || fetchedFlags(state.flags) != proposal.flags)
+
+    /**
+     * Whether the claim in [state] stays as it is whatever [proposal] says: an approved moment's page. Its story's
+     * cards are drafted again with it, and the curator who asks for new cards keeps the page they approved; rejecting it
+     * lets the next draft in.
+     */
+    private fun keeps(state: ClaimState, proposal: Proposal) = proposal.payload is MomentPage && state.status == ClaimStatus.APPROVED
 
     /**
      * What a new [proposal] makes of a claim in [state], keeping the conflicts earlier refreshes found until the
      * curator decides again. A claim not yet decided takes the new proposal, unless the curator edited it. An approved
-     * one goes back to review, flagged: what it rests on changed. A rejected one stays rejected. A story is drafted
-     * and its page are drafted again only when the curator asks: [redraft].
+     * one goes back to review, flagged: what it rests on changed. A rejected one stays rejected. A story and a moment's
+     * page are drafted again only when the curator asks: [redraft]; an approved page is kept ([keeps]).
      */
     fun refresh(state: ClaimState, proposal: Proposal): ClaimState {
+        if (keeps(state, proposal)) return state
         val conflicts = state.flags - fetchedFlags(state.flags).toSet()
         val flags = proposal.flags + conflicts
         if (state.proposal == proposal.payload) return state.copy(flags = flags)
@@ -142,8 +150,9 @@ object ClaimRules {
     }
 
     /**
-     * A new draft of a story or a moment's page, whatever became of the last one, waits for review: in place of the last one, unless the
-     * curator edited it (and did not reject it), which keeps the edits, flagged. One approved is flagged too.
+     * A new draft of a story or a moment's page, whatever became of the last one, waits for review: in place of the last
+     * one, unless the curator edited it (and did not reject it), which keeps the edits, flagged. One approved is flagged
+     * too.
      */
     private fun redraft(refreshed: ClaimState, state: ClaimState, flags: List<FlagReason>): ClaimState {
         val edited = state.payload != state.proposal && state.status != ClaimStatus.REJECTED
@@ -163,8 +172,8 @@ object ClaimRules {
     private fun fetchedFlags(flags: List<FlagReason>) = flags - setOf(CHANGED_SINCE_APPROVED, CHANGED_SINCE_EDITED)
 
     /**
-     * What the spec cannot say: no year 0, two different people in a connection, and a story's cards naming what they
-     * show.
+     * What the spec cannot say: no year 0, two different people in a connection, a story's cards naming what they
+     * show, and a moment's page with every line written.
      */
     private fun check(payload: Payload) {
         val years = when (payload) {
@@ -179,6 +188,10 @@ object ClaimRules {
         if (0 in years) invalid("There is no year 0: 1 BCE is followed by 1 CE")
         if (payload is Connection && payload.people.distinct().size != 2) invalid("A connection links two different people")
         if (payload is Story) payload.cards.forEachIndexed { index, card -> check(index + 1, card) }
+        if (payload is MomentPage) {
+            val lines = with(payload.world) { listOf(payload.hook, governs, everyday, arts, meanwhile) }
+            if (lines.any { it.text.isBlank() }) invalid("Write the hook and every line of the world around")
+        }
     }
 
     private fun check(number: Int, card: StoryCard) {

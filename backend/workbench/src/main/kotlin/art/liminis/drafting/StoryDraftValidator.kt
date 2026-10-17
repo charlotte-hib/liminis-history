@@ -18,7 +18,7 @@ object StoryDraftValidator {
     fun problems(draft: StoryDraft, sources: List<Source>, startYear: Int, endYear: Int): DraftProblems {
         val byId = sources.associateBy { it.id }
         val pageProblems = mutableListOf<String>()
-        val problems = mutableListOf<String>()
+        val cardProblems = mutableListOf<String>()
 
         fun checkCitations(where: String, citations: List<Citation>, problems: MutableList<String>) {
             if (citations.isEmpty()) problems += "$where has no citation"
@@ -40,19 +40,19 @@ object StoryDraftValidator {
             checkCitations("world.meanwhile", meanwhile.citations, pageProblems)
         }
 
-        if (draft.cards.size !in MIN_CARDS..MAX_CARDS) problems += "story has ${draft.cards.size} cards, expected $MIN_CARDS to $MAX_CARDS"
+        if (draft.cards.size !in MIN_CARDS..MAX_CARDS) cardProblems += "story has ${draft.cards.size} cards, expected $MIN_CARDS to $MAX_CARDS"
         draft.cards.forEachIndexed { index, card ->
             val where = "card ${index + 1} (${card.type})"
-            checkCitations(where, card.citations, problems)
-            card.year?.let { if (it !in startYear..endYear) problems += "$where is set in $it, outside $startYear–$endYear" }
+            checkCitations(where, card.citations, cardProblems)
+            card.year?.let { if (it !in startYear..endYear) cardProblems += "$where is set in $it, outside $startYear–$endYear" }
             when (card.type) {
-                CardType.PERSON -> requireSource(where, "person", card.personId, byId, problems)
-                CardType.LIFE -> requireSource(where, "life", card.lifeId, byId, problems)
-                CardType.EVENT -> requireSource(where, "event", card.eventId, byId, problems)
-                CardType.SCENE -> if (card.title.isNullOrBlank()) problems += "$where has no title"
+                CardType.PERSON -> requireSource(where, "person", card.personId, byId, cardProblems)
+                CardType.LIFE -> requireSource(where, "life", card.lifeId, byId, cardProblems)
+                CardType.EVENT -> requireSource(where, "event", card.eventId, byId, cardProblems)
+                CardType.SCENE -> if (card.title.isNullOrBlank()) cardProblems += "$where has no title"
             }
         }
-        return DraftProblems(pageProblems, problems)
+        return DraftProblems(pageProblems, cardProblems)
     }
 
     private fun requireSource(where: String, kind: String, id: String?, byId: Map<String, Source>, problems: MutableList<String>) {

@@ -58,8 +58,10 @@ class Claims(
     fun addApproved(payload: Payload, proposal: Payload, by: String, note: String?): ClaimDetail {
         val id = ClaimRules.idOf(payload)
         if (claims.existsById(id)) throw ConflictException("$id exists already: decide on it")
-        val added = claims.save(Claim(id, ClaimRules.typeOf(payload), ClaimStatus.APPROVED, Origin.MANUAL, payload, proposal, emptyList()))
-        decisions.save(Decision(id, by, null, added.status, proposal, payload, note))
+        // Approved by the same rules as a decision on the proposal, edited.
+        val approved = ClaimRules.decide(ClaimState(ClaimStatus.CANDIDATE, proposal, proposal, emptyList()), NewDecision(Verdict.APPROVE, payload, note))
+        val added = claims.save(Claim(id, ClaimRules.typeOf(payload), approved.status, Origin.MANUAL, approved.payload, proposal, approved.flags))
+        decisions.save(Decision(id, by, null, added.status, proposal, added.payload, note))
         return detail(added)
     }
 

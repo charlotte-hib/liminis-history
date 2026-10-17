@@ -54,8 +54,10 @@ class ClaimController(
     override fun addClaim(newClaimDto: NewClaimDto): ClaimDetailDto = answer(claims.add(mapper.toModel(newClaimDto), currentActor()))
 
     override fun writeMomentPage(id: String, momentPageTextDto: MomentPageTextDto): ClaimDetailDto {
+        // As curate sends a decision's lines: trimmed, so a stray space or line break never reaches the published file.
+        fun line(text: String) = StoryLine(text.trim())
         val page = with(momentPageTextDto) {
-            MomentPage(id, StoryLine(hook), StoryWorld(StoryLine(world.governs), StoryLine(world.everyday), StoryLine(world.arts), StoryLine(world.meanwhile)))
+            MomentPage(id, line(hook), StoryWorld(line(world.governs), line(world.everyday), line(world.arts), line(world.meanwhile)))
         }
         return answer(moments.writePage(page, momentPageTextDto.note, currentActor()))
     }

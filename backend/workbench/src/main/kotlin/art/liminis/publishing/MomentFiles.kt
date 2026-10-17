@@ -66,7 +66,7 @@ class MomentFiles(jsonMapper: JsonMapper) {
     }
 
     /** The page and story in [text], a moment's file, as one line of JSON: to compare and to show. */
-    fun story(text: String): String {
+    fun momentText(text: String): String {
         val file = read(text)
         return mapper.writeValueAsString(mapper.createObjectNode().apply { for (name in listOf(HOOK, WORLD, CARDS)) file[name]?.let { set(name, it) } })
     }

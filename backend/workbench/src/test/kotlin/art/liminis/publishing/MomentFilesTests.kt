@@ -117,14 +117,14 @@ class MomentFilesTests {
         assertEquals(
             """{"hook":"Hokusai's Great Wave.","world":{"governs":"A line.","everyday":"A line.","arts":"A line.","meanwhile":"A line."},""" +
                 """"cards":[{"type":"PERSON","text":"A painter at seventy.","year":1831,"person":"Q5586"}]}""",
-            files.story(written),
+            files.momentText(written),
         )
-        assertEquals("""{"hook":"Old hook."}""", files.story(text))
+        assertEquals("""{"hook":"Old hook."}""", files.momentText(text))
         // Each alone leaves the other's fields as the file has them.
-        assertEquals("""{"hook":"Old hook.","cards":[{"type":"PERSON","text":"A painter at seventy.","year":1831,"person":"Q5586"}]}""", files.story(files.write(text, null, story)))
+        assertEquals("""{"hook":"Old hook.","cards":[{"type":"PERSON","text":"A painter at seventy.","year":1831,"person":"Q5586"}]}""", files.momentText(files.write(text, null, story)))
         assertEquals(
             """{"hook":"Hokusai's Great Wave.","world":{"governs":"A line.","everyday":"A line.","arts":"A line.","meanwhile":"A line."}}""",
-            files.story(files.write(text, page, null)),
+            files.momentText(files.write(text, page, null)),
         )
     }
 }
