@@ -69,7 +69,7 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
               : "As the release has it"}
           </span>
         </span>
-        <Link href={`/moments/${moment.id}/header`} className="button-primary">
+        <Link href={`/moments/${moment.id}/header`} className="button-lamp">
           {header?.status === "CANDIDATE" ? "Review the header" : "Edit the header"}
         </Link>
       </section>

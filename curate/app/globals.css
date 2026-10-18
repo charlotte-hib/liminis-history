@@ -49,6 +49,11 @@ kbd {
     @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-ink bg-ink px-5 text-paper disabled:opacity-50;
   }
 
+  /* A way into a page of its own from an overview: softer than the action a screen leads to. */
+  .button-lamp {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-lamp bg-lamp-soft px-5 text-lamp hover:bg-lamp hover:text-paper;
+  }
+
   .button {
     @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-edge px-[18px] hover:border-ink disabled:opacity-50 disabled:hover:border-edge;
   }

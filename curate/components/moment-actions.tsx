@@ -57,7 +57,7 @@ export function DraftButton({ moment, draft, story }: DraftProps) {
         {review && (
           <Link
             href={`/moments/${moment}/story`}
-            className="button-primary"
+            className="button-lamp"
           >
             {story === "CANDIDATE" ? "Review the story" : "Open the story"}
           </Link>
