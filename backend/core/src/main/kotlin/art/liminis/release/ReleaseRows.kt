@@ -3,6 +3,7 @@ package art.liminis.release
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
 import org.mapstruct.ReportingPolicy
+import art.liminis.domain.Anecdote
 import art.liminis.domain.Connection
 import art.liminis.domain.Door
 import art.liminis.domain.Era
@@ -84,6 +85,18 @@ data class ConnectionRow(
     val connectionYear: Int,
     val text: String,
     val sourceUrl: String,
+)
+
+data class AnecdoteRow(
+    val id: String,
+    val personId: String,
+    val anecdoteYear: Int,
+    val text: String,
+    val title: String?,
+    val page: String?,
+    val episode: String?,
+    val minute: String?,
+    val url: String?,
 )
 
 data class MomentRow(
@@ -173,6 +186,15 @@ abstract class ReleaseRowMapper {
     @Mapping(target = "connectionYear", source = "entity.year")
     abstract fun connection(entity: Connection, rowId: Long): ConnectionRow
 
+    @Mapping(target = "personId", source = "person.id")
+    @Mapping(target = "anecdoteYear", source = "year")
+    @Mapping(target = "title", source = "source.title")
+    @Mapping(target = "page", source = "source.page")
+    @Mapping(target = "episode", source = "source.episode")
+    @Mapping(target = "minute", source = "source.minute")
+    @Mapping(target = "url", source = "source.url")
+    abstract fun anecdote(entity: Anecdote): AnecdoteRow
+
     @Mapping(target = "regionCode", source = "region.code")
     @Mapping(target = "url", source = "art.url")
     @Mapping(target = "credit", source = "art.credit")
@@ -212,6 +234,7 @@ abstract class ReleaseRowMapper {
                 "event" to events.map(::event),
                 "event_participant" to events.flatMap { it.participants }.mapIndexed { i, it -> participant(it, i + 1L) },
                 "connection" to connections.mapIndexed { i, it -> connection(it, i + 1L) },
+                "anecdote" to anecdotes.map(::anecdote),
                 "moment" to moments.map(::moment),
                 "story_card" to moments.flatMap { it.cards }.mapIndexed { i, it -> card(it, i + 1L) },
                 "door" to doorRows,

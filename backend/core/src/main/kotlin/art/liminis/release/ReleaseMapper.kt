@@ -7,6 +7,8 @@ import org.mapstruct.Mapping
 import org.mapstruct.MappingTarget
 import org.mapstruct.Named
 import org.mapstruct.ReportingPolicy
+import art.liminis.domain.Anecdote
+import art.liminis.domain.AnecdoteSource
 import art.liminis.domain.Artwork
 import art.liminis.domain.Connection
 import art.liminis.domain.Door
@@ -54,6 +56,11 @@ abstract class ReleaseMapper {
     @Mapping(target = "sourceUrl", source = "source")
     abstract fun connection(record: ConnectionRecord, @Context references: References): Connection
 
+    @Mapping(target = "person", source = "person", qualifiedByName = ["personByQid"])
+    abstract fun anecdote(record: AnecdoteRecord, @Context references: References): Anecdote
+
+    abstract fun anecdoteSource(record: AnecdoteSourceRecord): AnecdoteSource
+
     @Mapping(target = "startYear", source = "start")
     @Mapping(target = "endYear", source = "end")
     @Mapping(target = "focusYear", source = "focus")
@@ -99,6 +106,9 @@ abstract class ReleaseMapper {
 
     @Named("eraOfEvent")
     protected fun eraOfEvent(record: EventRecord, @Context references: References): Era = references.eraAt(record.region, record.year)
+
+    @Named("personByQid")
+    protected fun personByQid(qid: String, @Context references: References): Person = references.personByQid(qid)
 
     @Named("first")
     protected fun first(people: List<String>, @Context references: References): Person = references.person(people[0])

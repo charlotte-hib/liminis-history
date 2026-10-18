@@ -10,6 +10,8 @@ import art.liminis.curation.Story
 import art.liminis.dataset.DatasetStore
 import art.liminis.domain.CardType
 import art.liminis.domain.Domain
+import art.liminis.release.AnecdoteRecord
+import art.liminis.release.AnecdoteSourceRecord
 import art.liminis.release.CardRecord
 import art.liminis.release.CorrectionRecord
 import art.liminis.release.WorldRecord
@@ -61,11 +63,18 @@ data class CardFieldChange(val field: CardField, val before: String?, val after:
 
 enum class CardField { KICKER, TITLE, TEXT, YEAR }
 
+/** An anecdote added, removed or changed, about [person] in [year] (once published, else on main), with its fields that change. */
+data class AnecdoteChange(val anecdote: String, val person: String, val name: String, val change: Change, val year: Int, val fields: List<AnecdoteFieldChange>)
+
+data class AnecdoteFieldChange(val field: AnecdoteField, val before: String?, val after: String?)
+
+enum class AnecdoteField { YEAR, TEXT, SOURCE }
+
 /**
  * The changes of a publish in words, for the curator to read before publishing and in the pull request: people by
- * name with the facts the site would show otherwise, occupations by label with their domains, and each moment's header
- * lines and cards. A correction holds only the fields corrected, so a fact's value in effect is the correction's, else
- * Wikidata's, from the person's claim.
+ * name with the facts the site would show otherwise, occupations by label with their domains, anecdotes by whom they are
+ * about, and each moment's header lines and cards. A correction holds only the fields corrected, so a fact's value in
+ * effect is the correction's, else Wikidata's, from the person's claim.
  */
 @Component
 class ChangesInWords(
@@ -124,6 +133,33 @@ class ChangesInWords(
                 change.after?.let { choice(dataFiles.readOccupation(it).domain) },
             )
         }.sortedWith(compareBy(byName) { it: OccupationChange -> it.label }.thenBy { it.occupation })
+    }
+
+    /** The anecdotes of [changes], those of `anecdotes.jsonl`, by the name of whom they are about, then by year. */
+    fun anecdotes(changes: List<RecordChange>, byHand: Map<String, String>): List<AnecdoteChange> {
+        val records = changes.associate { it.id to (it.before?.let(dataFiles::readAnecdote) to it.after?.let(dataFiles::readAnecdote)) }
+        val names = names(records.values.map { (before, after) -> (after ?: before)!!.person }, byHand)
+        return changes.map { change ->
+            val (before, after) = records.getValue(change.id)
+            val anecdote = (after ?: before)!!
+            val fields = listOf(
+                AnecdoteField.YEAR to { record: AnecdoteRecord -> year(record.year) },
+                AnecdoteField.TEXT to { record -> record.text },
+                AnecdoteField.SOURCE to { record -> source(record.source) },
+            ).mapNotNull { (field, value) ->
+                val old = before?.let(value)
+                val new = after?.let(value)
+                if (old == new) null else AnecdoteFieldChange(field, old, new)
+            }
+            AnecdoteChange(change.id, anecdote.person, names.getValue(anecdote.person), change.change, anecdote.year, fields)
+        }.sortedWith(compareBy(byName) { it: AnecdoteChange -> it.name }.thenBy { it.year }.thenBy { it.anecdote })
+    }
+
+    /** The names of the people of [qids]: as written by hand in `people.jsonl` ([byHand]), else as the dataset has them, else their Q-id. */
+    fun names(qids: Collection<String>, byHand: Map<String, String>): Map<String, String> {
+        val fetched = qids.filter { it !in byHand }.distinct()
+        val labels = dataset.summaries(fetched, fetched.size).associate { it.person to it.label }
+        return qids.associateWith { byHand[it] ?: labels[it] ?: it }
     }
 
     /** What changes in [moment]'s file from [before] to [after], its [story] naming whom or what its new cards show. */
@@ -199,10 +235,10 @@ class ChangesInWords(
 
     /**
      * The publication in words, as Markdown for the pull request and its commit: each person's facts, the
-     * occupations changed or removed one by one and the ones added by domain, and each moment's header and cards.
-     * Cut short within GitHub's limit on a pull request's body.
+     * occupations changed or removed one by one and the ones added by domain, each anecdote, and each moment's header
+     * and cards. Cut short within GitHub's limit on a pull request's body.
      */
-    fun summary(people: List<PersonChange>, occupations: List<OccupationChange>, moments: List<MomentChange>): String {
+    fun summary(people: List<PersonChange>, occupations: List<OccupationChange>, anecdotes: List<AnecdoteChange>, moments: List<MomentChange>): String {
         val lines = mutableListOf<String>()
         if (people.isNotEmpty()) {
             lines += "**People's facts** (${people.size})"
@@ -220,6 +256,18 @@ class ChangesInWords(
                 val shown = added.take(NAMES_PER_DOMAIN).joinToString(", ") { it.label }
                 val more = (added.size - NAMES_PER_DOMAIN).takeIf { it > 0 }?.let { " and $it more" }.orEmpty()
                 "- ${domain(choice)} (${added.size}): $shown$more"
+            }
+        }
+        if (anecdotes.isNotEmpty()) {
+            if (lines.isNotEmpty()) lines += ""
+            lines += "**Anecdotes** (${anecdotes.size})"
+            lines += anecdotes.map { anecdote ->
+                val change = when (anecdote.change) {
+                    Change.ADDED -> "added"
+                    Change.REMOVED -> "removed"
+                    Change.CHANGED -> anecdote.fields.joinToString(", ") { ANECDOTE_FIELDS.getValue(it.field) } + " changed"
+                }
+                "- ${anecdote.name} (${anecdote.person}), ${year(anecdote.year)}: $change"
             }
         }
         if (moments.isNotEmpty()) {
@@ -256,6 +304,11 @@ class ChangesInWords(
         }
     }
 
+    /** A source in words: its title, where in it, and its link. */
+    private fun source(source: AnecdoteSourceRecord) = listOfNotNull(
+        source.title, source.page?.let { "p. $it" }, source.episode?.let { "episode $it" }, source.minute?.let { "at $it" }, source.url,
+    ).joinToString(", ")
+
     private fun choice(domain: Domain?) = domain?.let { OccupationChoice.valueOf(it.name) } ?: OccupationChoice.NONE
 
     /** A domain as curate names it when the curator chooses it. */
@@ -289,6 +342,7 @@ class ChangesInWords(
             WorldPart.GOVERNS to "who governs", WorldPart.EVERYDAY to "everyday life", WorldPart.ARTS to "arts and ideas",
             WorldPart.MEANWHILE to "meanwhile, elsewhere",
         )
+        val ANECDOTE_FIELDS = mapOf(AnecdoteField.YEAR to "year", AnecdoteField.TEXT to "text", AnecdoteField.SOURCE to "source")
         val CARD_FIELDS = mapOf(
             CardField.KICKER to "kicker", CardField.TITLE to "title", CardField.TEXT to "what visitors read", CardField.YEAR to "year",
         )

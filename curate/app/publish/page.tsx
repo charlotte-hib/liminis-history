@@ -17,6 +17,7 @@ type FileChanges = Publication["files"][number];
 type Change = FileChanges["changes"][number];
 type PersonChange = Publication["people"][number];
 type OccupationChange = Publication["occupations"][number];
+type AnecdoteChange = Publication["anecdotes"][number];
 type MomentChange = Publication["moments"][number];
 type CardChange = MomentChange["cards"][number];
 
@@ -35,6 +36,12 @@ const WORLD: Record<MomentChange["world"][number]["part"], string> = {
   EVERYDAY: "Everyday life",
   ARTS: "Arts and ideas",
   MEANWHILE: "Meanwhile, elsewhere",
+};
+
+const ANECDOTE_FIELDS: Record<AnecdoteChange["fields"][number]["field"], string> = {
+  YEAR: "Year",
+  TEXT: "Anecdote",
+  SOURCE: "Source",
 };
 
 const CARD_FIELDS: Record<CardChange["fields"][number]["field"], string> = {
@@ -108,6 +115,11 @@ function Changes({ publication }: { publication: Publication }) {
           ))}
         </Section>
       )}
+      {publication.anecdotes.length > 0 && (
+        <Section title="Anecdotes" count={lineCounts(publication.anecdotes)} files={fileLines((path) => path === "data/anecdotes.jsonl")}>
+          <Anecdotes anecdotes={publication.anecdotes} />
+        </Section>
+      )}
       {publication.occupations.length > 0 && (
         <Section title="Occupations" count={lineCounts(publication.occupations)} files={fileLines((path) => path === "data/occupations.jsonl")}>
           <Occupations occupations={publication.occupations} />
@@ -124,8 +136,8 @@ function Changes({ publication }: { publication: Publication }) {
           <h2 className="section-title">Approved, not published</h2>
           <ul className="flex flex-col gap-1 text-[13.5px]">
             {publication.heldBack.map((held) => (
-              <li key={held.moment}>
-                <span className="font-mono">{held.moment}</span>: <span className="text-muted">{held.reason}</span>
+              <li key={held.id}>
+                <span className="font-mono">{held.id}</span>: <span className="text-muted">{held.reason}</span>
               </li>
             ))}
           </ul>
@@ -174,6 +186,44 @@ function People({ people }: { people: PersonChange[] }) {
                 <span className="text-muted">{FACTS[fact.fact]}</span> <ValueChange before={fact.before} after={fact.after} />
               </span>
             ))}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Anecdotes({ anecdotes }: { anecdotes: AnecdoteChange[] }) {
+  return (
+    <ul className="flex flex-col border-t border-line">
+      {anecdotes.map((anecdote) => (
+        <li key={anecdote.anecdote} className="flex flex-wrap gap-x-5 gap-y-1 border-b border-line py-3">
+          <span className="flex basis-60 flex-col gap-0.5">
+            <span className="flex items-baseline gap-2">
+              <span className="font-serif text-[18px]">{anecdote.name}</span>
+              <span className="font-mono text-[11.5px] text-quiet">{anecdote.person}</span>
+            </span>
+            <span className="text-muted">
+              {anecdote.year < 0 ? `${-anecdote.year} BCE` : anecdote.year}
+              {anecdote.change === "ADDED" && <span className="text-ok"> · added</span>}
+              {anecdote.change === "REMOVED" && <span className="text-conflict"> · removed</span>}
+            </span>
+          </span>
+          <span className="flex flex-1 basis-96 flex-col gap-1">
+            {/* The year of one added or removed is beside its person's name. */}
+            {anecdote.fields
+              .filter((field) => field.field !== "YEAR" || anecdote.change === "CHANGED")
+              .map((field) =>
+                field.field === "TEXT" ? (
+                  <p key={field.field} className="font-serif text-[16px] leading-relaxed">
+                    <WordDiff before={field.before} after={field.after} />
+                  </p>
+                ) : (
+                  <span key={field.field}>
+                    <span className="text-muted">{ANECDOTE_FIELDS[field.field]}</span> <ValueChange before={field.before} after={field.after} />
+                  </span>
+                ),
+              )}
           </span>
         </li>
       ))}
@@ -318,7 +368,7 @@ function FileLines({ file }: { file: FileChanges }) {
 
 const changed = (count: number) => `${count.toLocaleString("en")} changed`;
 
-function lineCounts(changes: (Change | OccupationChange)[]): string {
+function lineCounts(changes: (Change | OccupationChange | AnecdoteChange)[]): string {
   return (["ADDED", "CHANGED", "REMOVED"] as const)
     .map((kind) => [changes.filter((change) => change.change === kind).length, kind.toLowerCase()] as const)
     .filter(([count]) => count > 0)

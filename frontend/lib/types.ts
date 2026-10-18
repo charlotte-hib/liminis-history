@@ -22,6 +22,7 @@ export type MomentPeople = Schemas["MomentPeople"];
 export type StoryCard = Schemas["StoryCard"];
 export type Story = Schemas["Story"];
 export type LifeLine = Schemas["LifeLine"];
+export type AnecdoteSource = Schemas["AnecdoteSource"];
 export type Connection = Schemas["Connection"];
 export type PersonDetail = Schemas["PersonDetail"];
 export type SearchResults = Schemas["SearchResults"];

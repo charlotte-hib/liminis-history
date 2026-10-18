@@ -184,6 +184,26 @@ class Connection @Default constructor(
     fun other(person: Person) = if (first.slug == person.slug) second else first
 }
 
+/** A short story about a person, in a year, approved by the curator, with where it was read or heard. */
+@Entity
+class Anecdote @Default constructor(
+    @Id val id: String,
+    @ManyToOne(fetch = FetchType.LAZY) val person: Person,
+    @Column(name = "anecdote_year") val year: Int,
+    @Column(length = LONG_TEXT) val text: String,
+    @Embedded val source: AnecdoteSource,
+)
+
+/** A book (title, page), a podcast, a video or a documentary (title, episode, minute), or a web page (url). */
+@Embeddable
+data class AnecdoteSource @Default constructor(
+    @Column(length = LONG_TEXT) val title: String?,
+    val page: String?,
+    val episode: String?,
+    val minute: String?,
+    @Column(length = LONG_TEXT) val url: String?,
+)
+
 /** Draft content comes from the drafting job and is only served once a curator publishes it. */
 enum class PublicationStatus { DRAFT, PUBLISHED }
 

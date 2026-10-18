@@ -450,9 +450,20 @@ export interface components {
             cards: components["schemas"]["StoryCard"][];
             doors: components["schemas"]["Door"][];
         };
-        /** @enum {string} */
-        LifeLineKind: "BIRTH" | "ERA" | "EVENT" | "OWN_EVENT" | "DEATH";
-        /** @description One line of "their life in their time", a dated change around them, with their age. */
+        /**
+         * @description ANECDOTE is a short story told about them, approved by the curator.
+         * @enum {string}
+         */
+        LifeLineKind: "BIRTH" | "ERA" | "EVENT" | "OWN_EVENT" | "ANECDOTE" | "DEATH";
+        /** @description Where an anecdote was read or heard. A book has a title and a page; a podcast, a video or a documentary a title, and an episode, a minute or a URL; a web page a URL. */
+        AnecdoteSource: {
+            title: string | null;
+            page: string | null;
+            episode: string | null;
+            minute: string | null;
+            url: string | null;
+        };
+        /** @description One line of "their life in their time", a dated change around them or a story told about them, with their age. */
         LifeLine: {
             /** Format: int32 */
             year: number;
@@ -463,6 +474,8 @@ export interface components {
             role: string | null;
             /** @description The regime a BIRTH line was born under or an ERA line begins, to open; none on other lines. */
             era: components["schemas"]["Era"] | null;
+            /** @description Where an ANECDOTE line comes from; none on other lines. */
+            source: components["schemas"]["AnecdoteSource"] | null;
         };
         /** @description Someone a person was linked to, how (a pair like "tea master and lord", or their role in a shared event), when, and the source. */
         Connection: {

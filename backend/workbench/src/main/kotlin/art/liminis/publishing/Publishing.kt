@@ -7,6 +7,7 @@ import art.liminis.curation.ClaimStatus
 import art.liminis.curation.ClaimType
 import art.liminis.curation.MomentPage
 import art.liminis.curation.Story
+import art.liminis.release.AnecdoteRecord
 import art.liminis.support.StaleException
 import art.liminis.support.UnavailableException
 
@@ -19,19 +20,21 @@ data class RecordChange(val id: String, val change: Change, val before: String?,
 /** The changes to the file at [path]: its records', or a moment's page and story, under the moment's id. */
 data class FileChanges(val path: String, val changes: List<RecordChange>)
 
-/** An approved story, or page, publishing leaves out, and why. */
-data class HeldBack(val moment: String, val reason: String)
+/** An approved story, page or anecdote publishing leaves out, under its moment's id or the anecdote's, and why. */
+data class HeldBack(val id: String, val reason: String)
 
 /**
  * What publishing makes of the data repository's [base] commit: the changes to each [DataFile] and to the moments'
- * files the approved pages and stories go into, the same in words ([people], [occupations], [moments]), the publish pull
- * request open, if any, the people written by hand whom a correction would not change, and the approved stories left out.
+ * files the approved pages and stories go into, the same in words ([people], [occupations], [anecdotes], [moments]), the
+ * publish pull request open, if any, the people written by hand whom a correction would not change, and the approved
+ * stories and anecdotes left out.
  */
 data class Publication(
     val base: String,
     val files: List<FileChanges>,
     val people: List<PersonChange>,
     val occupations: List<OccupationChange>,
+    val anecdotes: List<AnecdoteChange>,
     val moments: List<MomentChange>,
     val pullRequest: PullRequest?,
     val withoutEffect: List<String>,
@@ -90,10 +93,15 @@ class Publishing(
 
     /** What the approved claims change in [base]'s files, and the text of each file as publishing would write it. */
     private fun compare(base: String): Pair<Publication, Map<String, String?>> {
-        val files = dataFiles.build()
+        val byHand = dataFiles.byHand(github.file(PEOPLE, base))
+        val anecdotes = dataFiles.anecdotes()
+        val anecdotesHeldBack = holdBack(anecdotes, byHand)
+        val published = anecdotes.filter { anecdote -> anecdotesHeldBack.none { it.id == anecdote.id } }
+            .map { AnecdoteRecord(it.id, it.anecdote.person, it.anecdote.year, it.anecdote.text, it.source!!) }
+
+        val files = dataFiles.build(published)
         val changes = files.map { (file, lines) -> FileChanges(file.path, changes(dataFiles.read(file.path, github.file(file.path, base)), lines)) }
         val changesOf = { file: DataFile -> changes.single { it.path == file.path }.changes }
-        val byHand = dataFiles.qids(github.file(PEOPLE, base))
         val withoutEffect = files.getValue(DataFile.CORRECTIONS).keys.filter { it in byHand }
         val texts = files.entries.associate { (file, lines) -> file.path to lines.text() }
 
@@ -122,8 +130,9 @@ class Publishing(
         }
         val publication = Publication(
             base, changes + moments.map { it.first },
-            words.people(changesOf(DataFile.CORRECTIONS)), words.occupations(changesOf(DataFile.OCCUPATIONS)), momentsInWords,
-            github.openPullRequest(properties.branch), withoutEffect, heldBack,
+            words.people(changesOf(DataFile.CORRECTIONS)), words.occupations(changesOf(DataFile.OCCUPATIONS)),
+            words.anecdotes(changesOf(DataFile.ANECDOTES), byHand), momentsInWords,
+            github.openPullRequest(properties.branch), withoutEffect, heldBack + anecdotesHeldBack,
         )
         return publication to texts + moments.associate { (file, text) -> file.path to text }
     }
@@ -148,6 +157,25 @@ class Publishing(
     }
 
     /**
+     * The approved anecdotes that cannot be published yet: one resting on no source, and one about a fetched person,
+     * named, whom the release holds only once it carries the fetched dataset (not one of [byHand]'s, the people written
+     * by hand).
+     */
+    private fun holdBack(anecdotes: List<ApprovedAnecdote>, byHand: Map<String, String>): List<HeldBack> {
+        val fetched = anecdotes.filter { !properties.fetchedPeople && it.anecdote.person !in byHand }
+        val names = words.names(fetched.map { it.anecdote.person }, byHand)
+        return anecdotes.mapNotNull { approved ->
+            val person = approved.anecdote.person
+            when {
+                approved.source == null -> HeldBack(approved.id, "It rests on no source the site can name")
+                approved in fetched ->
+                    HeldBack(approved.id, "It is about a fetched person, ${names.getValue(person)} ($person), whom the release holds once it carries the dataset")
+                else -> null
+            }
+        }
+    }
+
+    /**
      * Records compared line for line, as JSON text: the workbench writes these files whole, in one format, so a line
      * changes only when its record does.
      */
@@ -165,7 +193,7 @@ class Publishing(
 
     /** The changes in words, for the commit and the pull request. */
     private fun summary(publication: Publication): String =
-        words.summary(publication.people, publication.occupations, publication.moments)
+        words.summary(publication.people, publication.occupations, publication.anecdotes, publication.moments)
 
     private companion object {
         const val PEOPLE = "data/people.jsonl"

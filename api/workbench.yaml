@@ -1898,7 +1898,7 @@ components:
 
     Publication:
       type: object
-      required: [base, files, people, occupations, moments, withoutEffect, heldBack, maxAge]
+      required: [base, files, people, occupations, anecdotes, moments, withoutEffect, heldBack, maxAge]
       properties:
         base:
           type: string
@@ -1919,6 +1919,11 @@ components:
           description: The occupations whose domain changes, by label.
           items:
             $ref: "#/components/schemas/OccupationChange"
+        anecdotes:
+          type: array
+          description: The anecdotes added, changed or removed, by the name of whom they are about, then by year.
+          items:
+            $ref: "#/components/schemas/AnecdoteChange"
         moments:
           type: array
           description: The moments whose header or story changes, by id.
@@ -1933,7 +1938,7 @@ components:
             $ref: "#/components/schemas/Qid"
         heldBack:
           type: array
-          description: Approved stories and moment pages not published, and why.
+          description: Approved stories, moment pages and anecdotes not published, and why.
           items:
             $ref: "#/components/schemas/HeldBack"
         maxAge:
@@ -2029,6 +2034,44 @@ components:
         after:
           $ref: "#/components/schemas/OccupationChoice"
 
+    AnecdoteChange:
+      type: object
+      description: |
+        An anecdote whose line in `anecdotes.jsonl` changes, about `person` in `year` (once published, else on `main`),
+        with its fields that change, in words: all of them when added or removed.
+      required: [anecdote, person, name, change, year, fields]
+      properties:
+        anecdote:
+          type: string
+          description: The anecdote's claim id.
+          example: "anecdote:Q5586:1804:db446a7bd1db"
+        person:
+          $ref: "#/components/schemas/Qid"
+        name:
+          type: string
+          description: The person's name as written by hand in `people.jsonl`, else as the dataset gives it.
+        change:
+          $ref: "#/components/schemas/Change"
+        year:
+          $ref: "#/components/schemas/Year"
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnecdoteFieldChange"
+
+    AnecdoteFieldChange:
+      type: object
+      required: [field]
+      properties:
+        field:
+          type: string
+          enum: [YEAR, TEXT, SOURCE]
+        before:
+          type: string
+        after:
+          type: string
+          description: A source as its title, where in it, and its link, joined by commas.
+
     MomentChange:
       type: object
       description: |
@@ -2122,10 +2165,12 @@ components:
 
     HeldBack:
       type: object
-      required: [moment, reason]
+      required: [id, reason]
       properties:
-        moment:
-          $ref: "#/components/schemas/MomentId"
+        id:
+          type: string
+          description: The moment's id, for its story or page, or the anecdote's claim id.
+          example: edo-1830s
         reason:
           type: string
 

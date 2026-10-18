@@ -2,6 +2,7 @@ package art.liminis.web
 
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
+import art.liminis.api.model.AnecdoteSourceDto
 import art.liminis.api.model.ArtworkDto
 import art.liminis.api.model.ConnectionDto
 import art.liminis.api.model.DoorDto
@@ -15,6 +16,7 @@ import art.liminis.api.model.PersonDto
 import art.liminis.api.model.RegionDto
 import art.liminis.api.model.StoryCardDto
 import art.liminis.api.model.WorldAroundDto
+import art.liminis.domain.AnecdoteSource
 import art.liminis.domain.Artwork
 import art.liminis.domain.Connection
 import art.liminis.domain.Door
@@ -39,6 +41,7 @@ interface ApiMapper {
     fun toDto(artwork: Artwork): ArtworkDto
     fun toDto(world: WorldAround): WorldAroundDto
     fun toDto(card: StoryCard): StoryCardDto
+    fun toDto(source: AnecdoteSource): AnecdoteSourceDto
 
     @Mapping(target = "regionCode", source = "region.code")
     @Mapping(target = "region", source = "region.name")

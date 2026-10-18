@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import art.liminis.domain.Person
 import art.liminis.domain.PublicationStatus.PUBLISHED
+import art.liminis.repository.AnecdoteRepository
 import art.liminis.repository.ConnectionRepository
 import art.liminis.repository.EraRepository
 import art.liminis.repository.EventRepository
@@ -33,6 +34,7 @@ class PersonService(
     private val eras: EraRepository,
     private val events: EventRepository,
     private val connections: ConnectionRepository,
+    private val anecdotes: AnecdoteRepository,
     private val moments: MomentRepository,
     private val momentService: MomentService,
     private val mapper: ApiMapper,
@@ -62,7 +64,8 @@ class PersonService(
                 person,
                 eras.findByRegionCodeOrderByStartYearAscIdAsc(region),
                 events.findByEraRegionCodeAndYearBetweenOrderByYearAscIdAsc(region, person.birthYear, end),
-                mapper::toDto,
+                anecdotes.findByPersonIdOrderByYearAscIdAsc(person.id),
+                mapper,
             ),
             connections = connectionsOf(person),
             aroundPeople = people.findTiedAliveBetween(region, ref, ref, Limit.of(AROUND + 1)).filter { it.slug != slug }.take(AROUND).map(mapper::toDto),

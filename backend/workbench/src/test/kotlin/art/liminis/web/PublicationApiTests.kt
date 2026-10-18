@@ -33,12 +33,16 @@ import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.client.RestClient
 import org.wiremock.spring.ConfigureWireMock
 import org.wiremock.spring.EnableWireMock
 import org.wiremock.spring.InjectWireMock
+import art.liminis.curation.Anecdote
 import art.liminis.curation.Claim
 import art.liminis.curation.ClaimRepository
+import art.liminis.curation.ClaimRules
+import art.liminis.curation.ClaimSources
 import art.liminis.curation.ClaimStatus
 import art.liminis.curation.CurationFixtures
 import art.liminis.curation.Occupation
@@ -48,10 +52,13 @@ import art.liminis.curation.OccupationDomain
 import art.liminis.curation.Origin
 import art.liminis.curation.Payload
 import art.liminis.curation.PersonFacts
+import art.liminis.curation.SourceKind
+import art.liminis.curation.SourceRef
 import art.liminis.curation.Story
 import art.liminis.curation.StoryCard
 import art.liminis.curation.StoryLine
 import art.liminis.curation.StoryWorld
+import art.liminis.dataset.DatasetStore
 import art.liminis.domain.CardType
 import art.liminis.publishing.GitHub
 import art.liminis.publishing.PublishProperties
@@ -87,6 +94,9 @@ class PublicationApiTests(
     @Autowired private val claims: ClaimRepository,
     @Autowired private val jdbc: JdbcTemplate,
     @Autowired private val properties: PublishProperties,
+    @Autowired private val sources: ClaimSources,
+    @Autowired private val transactions: TransactionTemplate,
+    @Autowired private val dataset: DatasetStore,
 ) {
 
     @InjectWireMock
@@ -108,6 +118,7 @@ class PublicationApiTests(
         github.stubFor(get(urlPathEqualTo("$repo/pulls")).willReturn(okJson("[]")))
         file("data/occupations.jsonl", null)
         file("data/corrections.jsonl", """{"id":"Q1","name":"Someone corrected before"}""" + "\n")
+        file("data/anecdotes.jsonl", null)
         file("data/people.jsonl", """{"id":"victor-hugo","qid":"Q535","name":"Victor Hugo"}""" + "\n")
     }
 
@@ -372,15 +383,15 @@ class PublicationApiTests(
 
         mockMvc.get("/api/publication") { signedIn() }.andExpect {
             status { isOk() }
-            jsonPath("$.files[2].path") { value("data/moments/edo-1830s.json") }
-            jsonPath("$.files[2].changes[0].after") { value(containsString(""""hook":"A new hook.""")) }
-            jsonPath("$.files[2].changes[0].after") { value(not(containsString("cards"))) }
-            jsonPath("$.files[3].path") { value("data/moments/paris-1870s.json") }
-            jsonPath("$.files[3].changes[0].id") { value("paris-1870s") }
-            jsonPath("$.files[3].changes[0].change") { value("CHANGED") }
-            jsonPath("$.files[3].changes[0].before") { value("""{"hook":"Old hook."}""") }
-            jsonPath("$.files[3].changes[0].after") { value(containsString(""""cards":[{"type":"PERSON","text":"Someone there.","year":1875,"person":"victor-hugo"}]""")) }
-            jsonPath("$.files.length()") { value(4) }
+            jsonPath("$.files[3].path") { value("data/moments/edo-1830s.json") }
+            jsonPath("$.files[3].changes[0].after") { value(containsString(""""hook":"A new hook.""")) }
+            jsonPath("$.files[3].changes[0].after") { value(not(containsString("cards"))) }
+            jsonPath("$.files[4].path") { value("data/moments/paris-1870s.json") }
+            jsonPath("$.files[4].changes[0].id") { value("paris-1870s") }
+            jsonPath("$.files[4].changes[0].change") { value("CHANGED") }
+            jsonPath("$.files[4].changes[0].before") { value("""{"hook":"Old hook."}""") }
+            jsonPath("$.files[4].changes[0].after") { value(containsString(""""cards":[{"type":"PERSON","text":"Someone there.","year":1875,"person":"victor-hugo"}]""")) }
+            jsonPath("$.files.length()") { value(5) }
             jsonPath("$.moments[1].moment") { value("paris-1870s") }
             jsonPath("$.moments[1].hook.before") { value("Old hook.") }
             jsonPath("$.moments[1].hook.after") { value("A new hook.") }
@@ -389,10 +400,10 @@ class PublicationApiTests(
             jsonPath("$.moments[1].cards[0].change") { value("ADDED") }
             jsonPath("$.moments[1].cards[0].label") { value("Someone") }
             jsonPath("$.moments[1].cards[0].to") { value(1) }
-            jsonPath("$.heldBack[0].moment") { value("edo-1830s") }
+            jsonPath("$.heldBack[0].id") { value("edo-1830s") }
             jsonPath("$.heldBack[0].reason") { value(containsString("2 cards show fetched people")) }
             jsonPath("$.heldBack[0].reason") { value(containsString("card 1, Someone (Q5586); card 2, Tokugawa Ienari (Q439717)")) }
-            jsonPath("$.heldBack[1].moment") { value("london-1600") }
+            jsonPath("$.heldBack[1].id") { value("london-1600") }
             jsonPath("$.heldBack[1].reason") { value("There is no data/moments/london-1600.json on the data repository's main") }
         }
 
@@ -444,5 +455,74 @@ class PublicationApiTests(
             jsonPath("$.moments[0].cards[2].from") { value(4) }
             jsonPath("$.moments[0].cards[2].fields[0].before") { value("A laundress.") }
         }
+    }
+
+    /** An approved anecdote, edited from [proposal] to [approved] if given, resting on [refs]. */
+    private fun approveAnecdote(proposal: Anecdote, approved: Anecdote = proposal, refs: List<SourceRef>): String = transactions.execute {
+        val claim = Claim.candidate(proposal, Origin.MANUAL, emptyList()).apply { status = ClaimStatus.APPROVED; payload = approved }
+        sources.attach(claim, refs)
+        claims.save(claim).id
+    }!!
+
+    @Test
+    fun `writes the approved anecdotes with the source the site names, and holds back those it cannot show yet`() {
+        CurationFixtures.map(dataset)
+        file("data/corrections.jsonl", null)
+        file("data/people.jsonl", """{"id":"katsushika-hokusai","qid":"Q5586","name":"Katsushika Hokusai"}""" + "\n" + """{"id":"victor-hugo","qid":"Q535","name":"Victor Hugo"}""" + "\n")
+        val daruma = approveAnecdote(
+            Anecdote("Q5586", 1804, "He paints Daruma."),
+            refs = listOf(SourceRef(SourceKind.WIKIDATA, entity = "Q5586"), SourceRef(SourceKind.WIKIPEDIA, language = "en", title = "Katsushika Hokusai")),
+        )
+        val exile = approveAnecdote(
+            Anecdote("Q535", 1851, "He leaves."), Anecdote("Q535", 1851, "He leaves for Brussels."),
+            refs = listOf(SourceRef(SourceKind.BOOK, title = "Choses vues", page = "12", quote = "Never published")),
+        )
+        val removed = ClaimRules.idOf(Anecdote("Q535", 1802, "He is born."))
+        file(
+            "data/anecdotes.jsonl",
+            """{"id":"$removed","person":"Q535","year":1802,"text":"He is born.","source":{"url":"https://example.org"}}""" + "\n" +
+                """{"id":"$exile","person":"Q535","year":1851,"text":"He leaves.","source":{"title":"Choses vues","page":"12"}}""" + "\n",
+        )
+        val fetched = approveAnecdote(Anecdote("Q504", 1898, "He leaves for London."), refs = listOf(SourceRef(SourceKind.WEB, url = "https://example.org/zola")))
+        val unsourced = approveAnecdote(Anecdote("Q535", 1885, "He dies."), refs = emptyList())
+
+        mockMvc.get("/api/publication") { signedIn() }.andExpect {
+            status { isOk() }
+            jsonPath("$.files[2].path") { value("data/anecdotes.jsonl") }
+            jsonPath("$.files[2].changes.length()") { value(3) }
+            jsonPath("$.files[2].changes[0].id") { value(removed) }
+            jsonPath("$.files[2].changes[0].change") { value("REMOVED") }
+            jsonPath("$.files[2].changes[1].after") { value("""{"id":"$exile","person":"Q535","year":1851,"text":"He leaves for Brussels.","source":{"title":"Choses vues","page":"12"}}""") }
+            jsonPath("$.files[2].changes[2].after") {
+                value("""{"id":"$daruma","person":"Q5586","year":1804,"text":"He paints Daruma.","source":{"url":"https://en.wikipedia.org/wiki/Katsushika_Hokusai"}}""")
+            }
+            // In words, by the name of whom they are about, then by year.
+            jsonPath("$.anecdotes.length()") { value(3) }
+            jsonPath("$.anecdotes[0].name") { value("Katsushika Hokusai") }
+            jsonPath("$.anecdotes[0].change") { value("ADDED") }
+            jsonPath("$.anecdotes[0].fields[2].field") { value("SOURCE") }
+            jsonPath("$.anecdotes[0].fields[2].after") { value("https://en.wikipedia.org/wiki/Katsushika_Hokusai") }
+            jsonPath("$.anecdotes[1].year") { value(1802) }
+            jsonPath("$.anecdotes[1].change") { value("REMOVED") }
+            jsonPath("$.anecdotes[2].year") { value(1851) }
+            jsonPath("$.anecdotes[2].fields.length()") { value(1) }
+            jsonPath("$.anecdotes[2].fields[0].field") { value("TEXT") }
+            jsonPath("$.anecdotes[2].fields[0].before") { value("He leaves.") }
+            jsonPath("$.anecdotes[2].fields[0].after") { value("He leaves for Brussels.") }
+            jsonPath("$.heldBack.length()") { value(2) }
+            jsonPath("$.heldBack[?(@.id == '$fetched')].reason") { value("It is about a fetched person, Émile Zola (Q504), whom the release holds once it carries the dataset") }
+            jsonPath("$.heldBack[?(@.id == '$unsourced')].reason") { value("It rests on no source the site can name") }
+        }
+
+        stubWrites()
+        publish().andExpect { status { isOk() } }
+        val tree = github.findAll(postRequestedFor(urlPathEqualTo("$repo/git/trees"))).single().bodyAsString
+        assertTrue("data/anecdotes.jsonl" in tree && "Never published" !in tree && "London" !in tree, tree)
+        github.verify(
+            postRequestedFor(urlPathEqualTo("$repo/pulls"))
+                .withRequestBody(matchingJsonPath("$.body", containing("- Katsushika Hokusai (Q5586), 1804: added")))
+                .withRequestBody(matchingJsonPath("$.body", containing("- Victor Hugo (Q535), 1802: removed")))
+                .withRequestBody(matchingJsonPath("$.body", containing("- Victor Hugo (Q535), 1851: text changed"))),
+        )
     }
 }

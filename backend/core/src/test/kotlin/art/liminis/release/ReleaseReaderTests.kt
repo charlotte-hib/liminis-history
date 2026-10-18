@@ -62,6 +62,25 @@ class ReleaseReaderTests {
     }
 
     @Test
+    fun `anecdotes are optional, and read with their source when there are some`() {
+        assertEquals(emptyList(), read().anecdotes)
+
+        files["anecdotes.jsonl"] = """
+            {"id":"anecdote:Q504:1898:aaaa","person":"Q504","year":1898,"text":"He leaves for London.","source":{"title":"A podcast","episode":"12","minute":"14:20"}}
+            {"id":"anecdote:Q504:1902:bbbb","person":"Q504","year":1902,"text":"He dies at home.","source":{"url":"https://example.org/zola"}}
+        """
+        val anecdotes = read().anecdotes
+
+        assertEquals(
+            listOf(
+                AnecdoteRecord("anecdote:Q504:1898:aaaa", "Q504", 1898, "He leaves for London.", AnecdoteSourceRecord(title = "A podcast", episode = "12", minute = "14:20")),
+                AnecdoteRecord("anecdote:Q504:1902:bbbb", "Q504", 1902, "He dies at home.", AnecdoteSourceRecord(url = "https://example.org/zola")),
+            ),
+            anecdotes,
+        )
+    }
+
+    @Test
     fun `records must be sorted by id`() {
         files["people.jsonl"] = files.getValue("people.jsonl").lines().reversed().joinToString("\n")
         assertEquals("people.jsonl:2: emile-zola is out of order", problem())

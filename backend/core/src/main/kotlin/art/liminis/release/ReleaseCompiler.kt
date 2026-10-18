@@ -1,6 +1,7 @@
 package art.liminis.release
 
 import org.mapstruct.factory.Mappers
+import art.liminis.domain.Anecdote
 import art.liminis.domain.Connection
 import art.liminis.domain.Door
 import art.liminis.domain.Era
@@ -21,6 +22,7 @@ class CompiledRelease(
     val lives: List<Life>,
     val events: List<Event>,
     val connections: List<Connection>,
+    val anecdotes: List<Anecdote>,
     val moments: List<Moment>,
     val doors: List<Door>,
 )
@@ -70,6 +72,15 @@ object ReleaseCompiler {
             }
         }
 
+        val anecdotes = release.anecdotes.map {
+            references.at("anecdotes.jsonl ${it.id}") {
+                if (it.source.title == null && it.source.url == null) {
+                    throw InvalidReleaseException("${references.where}: the source has a title or a URL")
+                }
+                mapper.anecdote(it, references)
+            }
+        }
+
         val moments = release.moments.map { references.at("moments/${it.id}.json") { mapper.moment(it, references) } }
         references.moments(moments)
 
@@ -79,7 +90,7 @@ object ReleaseCompiler {
             }
         }
 
-        return CompiledRelease(regions, eras, people, lives, events, connections, moments, doors)
+        return CompiledRelease(regions, eras, people, lives, events, connections, anecdotes, moments, doors)
     }
 }
 
@@ -95,6 +106,7 @@ class References {
     private var regions = emptyMap<String, Region>()
     private var eras = emptyList<Era>()
     private var people = emptyMap<String, Person>()
+    private var peopleByQid = emptyMap<String, Person>()
     private var lives = emptyMap<String, Life>()
     private var events = emptyMap<String, Event>()
     private var moments = emptyMap<String, Moment>()
@@ -111,13 +123,17 @@ class References {
 
     fun regions(all: List<Region>) { regions = all.associateBy { it.code } }
     fun eras(all: List<Era>) { eras = all }
-    fun people(all: List<Person>) { people = all.associateBy { it.id } }
+    fun people(all: List<Person>) {
+        people = all.associateBy { it.id }
+        peopleByQid = all.filter { it.qid != null }.associateBy { it.qid!! }
+    }
     fun lives(all: List<Life>) { lives = all.associateBy { it.id } }
     fun events(all: List<Event>) { events = all.associateBy { it.id } }
     fun moments(all: List<Moment>) { moments = all.associateBy { it.id } }
 
     fun region(id: String): Region = regions[id] ?: missing("region", id)
     fun person(id: String): Person = people[id] ?: missing("person", id)
+    fun personByQid(qid: String): Person = peopleByQid[qid] ?: missing("person", qid)
     fun life(id: String): Life = lives[id] ?: missing("life", id)
     fun event(id: String): Event = events[id] ?: missing("event", id)
     fun moment(id: String): Moment = moments[id] ?: missing("moment", id)
