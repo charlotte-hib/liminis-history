@@ -19,6 +19,8 @@ import art.liminis.curation.StoryLine
 import art.liminis.curation.StoryWorld
 import art.liminis.domain.CardType
 import art.liminis.domain.Moment
+import art.liminis.moments.MomentStory
+import art.liminis.moments.Moments
 import art.liminis.repository.MomentRepository
 import art.liminis.repository.PersonRepository
 import java.math.BigDecimal
@@ -50,6 +52,7 @@ class StoryDrafting(
     private val sources: DraftSources,
     private val drafter: StoryDrafter,
     private val claims: Claims,
+    private val workspace: Moments,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -63,8 +66,9 @@ class StoryDrafting(
         val draft = drafted.draft.withBareIds()
         val problems = StoryDraftValidator.problems(draft, momentSources, moment.startYear, moment.endYear)
         val byId = momentSources.associateBy { it.id }
-        val page = page(moment, draft, byId)
-        val story = story(moment, draft, byId)
+        val released = workspace.story(momentId)
+        val page = page(moment, released, draft, byId)
+        val story = story(moment, released, draft, byId)
         val pageFlags = problems.page.map { FlagReason(Flag.ODD, it) }
         val storyFlags = (problems.cards + fetchedPeople(story)).map { FlagReason(Flag.ODD, it) }
         val pageLines = listOf(draft.hook, draft.world.governs, draft.world.everyday, draft.world.arts, draft.world.meanwhile)
@@ -85,35 +89,43 @@ class StoryDrafting(
             "%,d input and %,d output tokens, about \$%s%s".format(Locale.ROOT, drafted.inputTokens, drafted.outputTokens, cost, priced)
     }
 
-    /** The draft's hook and world around as the page claim's record, each line with its quotes. */
-    private fun page(moment: Moment, draft: StoryDraft, byId: Map<String, Source>): MomentPage {
+    /** The draft's hook and world around as the header claim's record, each line with its quotes, and the release's painting. */
+    private fun page(moment: Moment, released: MomentStory, draft: StoryDraft, byId: Map<String, Source>): MomentPage {
         fun line(line: DraftLine) = StoryLine(line.text, citations(line.citations, byId))
         return MomentPage(
             moment = moment.id,
             hook = line(draft.hook),
             world = with(draft.world) { StoryWorld(line(governs), line(everyday), line(arts), line(meanwhile)) },
+            art = released.art,
         )
     }
 
-    /** The draft's cards as the story claim's record, naming people written by hand by their id. */
-    private fun story(moment: Moment, draft: StoryDraft, byId: Map<String, Source>): Story {
+    /**
+     * The draft's cards as the story claim's record, naming people written by hand by their id. A card showing what one
+     * of the release's cards showed keeps its painting.
+     */
+    private fun story(moment: Moment, released: MomentStory, draft: StoryDraft, byId: Map<String, Source>): Story {
         val qids = draft.cards.mapNotNull { it.personId }
         val byHand = people.findByQidIn(qids).filter { it.id != it.qid }.associate { it.qid to it.id }
+        val paintings = released.cards.mapNotNull { card -> card.art?.let { listOf(card.type, card.person, card.life, card.event) to it } }.toMap()
 
         fun name(kind: String, id: String?) = id?.let { byId["$kind:$it"]?.name }
 
         return Story(
             moment = moment.id,
             cards = draft.cards.map { card ->
+                val person = card.personId?.takeIf { card.type == CardType.PERSON }?.let { byHand[it] ?: it }
+                val life = card.lifeId?.takeIf { card.type == CardType.LIFE }
+                val event = card.eventId?.takeIf { card.type == CardType.EVENT }
                 StoryCard(
                     type = card.type,
                     kicker = card.kicker,
                     title = card.title,
                     text = card.text,
                     year = card.year,
-                    person = card.personId?.takeIf { card.type == CardType.PERSON }?.let { byHand[it] ?: it },
-                    life = card.lifeId?.takeIf { card.type == CardType.LIFE },
-                    event = card.eventId?.takeIf { card.type == CardType.EVENT },
+                    person = person,
+                    life = life,
+                    event = event,
                     label = when (card.type) {
                         CardType.PERSON -> name("person", card.personId)
                         CardType.LIFE -> name("life", card.lifeId)
@@ -121,6 +133,7 @@ class StoryDrafting(
                         CardType.SCENE -> null
                     },
                     citations = citations(card.citations, byId),
+                    art = paintings[listOf(card.type, person, life, event)],
                 )
             },
         )

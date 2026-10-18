@@ -22,6 +22,7 @@ import art.liminis.curation.Payload
 import art.liminis.curation.PersonFacts
 import art.liminis.curation.Queue
 import art.liminis.curation.MomentPage
+import art.liminis.curation.Painting
 import art.liminis.curation.Story
 import art.liminis.workbench.api.model.AnecdoteDto
 import art.liminis.workbench.api.model.ClaimDetailDto
@@ -33,6 +34,7 @@ import art.liminis.workbench.api.model.DecisionDto
 import art.liminis.workbench.api.model.EventDto
 import art.liminis.workbench.api.model.FlagDto
 import art.liminis.workbench.api.model.MomentPageDto
+import art.liminis.workbench.api.model.PaintingDto
 import art.liminis.workbench.api.model.NewClaimDto
 import art.liminis.workbench.api.model.NewDecisionDto
 import art.liminis.workbench.api.model.OccupationDomainDto
@@ -112,6 +114,8 @@ abstract class ClaimApiMapper {
     @SubclassMapping(source = StoryDto::class, target = Story::class)
     @SubclassMapping(source = MomentPageDto::class, target = MomentPage::class)
     abstract fun toModel(payload: PayloadDto): Payload
+
+    abstract fun toModel(painting: PaintingDto): Painting
 
     abstract fun toModel(type: ClaimTypeDto): ClaimType
 

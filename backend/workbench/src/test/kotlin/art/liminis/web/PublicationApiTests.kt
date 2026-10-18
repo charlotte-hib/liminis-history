@@ -50,6 +50,8 @@ import art.liminis.curation.OccupationChoice
 import art.liminis.curation.MomentPage
 import art.liminis.curation.OccupationDomain
 import art.liminis.curation.Origin
+import art.liminis.curation.Painting
+import art.liminis.curation.PaintingLicence
 import art.liminis.curation.Payload
 import art.liminis.curation.PersonFacts
 import art.liminis.curation.SourceKind
@@ -73,6 +75,7 @@ import java.time.Instant
 import java.util.Base64
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -455,6 +458,51 @@ class PublicationApiTests(
             jsonPath("$.moments[0].cards[2].from") { value(4) }
             jsonPath("$.moments[0].cards[2].fields[0].before") { value("A laundress.") }
         }
+    }
+
+    @Test
+    fun `says which paintings change, by their credits, and writes the claims' paintings as they are`() {
+        val art = { name: String, credit: String -> """{"url": "https://example.org/$name.jpg", "credit": "$credit", "source": "https://example.org/$name"}""" }
+        val paris = """{"id": "paris-1870s", "place": "Paris", "period": "1870s", "hook": "Old hook.", "art": ${art("rain", "Caillebotte, Rainy Day")},
+            "cards": [{"type": "SCENE", "title": "The city", "art": ${art("boulevard", "Pissarro, Boulevard")}},
+                      {"type": "PERSON", "person": "victor-hugo", "text": "Hugo.", "art": ${art("hugo", "Bonnat, Hugo")}},
+                      {"type": "PERSON", "person": "emile-zola", "text": "Zola."}]}"""
+        file("data/moments/paris-1870s.json", paris)
+        file("data/corrections.jsonl", null)
+        val painting = { name: String, credit: String -> Painting("https://example.org/$name.jpg", credit, "https://example.org/$name", PaintingLicence.PUBLIC_DOMAIN) }
+        val line = StoryLine("Old hook.")
+        val header = MomentPage("paris-1870s", line, StoryWorld(line, line, line, line), painting("fuji", "Hokusai, Red Fuji"))
+        val story = Story(
+            "paris-1870s",
+            listOf(
+                StoryCard(CardType.SCENE, title = "The city"),
+                StoryCard(CardType.PERSON, text = "Hugo.", person = "victor-hugo", art = painting("hugo-old", "Bonnat, Hugo")),
+                StoryCard(CardType.PERSON, text = "Zola.", person = "emile-zola", art = painting("zola", "Manet, Zola")),
+            ),
+        )
+        for (payload in listOf(header, story)) claims.save(Claim.candidate(payload, Origin.CLAUDE, emptyList()).apply { status = ClaimStatus.APPROVED })
+
+        mockMvc.get("/api/publication") { signedIn() }.andExpect {
+            status { isOk() }
+            jsonPath("$.moments[0].painting.before") { value("Caillebotte, Rainy Day") }
+            jsonPath("$.moments[0].painting.after") { value("Hokusai, Red Fuji") }
+            jsonPath("$.moments[0].unchangedCards") { value(0) }
+            jsonPath("$.moments[0].cards[0].fields[0].field") { value("PAINTING") }
+            jsonPath("$.moments[0].cards[0].fields[0].before") { value("Pissarro, Boulevard") }
+            jsonPath("$.moments[0].cards[0].fields[0].after") { doesNotExist() }
+            jsonPath("$.moments[0].cards[1].fields[0].after") { value("Bonnat, Hugo (another image)") }
+            jsonPath("$.moments[0].cards[2].fields[0].before") { doesNotExist() }
+            jsonPath("$.moments[0].cards[2].fields[0].after") { value("Manet, Zola") }
+        }
+
+        stubWrites()
+        publish().andExpect { status { isOk() } }
+        val tree = github.findAll(postRequestedFor(urlPathEqualTo("$repo/git/trees"))).single().bodyAsString
+        assertTrue("fuji.jpg" in tree && "hugo-old.jpg" in tree && "zola.jpg" in tree, tree)
+        assertFalse("rain.jpg" in tree || "boulevard.jpg" in tree, tree)
+        assertFalse("PUBLIC_DOMAIN" in tree, tree)
+        val body = github.findAll(postRequestedFor(urlPathEqualTo("$repo/pulls"))).single().bodyAsString
+        assertTrue("painting changed" in body && "card 1, scene: painting changed" in body, body)
     }
 
     /** An approved anecdote, edited from [proposal] to [approved] if given, resting on [refs]. */

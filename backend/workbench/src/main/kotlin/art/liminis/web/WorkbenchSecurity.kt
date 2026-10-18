@@ -29,6 +29,7 @@ class WorkbenchSecurity {
                 for (path in listOf(
                     "/api/queues", "/api/claims", "/api/claims/*", "/api/people", "/api/people/*/evidence", "/api/occupations/*",
                     "/api/moments", "/api/moments/*", "/api/moments/*/people", "/api/moments/*/preview", "/api/moments/*/subjects",
+                    "/api/paintings",
                 )) {
                     authorize(GET, path, hasAuthority(CURATION_READ))
                 }
@@ -60,7 +61,7 @@ class WorkbenchSecurity {
     fun requestRejectedHandler(): RequestRejectedHandler = HttpStatusRequestRejectedHandler()
 
     companion object {
-        /** Queues, claims, people and their evidence, moments: curate, and wb's queues. */
+        /** Queues, claims, people and their evidence, moments, paintings on Commons: curate, and wb's queues. */
         const val CURATION_READ = "SCOPE_curation:read"
 
         /** Adding claims, proposing a person's facts or a moment's story, deciding, undoing: curate. */

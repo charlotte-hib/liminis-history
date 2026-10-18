@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
@@ -63,6 +64,11 @@ class MomentsApiTests(
             jsonPath("$.storyCards[2].type") { value("PERSON") }
             jsonPath("$.storyCards[2].person") { value("georges-clemenceau") }
             jsonPath("$.storyCards[2].label") { value("Georges Clemenceau") }
+            jsonPath("$.art.credit") { value("Gustave Caillebotte, Paris Street; Rainy Day, 1877") }
+            jsonPath("$.art.source") { value(startsWith("https://commons.wikimedia.org/wiki/File:")) }
+        }
+        mockMvc.get("/api/moments/{id}", "tokyo-1870s") { signedIn() }.andExpect {
+            jsonPath("$.storyCards[?(@.event == 'first-railway')].art.credit") { value(contains("Utagawa Hiroshige III, steam train at Yokohama, 1874")) }
         }
         mockMvc.get("/api/moments/{id}", "atlantis-0") { signedIn() }.andExpect { status { isNotFound() } }
     }
@@ -117,7 +123,6 @@ class MomentsApiTests(
         }.andExpect {
             status { isOk() }
             jsonPath("$.art.credit") { value("Gustave Caillebotte, Paris Street; Rainy Day, 1877") }
-            jsonPath("$.cardArt.length()") { value(0) }
             // Ordered by id; the Q-id nobody holds is left out.
             jsonPath("$.people.length()") { value(2) }
             jsonPath("$.people[0].id") { value("Q535") }
@@ -134,13 +139,26 @@ class MomentsApiTests(
             jsonPath("$.events[0].participants.length()") { value(3) }
             jsonPath("$.events[0].participants[0].role") { value("exhibitor") }
         }
-        mockMvc.get("/api/moments/{id}/preview", "tokyo-1870s") { signedIn() }.andExpect {
-            jsonPath("$.cardArt.length()") { value(1) }
-            jsonPath("$.cardArt[0].type") { value("EVENT") }
-            jsonPath("$.cardArt[0].event") { value("first-railway") }
-            jsonPath("$.people.length()") { value(0) }
-        }
         mockMvc.get("/api/moments/{id}/preview", "atlantis-0") { signedIn() }.andExpect { status { isNotFound() } }
+    }
+
+    @Test
+    fun `a story's preview shows the moment's painting its header claim holds, unless rejected`() {
+        val header = { art: String? ->
+            """{"hook": "Rain.", "world": {"governs": "g", "everyday": "e", "arts": "a", "meanwhile": "m"}${art?.let { ", \"art\": $it" }.orEmpty()}}"""
+        }
+        val fuji = """{"url": "https://example.org/fuji.jpg", "credit": "Hokusai, Red Fuji", "source": "https://example.org/fuji", "licence": "PUBLIC_DOMAIN"}"""
+        mockMvc.post("/api/moments/{id}/page", "paris-1870s") { signedIn(); contentType = MediaType.APPLICATION_JSON; content = header(fuji) }.andExpect { status { isCreated() } }
+        mockMvc.get("/api/moments/{id}/preview", "paris-1870s") { signedIn() }.andExpect { jsonPath("$.art.credit") { value("Hokusai, Red Fuji") } }
+
+        // Taken away: no painting behind the cards.
+        mockMvc.post("/api/moments/{id}/page", "paris-1890s") { signedIn(); contentType = MediaType.APPLICATION_JSON; content = header(null) }.andExpect { status { isCreated() } }
+        mockMvc.get("/api/moments/{id}/preview", "paris-1890s") { signedIn() }.andExpect { jsonPath("$.art") { doesNotExist() } }
+
+        jdbc.update("update curation.claim set status = 'REJECTED' where id = 'moment-page:paris-1870s'")
+        mockMvc.get("/api/moments/{id}/preview", "paris-1870s") { signedIn() }.andExpect {
+            jsonPath("$.art.credit") { value("Gustave Caillebotte, Paris Street; Rainy Day, 1877") }
+        }
     }
 
     @Test

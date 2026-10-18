@@ -57,7 +57,10 @@ class ClaimController(
         // As curate sends a decision's lines: trimmed, so a stray space or line break never reaches the published file.
         fun line(text: String) = StoryLine(text.trim())
         val page = with(momentPageTextDto) {
-            MomentPage(id, line(hook), StoryWorld(line(world.governs), line(world.everyday), line(world.arts), line(world.meanwhile)))
+            MomentPage(
+                id, line(hook), StoryWorld(line(world.governs), line(world.everyday), line(world.arts), line(world.meanwhile)),
+                art?.let(mapper::toModel)?.let { it.copy(credit = it.credit.trim()) },
+            )
         }
         return answer(moments.writePage(page, momentPageTextDto.note, currentActor()))
     }

@@ -176,7 +176,7 @@ object ClaimRules {
 
     /**
      * What the spec cannot say: no year 0, two different people in a connection, a story's cards naming what they
-     * show, and a moment's page with every line written.
+     * show, a moment's page with every line written, and every painting credited.
      */
     private fun check(payload: Payload) {
         val years = when (payload) {
@@ -194,6 +194,7 @@ object ClaimRules {
         if (payload is MomentPage) {
             val lines = with(payload.world) { listOf(payload.hook, governs, everyday, arts, meanwhile) }
             if (lines.any { it.text.isBlank() }) invalid("Write the hook and every line of the world around")
+            if (payload.art?.credit?.isBlank() == true) invalid("The moment's painting needs a credit")
         }
     }
 
@@ -205,6 +206,7 @@ object ClaimRules {
             CardType.EVENT -> !card.event.isNullOrBlank() to "an event"
         }
         if (!named) invalid("Card $number, ${card.type}, needs $needs")
+        if (card.art?.credit?.isBlank() == true) invalid("Card $number's painting needs a credit")
     }
 
     private fun check(source: SourceRef) {

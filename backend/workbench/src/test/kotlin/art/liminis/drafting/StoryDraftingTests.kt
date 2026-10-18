@@ -104,10 +104,26 @@ class StoryDraftingTests(
         assertEquals("A republic, and its old poet.", (page.claim.payload as MomentPage).hook.text)
         assertEquals("Victor Hugo (1802–1885), writer", (page.claim.payload as MomentPage).hook.citations.single().title)
         assertEquals(emptyList(), page.claim.flags)
+        // The release's painting, until the curator chooses another.
+        assertEquals("Gustave Caillebotte, Paris Street; Rainy Day, 1877", (page.claim.payload as MomentPage).art?.credit)
+        assertEquals(listOf(null, null, null, null), story.cards.map { it.art })
         assertEquals(
             listOf("Title of Q535", "Title of Q3008").map { SourceRef(SourceKind.WIKIPEDIA, language = "en", title = it) },
             detail.sources,
         )
+    }
+
+    @Test
+    fun `a drafted card showing what one of the release's cards showed keeps its painting`() {
+        val railway = DraftCard(CardType.EVENT, null, null, "A train.", null, null, "event:first-railway", 1872, listOf(Citation("person:Q535", "writer")))
+        val scene = DraftCard(CardType.SCENE, null, "Rain", "Rain on the bridge.", null, null, null, 1876, listOf(Citation("person:Q535", "writer")))
+        doReturn(Drafted(draft.copy(cards = listOf(scene, railway)), "claude-opus-5-5", 1, 1)).`when`(drafter).draft(anyOf(), anyOf())
+
+        drafting.draft("tokyo-1870s")
+
+        val story = claims.detail("story:tokyo-1870s").claim.payload as Story
+        assertEquals(listOf(null, "Utagawa Hiroshige III, steam train at Yokohama, 1874"), story.cards.map { it.art?.credit })
+        assertEquals(null, story.cards[1].art?.licence)
     }
 
     @Test
