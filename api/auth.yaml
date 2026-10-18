@@ -1,0 +1,286 @@
+openapi: 3.0.3
+info:
+  title: Liminis accounts API
+  version: 1.0.0
+  description: |
+    The people who may sign in to curate, kept by `auth`, the curator's authorization server: the admin and the
+    curators they invite. curate's Team page calls it, for the admin only.
+
+    It listens on `localhost:9000`, beside `auth`'s OAuth 2 and OpenID Connect endpoints. Every request needs an
+    access token from `auth` with the scope `admin`, for the audience `auth`. Inviting and revoking also need a passkey
+    used within the team's `maxAge` seconds.
+  license:
+    name: MIT
+    url: https://github.com/charlotte-hib/liminis-history/blob/main/LICENSE
+servers:
+  - url: http://localhost:9000
+    description: auth, on the curator's computer.
+tags:
+  - name: accounts
+    description: Who may sign in, with which role, and how far they are with their passkey.
+
+paths:
+  /api/accounts:
+    get:
+      tags: [accounts]
+      operationId: listAccounts
+      security:
+        - auth: ["admin"]
+      summary: The team
+      description: Every account, the admin's first, then by when they were invited.
+      responses:
+        "200":
+          description: The accounts, and how recent a passkey inviting and revoking take.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [accounts]
+      operationId: invite
+      security:
+        - auth: ["admin"]
+      summary: Invite a curator
+      description: |
+        Adds an account with the role `CURATOR` and makes its invitation: a one-time link, valid 7 days, that lets its
+        holder in once to register a passkey. The admin sends it themselves. Needs a recent passkey: an older one is a
+        401 with `error="insufficient_user_authentication"` and `max_age` in `WWW-Authenticate` (RFC 9470).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewAccount"
+      responses:
+        "201":
+          description: The account and its invitation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/accounts/{username}/invitation:
+    post:
+      tags: [accounts]
+      operationId: inviteAgain
+      security:
+        - auth: ["admin"]
+      summary: A new invitation
+      description: |
+        A new one-time link for a curator, valid 7 days, to register a passkey: for a link that was lost or ran out, or
+        a passkey lost. The link given before stops working. Not for a revoked account, nor the admin's. Needs a recent
+        passkey, as an invitation does.
+      parameters:
+        - $ref: "#/components/parameters/Username"
+      responses:
+        "201":
+          description: The account and its new invitation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/accounts/{username}/revocation:
+    post:
+      tags: [accounts]
+      operationId: revoke
+      security:
+        - auth: ["admin"]
+      summary: Revoke a curator
+      description: |
+        Stops a curator at once: the account can no longer sign in, its passkeys, its invitation and its sessions are
+        deleted, so curate's next refresh fails; an access token already given lasts its 10 minutes at most. The
+        account stays, revoked, so that the decisions it took keep its name. Not for the admin's. Revoking a revoked
+        account changes nothing. Needs a recent passkey, as an invitation does.
+      parameters:
+        - $ref: "#/components/parameters/Username"
+      responses:
+        "200":
+          description: The account, revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+components:
+  securitySchemes:
+    auth:
+      type: oauth2
+      description: |
+        Access tokens from `auth` itself: JWTs signed with ES256, valid 10 minutes. Only the admin's carry the scope
+        `admin`, and with it the audience `auth`.
+      flows:
+        authorizationCode:
+          authorizationUrl: http://localhost:9000/oauth2/authorize
+          tokenUrl: http://localhost:9000/oauth2/token
+          refreshUrl: http://localhost:9000/oauth2/token
+          scopes:
+            admin: See the team, invite and revoke curators.
+
+  parameters:
+    Username:
+      name: username
+      in: path
+      required: true
+      description: The account's username.
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: The request does not match the contract, or the username or name does not hold.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: |
+        No access token, or one that is expired, not signed by `auth`, or not for the audience `auth`; or, to invite or
+        revoke, one whose passkey is too old.
+    Forbidden:
+      description: The access token lacks the scope `admin`.
+    NotFound:
+      description: No account has this username.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: The username is taken, or the account is the admin's, or it is revoked.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    Team:
+      type: object
+      required: [accounts, maxAge]
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Account"
+        maxAge:
+          type: integer
+          description: How many seconds ago the passkey may have been used, at most, to invite or revoke.
+          example: 300
+
+    Account:
+      type: object
+      required: [username, name, role, status, passkeys, created]
+      properties:
+        username:
+          type: string
+          description: The name the account signs in with, and that its decisions are logged under. Never changes.
+          example: marie.dupont
+        name:
+          type: string
+          description: The person's name, as curate shows it.
+          example: Marie Dupont
+        role:
+          $ref: "#/components/schemas/Role"
+        status:
+          $ref: "#/components/schemas/AccountStatus"
+        passkeys:
+          type: integer
+          description: How many passkeys the account has registered.
+          example: 1
+        invitedBy:
+          type: string
+          description: The username of who invited them. None for the admin.
+          example: curator
+        created:
+          type: string
+          format: date-time
+        revoked:
+          type: string
+          format: date-time
+          description: When the account was revoked. None while it is not.
+
+    Role:
+      type: string
+      description: |
+        `ADMIN` does everything a curator does, and manages the team. `CURATOR` reads, edits and decides claims,
+        drafts stories with Claude and publishes. The data runs belong to `wb`, on the admin's computer.
+      enum: [ADMIN, CURATOR]
+
+    AccountStatus:
+      type: string
+      description: |
+        `INVITED`: no passkey registered yet. `ACTIVE`: at least one passkey. `REVOKED`: may never sign in again.
+      enum: [INVITED, ACTIVE, REVOKED]
+
+    NewAccount:
+      type: object
+      required: [username, name]
+      properties:
+        username:
+          type: string
+          description: Lower-case letters, digits, dots and dashes, starting with a letter. Never changes.
+          minLength: 2
+          maxLength: 40
+          pattern: "^[a-z][a-z0-9.-]+$"
+          example: marie.dupont
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Marie Dupont
+
+    Invitation:
+      type: object
+      required: [account, link, expires]
+      properties:
+        account:
+          $ref: "#/components/schemas/Account"
+        link:
+          type: string
+          description: The one-time link to send. It works once, to register a passkey.
+          example: http://localhost:9000/login/ott?token=0d6e4a3e-6f5c-4c3e-9f1a-6b7d2a1c9e10
+        expires:
+          type: string
+          format: date-time
+
+    Problem:
+      type: object
+      description: RFC 9457 Problem Details.
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string

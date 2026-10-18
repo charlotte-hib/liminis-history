@@ -17,13 +17,22 @@ import org.springframework.security.authorization.RequiredFactor
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configurers.ott.OneTimeTokenLoginConfigurer
 import org.springframework.security.config.annotation.web.invoke
+import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.core.Authentication
 import org.springframework.security.core.authority.FactorGrantedAuthority
-import org.springframework.security.core.userdetails.User
 import org.springframework.security.jackson.SecurityJacksonModules
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.crypto.factory.PasswordEncoderFactories
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm
+import org.springframework.security.oauth2.core.AuthorizationGrantType
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException
+import org.springframework.security.oauth2.core.OAuth2Error
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes
+import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames
+import org.springframework.security.oauth2.jwt.JwtAudienceValidator
+import org.springframework.security.oauth2.jwt.JwtValidators
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType
@@ -32,7 +41,7 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer
-import org.springframework.security.provisioning.InMemoryUserDetailsManager
+import org.springframework.security.provisioning.JdbcUserDetailsManager
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint
@@ -51,11 +60,13 @@ import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator
 import java.net.URI
 import java.time.Duration
 import java.util.function.Supplier
+import javax.sql.DataSource
 
 /**
- * Two filter chains. The authorization server's endpoints (authorize, token, revoke, JWKS, OpenID discovery and
- * logout) give curate a code only after a passkey. Everything else is the sign-in itself: the passkey page, the
- * one-time link that lets the curator in once to register a passkey, and the page that registers it.
+ * Three filter chains. The authorization server's endpoints (authorize, token, revoke, JWKS, OpenID discovery and
+ * logout) give curate a code only after a passkey. The accounts API takes the admin's access tokens only. Everything
+ * else is the sign-in itself: the passkey page, the one-time link that lets a curator in once to register a passkey,
+ * and the page that registers it.
  */
 @Configuration
 class AuthSecurity {
@@ -88,6 +99,26 @@ class AuthSecurity {
         http.exceptionHandling {
             it.defaultAuthenticationEntryPointFor(signIn, MediaTypeRequestMatcher(MediaType.TEXT_HTML).apply { setIgnoredMediaTypes(setOf(MediaType.ALL)) })
             it.defaultDeniedHandlerForMissingAuthority(signIn, FactorGrantedAuthority.WEBAUTHN_AUTHORITY)
+        }
+        return http.build()
+    }
+
+    /**
+     * The accounts API (AccountController): access tokens auth signed for itself, the audience the admin's carry, with
+     * the scope `admin`. No sessions, no cookies, so no CSRF to guard against.
+     */
+    @Bean
+    @Order(Ordered.HIGHEST_PRECEDENCE + 1)
+    fun accountsApi(http: HttpSecurity, keys: SigningKeys, settings: AuthorizationServerSettings): SecurityFilterChain {
+        val tokens = NimbusJwtDecoder.withJwkSource(keys).jwsAlgorithm(SignatureAlgorithm.ES256).build().apply {
+            setJwtValidator(DelegatingOAuth2TokenValidator(JwtValidators.createDefaultWithIssuer(settings.issuer!!), JwtAudienceValidator(ACCOUNTS_AUDIENCE)))
+        }
+        http {
+            securityMatcher("/api/**")
+            authorizeHttpRequests { authorize(anyRequest, hasAuthority("SCOPE_${Scopes.ADMIN}")) }
+            oauth2ResourceServer { jwt { jwtDecoder = tokens } }
+            sessionManagement { sessionCreationPolicy = SessionCreationPolicy.STATELESS }
+            csrf { disable() }
         }
         return http.build()
     }
@@ -130,9 +161,12 @@ class AuthSecurity {
         return http.build()
     }
 
-    /** The curator: no password, only passkeys and, to register the first one, a one-time link. */
+    /**
+     * The accounts (Accounts), in Spring Security's own tables: no password, only passkeys and, to register the first
+     * one, a one-time link.
+     */
     @Bean
-    fun users(): UserDetailsService = InMemoryUserDetailsManager(User.withUsername(CURATOR).password("").build())
+    fun users(dataSource: DataSource) = JdbcUserDetailsManager(dataSource)
 
     /** Client secrets are kept hashed. */
     @Bean
@@ -171,19 +205,29 @@ class AuthSecurity {
     fun jwtEncoder(keys: SigningKeys) = NimbusJwtEncoder(keys).apply { setJwkSelector(keys::newest) }
 
     /**
-     * Every token signed with ES256; access tokens are for the workbench, whichever client asked for them, and say when
-     * the curator last used their passkey (`auth_time`, in seconds), for the workbench to ask for a recent one before a
-     * publish. A refresh keeps the sign-in's time; wb's tokens have none.
+     * Every token signed with ES256; access tokens are for the workbench, whichever client asked for them. curate's say
+     * when the person last used their passkey (`auth_time`, in seconds), for the workbench to ask for a recent one
+     * before a publish (a refresh keeps the sign-in's time), and who they are (`name`). Their scopes are those curate
+     * asked for that the account's role allows, read again at every refresh, so a revoked account gets no more tokens;
+     * the admin's are for auth's accounts API too. wb's tokens have no passkey and no account.
      */
     @Bean
-    fun tokens() = OAuth2TokenCustomizer<JwtEncodingContext> { context ->
+    fun tokens(users: UserDetailsService, accounts: Accounts) = OAuth2TokenCustomizer<JwtEncodingContext> { context ->
         context.jwsHeader.algorithm(SignatureAlgorithm.ES256)
-        if (context.tokenType == OAuth2TokenType.ACCESS_TOKEN) {
-            context.claims.audience(listOf(AUDIENCE))
-            context.getPrincipal<Authentication>()?.authorities.orEmpty().filterIsInstance<FactorGrantedAuthority>()
-                .firstOrNull { it.authority == FactorGrantedAuthority.WEBAUTHN_AUTHORITY }
-                ?.let { context.claims.claim(AUTH_TIME, it.issuedAt.epochSecond) }
-        }
+        if (context.tokenType != OAuth2TokenType.ACCESS_TOKEN) return@OAuth2TokenCustomizer
+        context.claims.audience(listOf(AUDIENCE))
+        if (context.authorizationGrantType == AuthorizationGrantType.CLIENT_CREDENTIALS) return@OAuth2TokenCustomizer
+        val principal = context.getPrincipal<Authentication>()!!
+        val user = runCatching { users.loadUserByUsername(principal.name) }.getOrNull()
+        val role = user?.takeIf { it.isEnabled }?.let { Role.of(it.authorities) }
+            ?: throw OAuth2AuthenticationException(OAuth2Error(OAuth2ErrorCodes.INVALID_GRANT, "${principal.name} may no longer sign in", null))
+        val scopes = context.authorizedScopes.intersect(role.scopes)
+        context.claims.claim(OAuth2ParameterNames.SCOPE, scopes)
+        if (Scopes.ADMIN in scopes) context.claims.audience(listOf(AUDIENCE, ACCOUNTS_AUDIENCE))
+        context.claims.claim(NAME, accounts.find(principal.name).name)
+        principal.authorities.filterIsInstance<FactorGrantedAuthority>()
+            .firstOrNull { it.authority == FactorGrantedAuthority.WEBAUTHN_AUTHORITY }
+            ?.let { context.claims.claim(AUTH_TIME, it.issuedAt.epochSecond) }
     }
 
     /**

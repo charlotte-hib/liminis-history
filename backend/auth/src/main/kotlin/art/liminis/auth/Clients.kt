@@ -19,8 +19,8 @@ import java.time.Duration
 import java.util.Base64
 
 /**
- * The workbench API's two clients, registered from this code on every start. curate signs the curator in with a
- * passkey (authorization code with PKCE, then refresh tokens); wb acts on its own (client credentials). Each secret is
+ * The workbench API's two clients, registered from this code on every start. curate signs curators in with a passkey
+ * (authorization code with PKCE, then refresh tokens); wb acts on its own (client credentials). Each secret is
  * made once and written to a file only the curator can read, where curate and wb find it; auth keeps only its hash. A
  * secret whose file is gone is made anew.
  */
@@ -40,7 +40,8 @@ class Clients(
             authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
             redirectUri("${properties.curateUrl}/auth/callback")
             postLogoutRedirectUri("${properties.curateUrl}/auth/signed-out")
-            scopes { it += listOf(OidcScopes.OPENID, Scopes.CURATION_READ, Scopes.CURATION_WRITE, Scopes.PUBLISH) }
+            // Its tokens carry those of these the account's role allows (Role).
+            scopes { it += listOf(OidcScopes.OPENID, Scopes.CURATION_READ, Scopes.CURATION_WRITE, Scopes.PUBLISH, Scopes.ADMIN) }
             clientSettings(ClientSettings.builder().requireProofKey(true).requireAuthorizationConsent(false).build())
             tokenSettings(
                 TokenSettings.builder()

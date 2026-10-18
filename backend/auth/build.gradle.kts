@@ -1,10 +1,12 @@
-// auth: the curator's sign-in, on the curator's computer only, never in an image. An OAuth 2.1 and OpenID Connect
-// authorization server on localhost:9000: passkeys, JWTs for the workbench API, a client for curate and one for wb.
+// auth: the curators' sign-in, on the curator's computer only, never in an image. An OAuth 2.1 and OpenID Connect
+// authorization server on localhost:9000: accounts and passkeys, JWTs for the workbench API, a client for curate and
+// one for wb, and the accounts API curate's Team page calls.
 plugins {
 	kotlin("jvm")
 	kotlin("plugin.spring")
 	id("org.springframework.boot")
 	id("io.spring.dependency-management")
+	id("org.openapi.generator")
 }
 
 java {
@@ -19,6 +21,7 @@ dependencies {
 	// Passkeys (WebAuthn), through webauthn4j.
 	implementation("org.springframework.security:spring-security-webauthn")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
+	implementation("org.springframework.boot:spring-boot-starter-validation")
 	// Its pages (sign in, the one-time link, passkeys), in curate's look.
 	implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
 	// Clients, authorizations, passkeys, one-time tokens and signing keys in schema auth of the workbench's Postgres.
@@ -46,6 +49,47 @@ kotlin {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+}
+
+// The accounts API's contract, api/auth.yaml at the repository root, generates its controller interface and models
+// (art.liminis.auth.api), as for the workbench's.
+val apiSpec = rootProject.layout.projectDirectory.file("../api/auth.yaml")
+val generatedApi = layout.buildDirectory.dir("generated/openapi")
+
+openApiGenerate {
+	generatorName = "kotlin-spring"
+	inputSpec = apiSpec
+	outputDir = generatedApi
+	apiPackage = "art.liminis.auth.api"
+	modelPackage = "art.liminis.auth.api.model"
+	modelNameSuffix = "Dto"
+	globalProperties = mapOf("apis" to "", "models" to "")
+	generateApiDocumentation = false
+	generateModelDocumentation = false
+	generateApiTests = false
+	generateModelTests = false
+	configOptions = mapOf(
+		"useSpringBoot4" to "true",
+		"interfaceOnly" to "true",
+		"skipDefaultInterface" to "true",
+		"useTags" to "true",
+		"requestMappingMode" to "api_interface",
+		"useResponseEntity" to "false",
+		"useBeanValidation" to "true",
+		"useSpringBuiltInValidation" to "true",
+		"documentationProvider" to "none",
+		"annotationLibrary" to "none",
+		"exceptionHandler" to "false",
+		"gradleBuildFile" to "false",
+	)
+}
+
+kotlin.sourceSets.main {
+	kotlin.srcDir(generatedApi.map { it.dir("src/main/kotlin") })
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+	dependsOn(tasks.openApiGenerate)
 }
 
 // The tests' Postgres runs the image of the db service in the repository's Compose file (core's PostgresTestConfiguration).
