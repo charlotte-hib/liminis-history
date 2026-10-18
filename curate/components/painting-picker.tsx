@@ -102,7 +102,7 @@ export function PaintingBox({ label, painting, title, hint, onChange, remove, no
             <Heading slot="title" className="font-serif text-2xl font-normal">
               {title}
             </Heading>
-            <Picker hint={hint} chosen={painting} onChoose={onChange} onDone={close} />
+            <Picker hint={hint} chosen={painting} onChoose={onChange} onUnchoose={() => onChange(before.current)} onDone={close} />
           </Dialog>
         </Modal>
       </ModalOverlay>
@@ -110,14 +110,22 @@ export function PaintingBox({ label, painting, title, hint, onChange, remove, no
   );
 }
 
-type PickerProps = { hint: string; chosen?: Painting; onChoose: (painting: Painting) => void; onDone: (keep: boolean) => void };
+type PickerProps = {
+  hint: string;
+  chosen?: Painting;
+  onChoose: (painting: Painting) => void;
+  /** Nothing is chosen any more: the painting from before the picker opened comes back. */
+  onUnchoose: () => void;
+  onDone: (keep: boolean) => void;
+};
 
 /** The picker's two ways to a painting: a search on Commons, or another address. */
-function Picker({ hint, chosen, onChoose, onDone }: PickerProps) {
+function Picker({ hint, chosen, onChoose, onUnchoose, onDone }: PickerProps) {
   const [picked, setPicked] = useState(false);
-  const choose = (painting: Painting) => {
-    setPicked(true);
-    onChoose(painting);
+  const choose = (painting: Painting | null) => {
+    setPicked(!!painting);
+    if (painting) onChoose(painting);
+    else onUnchoose();
   };
 
   return (
@@ -143,46 +151,67 @@ function Picker({ hint, chosen, onChoose, onDone }: PickerProps) {
         <OtherLink onChoose={choose} />
       </TabPanel>
       <div className="flex flex-wrap items-center gap-2.5 border-t border-line pt-4">
-        <button type="button" className="button-primary" disabled={!picked} onClick={() => onDone(true)}>
+        <button type="button" className="button-primary" disabled={!picked} aria-describedby="painting-chosen" onClick={() => onDone(true)}>
           Use this painting
         </button>
         <button type="button" className="button" onClick={() => onDone(false)}>
           Cancel
         </button>
-        {picked && chosen && (
-          <span className="ml-auto text-[12.5px] text-muted">
-            {chosen.credit} · {chosen.licence ? LICENCES[chosen.licence].toLowerCase() : ""}
-          </span>
-        )}
+        <span id="painting-chosen" className="ml-auto text-[12.5px] text-muted">
+          {picked && chosen ? `${chosen.credit} · ${chosen.licence ? LICENCES[chosen.licence].toLowerCase() : ""}` : "Choose a painting first."}
+        </span>
       </div>
     </Tabs>
   );
 }
 
-/** Commons searched a moment after the typing stops; a Commons link or file name finds that one file. */
+/**
+ * Commons searched a moment after the typing stops, one search at a time: typing on while one runs searches the last
+ * words once it is back. A Commons link or file name finds that one file.
+ */
 function CommonsSearch({ hint, chosen, onChoose }: { hint: string; chosen?: Painting; onChoose: (painting: Painting) => void }) {
   const [query, setQuery] = useState(hint);
   const [found, setFound] = useState<{ paintings: FoundPainting[]; leftOut: number; leftOutLicences: string[] } | null>(null);
   const [searching, setSearching] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  // The words asked for last, and whether a search runs: Next runs a page's server actions one after another.
+  const wanted = useRef(query);
+  const running = useRef(false);
 
-  // An answer to an older query is dropped.
-  useEffect(() => {
-    if (query.trim().length < 2) return;
-    let current = true;
-    const wait = setTimeout(async () => {
-      setSearching(true);
-      const result = await findPaintings(query);
-      if (!current) return;
+  const search = async (words: string) => {
+    running.current = true;
+    setSearching(true);
+    try {
+      const result = await findPaintings(words);
+      if (wanted.current !== words) return;
+      if (result.ok) {
+        setFailure(null);
+        setFound(result.data);
+      } else {
+        setFailure(result.detail);
+        setFound(null);
+      }
+    } catch {
+      if (wanted.current === words) {
+        setFailure("The workbench did not answer.");
+        setFound(null);
+      }
+    } finally {
+      running.current = false;
       setSearching(false);
-      if (!result.ok) return setFailure(result.detail);
-      setFailure(null);
-      setFound(result.data);
+      if (wanted.current !== words && wanted.current.trim().length >= 2) search(wanted.current);
+    }
+  };
+
+  useEffect(() => {
+    wanted.current = query;
+    if (query.trim().length < 2) return;
+    const wait = setTimeout(() => {
+      if (!running.current) search(query);
     }, 400);
-    return () => {
-      current = false;
-      clearTimeout(wait);
-    };
+    return () => clearTimeout(wait);
+    // A search started is followed to its end; only its answer is dropped when the words changed meanwhile.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   const single = found && found.paintings.length === 0 && found.leftOut === 1;
@@ -199,13 +228,15 @@ function CommonsSearch({ hint, chosen, onChoose }: { hint: string; chosen?: Pain
           className="rounded-full border border-edge bg-white px-4 py-2.5 text-base"
         />
       </label>
-      {searching && <p className="text-muted">Searching Wikimedia Commons…</p>}
+      <p role="status" className="text-muted empty:hidden">
+        {searching ? "Searching Wikimedia Commons…" : found ? `${found.paintings.length} found` : ""}
+      </p>
       {failure && (
         <p role="alert" className="text-conflict">
           {failure}
         </p>
       )}
-      {found && !searching && (
+      {found && (
         <>
           {found.paintings.length > 0 ? (
             <ul aria-label="Paintings found" className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3.5">
@@ -255,21 +286,29 @@ function CommonsSearch({ hint, chosen, onChoose }: { hint: string; chosen?: Pain
 }
 
 /** What the curator typed for a painting at another address, and whether the image there loaded. */
-type Typed = { url: string; source: string; credit: string; licence: PaintingLicence; image: { width: number; height: number } | "broken" | null };
+type Typed = { url: string; source: string; credit: string; licence?: PaintingLicence; image: { width: number; height: number } | "broken" | null };
 
 const https = (address: string) => /^https:\/\/\S+$/.test(address.trim());
 
-/** A painting at any address, its page, credit and licence given by the curator: chosen as soon as all is there. */
-function OtherLink({ onChoose }: { onChoose: (painting: Painting) => void }) {
-  const [typed, setTyped] = useState<Typed>({ url: "", source: "", credit: "", licence: "PUBLIC_DOMAIN", image: null });
+/**
+ * A painting at any address, its page, credit and licence given by the curator: chosen as soon as all is there, and no
+ * longer once something is missing again. The licence is the curator's word: never chosen for them.
+ */
+function OtherLink({ onChoose }: { onChoose: (painting: Painting | null) => void }) {
+  const [typed, setTyped] = useState<Typed>({ url: "", source: "", credit: "", image: null });
   const { url, source, credit, licence, image } = typed;
+  // The image is asked for a moment after the address stops changing, not at each keystroke.
+  const [shown, setShown] = useState("");
+  useEffect(() => {
+    const wait = setTimeout(() => setShown(https(url) ? url.trim() : ""), 600);
+    return () => clearTimeout(wait);
+  }, [url]);
 
   const change = (next: Partial<Typed>) => {
     const all = { ...typed, ...next };
     setTyped(all);
-    if (https(all.url) && https(all.source) && all.credit.trim() && all.image && all.image !== "broken") {
-      onChoose({ url: all.url.trim(), source: all.source.trim(), credit: all.credit.trim(), licence: all.licence });
-    }
+    const complete = https(all.url) && https(all.source) && all.credit.trim() && all.licence && all.image && all.image !== "broken";
+    onChoose(complete ? { url: all.url.trim(), source: all.source.trim(), credit: all.credit.trim(), licence: all.licence } : null);
   };
 
   return (
@@ -277,11 +316,18 @@ function OtherLink({ onChoose }: { onChoose: (painting: Painting) => void }) {
       <div className="flex min-w-[300px] flex-1 flex-col gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-[12.5px] text-muted">Image address</span>
-          <input type="url" value={url} placeholder="https://…" onChange={(event) => change({ url: event.target.value, image: null })} className={field} />
+          <input
+            type="url"
+            value={url}
+            placeholder="https://…"
+            aria-describedby="link-https"
+            onChange={(event) => change({ url: event.target.value, image: null })}
+            className={field}
+          />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[12.5px] text-muted">The page it is published on</span>
-          <input type="url" value={source} placeholder="https://…" onChange={(event) => change({ source: event.target.value })} className={field} />
+          <input type="url" value={source} placeholder="https://…" aria-describedby="link-https" onChange={(event) => change({ source: event.target.value })} className={field} />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[12.5px] text-muted">Credit, under the painting</span>
@@ -299,14 +345,18 @@ function OtherLink({ onChoose }: { onChoose: (painting: Painting) => void }) {
         <p className="text-[12.5px] text-conflict">
           The site loads the image from that address: if it moves or is taken down, the card shows no painting until you choose another.
         </p>
-        {(url || source) && (!https(url) || !https(source)) && <p className="text-[12.5px] text-muted">Both addresses start with https://.</p>}
+        <p id="link-https" className="text-[12.5px] text-muted">
+          {(url || source) && (!https(url) || !https(source)) ? "Both addresses start with https://." : ""}
+        </p>
+        {!licence && <p className="text-[12.5px] text-muted">Say which licence the page gives it.</p>}
       </div>
-      {https(url) && (
+      {shown && (
         <figure className="flex w-[360px] flex-col gap-1.5">
           {/* A plain image: its size is read once it loads, and an address showing none says so. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={url.trim()}
+            key={shown}
+            src={shown}
             alt="The image at that address"
             onLoad={(event) => change({ image: { width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight } })}
             onError={() => change({ image: "broken" })}

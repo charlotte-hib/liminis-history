@@ -251,7 +251,8 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
     if (mode !== "view") return;
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || pending) return;
-      if ((event.target as HTMLElement).closest("input, textarea, select, [contenteditable]")) return;
+      // Typing, and anything in a dialog such as the painting picker, keeps its keys.
+      if ((event.target as HTMLElement).closest("input, textarea, select, [contenteditable], [role=dialog]")) return;
       const action: Record<string, () => void> = {
         a: () => decideOn("APPROVE", note),
         r: () => setMode("REJECT"),
@@ -570,7 +571,7 @@ function OpenCard({ moment, card, number, count, subjects, missing, sources, tit
         <div className="grid grid-cols-[130px_100px_minmax(0,1fr)] items-end gap-3">
           <label className="flex flex-col gap-1.5">
             <span className="label">Type</span>
-            <select value={card.type} onChange={(e) => onChange({ type: e.target.value as CardType, label: undefined })} className={box}>
+            <select value={card.type} onChange={(e) => onChange({ type: e.target.value as CardType, label: undefined, art: undefined })} className={box}>
               {(Object.keys(SHOWS) as CardType[]).map((type) => (
                 <option key={type} value={type}>
                   {KINDS[type]}
@@ -589,7 +590,8 @@ function OpenCard({ moment, card, number, count, subjects, missing, sources, tit
               type={card.type as Exclude<CardType, "SCENE">}
               label={`The ${field}`}
               name={found ?? card.label ?? id ?? ""}
-              onChoose={(subject) => onChange({ [field]: subject.id, label: subject.label })}
+              // A painting chosen for whom or what the card showed goes with them: Hugo's portrait never stays on Zola.
+              onChoose={(subject) => onChange({ [field]: subject.id, label: subject.label, ...(subject.id !== id && { art: undefined }) })}
             />
           ) : (
             <span />
