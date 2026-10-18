@@ -52,17 +52,16 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
         </span>
       </div>
 
-      <Link
-        href={`/moments/${moment.id}/header`}
-        className="flex flex-wrap items-center gap-5 rounded border border-line bg-surface p-3 hover:border-edge"
-      >
+      <section aria-labelledby="header" className="flex flex-wrap items-center gap-5 rounded border border-line bg-surface p-3">
         <span className="relative h-[110px] w-[220px] flex-none overflow-hidden rounded-sm bg-[#1b1712]">
           {art && <Image src={art.url} alt="" fill unoptimized sizes="220px" className="object-cover" />}
           <span className="absolute inset-0 bg-gradient-to-t from-[#14110d]/90 to-[#14110d]/10" />
           <span className="absolute inset-x-2.5 bottom-2 font-serif text-[12px] leading-snug text-white">{headerShown?.hook.text ?? moment.hook}</span>
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="label">Moment header</span>
+          <h2 id="header" className="label">
+            Moment header
+          </h2>
           <span className="font-serif text-lg">Hook, world around and the moment&apos;s painting</span>
           <span className={`text-[13px] ${header?.status === "APPROVED" ? "text-ok" : header?.status === "CANDIDATE" ? "text-conflict" : "text-muted"}`}>
             {header && header.status !== "REJECTED"
@@ -70,8 +69,10 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
               : "As the release has it"}
           </span>
         </span>
-        <span className="text-lamp">Edit the header →</span>
-      </Link>
+        <Link href={`/moments/${moment.id}/header`} className="button-primary">
+          {header?.status === "CANDIDATE" ? "Review the header" : "Edit the header"}
+        </Link>
+      </section>
 
       <section aria-labelledby="story" className="flex flex-wrap items-center gap-5 rounded border border-line bg-surface p-3">
         <CardStrip cards={cards} art={art} />

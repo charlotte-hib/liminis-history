@@ -40,7 +40,7 @@ test("generating a story and header is started from the moment's page, and its o
 // first time, which approving writes as the moment's header claim, approved at once; from that claim afterwards.
 test("a moment's header is edited under its preview, and approved", async ({ page }) => {
   await page.goto("/moments/paris-1890s");
-  await page.getByRole("link", { name: /Edit the header/ }).click();
+  await page.getByRole("link", { name: "Edit the header" }).click();
   await expect(page).toHaveURL(/\/moments\/paris-1890s\/header$/);
   await expect(page.getByRole("heading", { level: 1, name: "Moment header" })).toBeVisible();
   const hook = `A hook written by the test at ${Date.now()}.`;
@@ -55,7 +55,7 @@ test("a moment's header is edited under its preview, and approved", async ({ pag
 
   // The moment's page says so in its header row.
   await page.getByRole("link", { name: /Paris, 1890s/ }).click();
-  await expect(page.getByRole("link", { name: /Edit the header/ })).toContainText("approved");
+  await expect(page.getByRole("region", { name: "Moment header" })).toContainText("Written by you, approved");
 });
 
 // Searching Commons through the workbench: the test needs the internet.
