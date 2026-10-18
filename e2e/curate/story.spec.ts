@@ -56,3 +56,30 @@ test("a card's person is chosen by searching, a fetched one by Q-id", async ({ p
   await expect(page.getByText("Q6527 · from the dataset: not on the site yet")).toBeVisible();
   await expect(cards.getByRole("button", { name: /not on the site yet$/ }).first()).toBeVisible();
 });
+
+// Searching Commons through the workbench: the test needs the internet.
+test("a card's painting is chosen on Commons, shown on its slide at once, and taken away again", async ({ page }) => {
+  await page.goto("/review/stories");
+  test.skip(!/\/moments\/[a-z0-9-]+\/story$/.test(new URL(page.url()).pathname), "No story waits for review");
+
+  await page.getByRole("list", { name: "Cards" }).getByRole("button", { name: /^Card \d+, Scene/ }).first().click();
+  const box = page.getByRole("region", { name: "Painting" });
+  await box.getByRole("button", { name: /^Choose (a|another) painting$/ }).click();
+
+  const picker = page.getByRole("dialog");
+  await picker.getByRole("searchbox").fill("Hokusai Great Wave");
+  const found = picker.getByRole("list", { name: "Paintings found" }).getByRole("button").first();
+  await found.click();
+  await expect(found).toHaveAttribute("aria-pressed", "true");
+  await picker.getByRole("button", { name: "Use this painting" }).click();
+  await expect(picker).toBeHidden();
+
+  const credit = await box.getByLabel("Credit, under the painting").inputValue();
+  expect(credit).toContain("Hokusai");
+  await expect(box).toContainText("Public domain");
+  await expect(page.getByRole("figure").getByText(`Background: ${credit}`)).toBeVisible();
+
+  await box.getByRole("button", { name: "Use the moment's painting" }).click();
+  await expect(page.getByRole("figure").getByText("(the moment's painting)")).toBeVisible();
+  await expect(box.getByText("No painting of its own.")).toBeVisible();
+});
