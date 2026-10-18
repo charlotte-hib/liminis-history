@@ -28,9 +28,9 @@ const WORKBENCH_URL = process.env.WORKBENCH_URL ?? "http://127.0.0.1:8090";
 
 /**
  * Sends the curator's access token from the session cookie, which only this server can decrypt: the browser never
- * sees the token. The proxy has already refreshed it if it was about to expire.
+ * sees the token. The proxy has already refreshed it if it was about to expire. auth's accounts API takes it too.
  */
-const signIn: Middleware = {
+export const signIn: Middleware = {
   async onRequest({ request }) {
     const session = await readSession((await cookies()).get(SESSION_COOKIE)?.value);
     if (!session) redirect("/auth/sign-in");

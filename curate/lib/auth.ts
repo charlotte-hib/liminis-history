@@ -11,8 +11,8 @@ import * as oidc from "openid-client";
  * backend-for-frontend: the browser holds only encrypted cookies, and the tokens never reach it.
  */
 
-/** auth, where the curator signs in with a passkey. */
-const AUTH_URL = new URL(process.env.AUTH_URL ?? "http://localhost:9000");
+/** auth, where curators sign in with a passkey, and whose accounts API the Team page calls. */
+export const AUTH_URL = new URL(process.env.AUTH_URL ?? "http://localhost:9000");
 
 /** curate as auth knows it: localhost, never 127.0.0.1, or the cookies set before signing in would not come back. */
 export const CURATE_URL = new URL(process.env.CURATE_URL ?? "http://localhost:3100");
@@ -20,7 +20,8 @@ export const CURATE_URL = new URL(process.env.CURATE_URL ?? "http://localhost:31
 /** Where auth writes curate's client secret, and where curate keeps the key of its cookies. */
 const SECRETS_DIR = process.env.LIMINIS_SECRETS_DIR ?? join(homedir(), ".config", "liminis");
 
-const SCOPE = "openid curation:read curation:write publish";
+/** Everything curate may do: auth leaves out of the tokens what the account's role does not allow (`admin`, for curators). */
+const SCOPE = "openid curation:read curation:write publish admin";
 
 /** A working day from the sign-in, whatever the refreshes: then the passkey again. */
 const SESSION_SECONDS = 8 * 60 * 60;
@@ -165,14 +166,23 @@ export function cookieOptions(path: string) {
 
 /**
  * How many seconds ago the curator last used their passkey, as auth wrote it in the access token, and whether the
- * token may publish: one from before publishing existed may not. The token is curate's own, so it is only read here,
+ * token may publish: one from before publishing existed may not. The Team page asks the same of the admin. The token is curate's own, so it is only read here,
  * not checked: the workbench checks it.
  */
 export function passkey(value: Session): { secondsAgo: number; mayPublish: boolean } {
   const claims = decodeJwt(value.access);
-  const scopes = typeof claims.scope === "string" ? claims.scope.split(" ") : ((claims.scope as string[] | undefined) ?? []);
   const usedAt = typeof claims.auth_time === "number" ? claims.auth_time : 0;
-  return { secondsAgo: now() - usedAt, mayPublish: scopes.includes("publish") };
+  return { secondsAgo: now() - usedAt, mayPublish: scopes(claims).includes("publish") };
+}
+
+/** Who is signed in, as auth wrote it in the access token: their name, and whether they are the admin. */
+export function account(value: Session): { name: string; admin: boolean } {
+  const claims = decodeJwt(value.access);
+  return { name: typeof claims.name === "string" ? claims.name : "", admin: scopes(claims).includes("admin") };
+}
+
+function scopes(claims: JWTPayload): string[] {
+  return typeof claims.scope === "string" ? claims.scope.split(" ") : ((claims.scope as string[] | undefined) ?? []);
 }
 
 /** Whether the access token has less than a minute left: time enough for any request that starts now. */

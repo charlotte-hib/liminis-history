@@ -10,15 +10,18 @@ const LINKS = [
   { href: "/publish", name: "Publish" },
 ];
 
+/** The admin's alone. */
+const TEAM = { href: "/team", name: "Team" };
+
 /** The main sections, the one open underlined in lamp gold. */
-export function Nav() {
+export function Nav({ admin }: { admin: boolean }) {
   const path = usePathname();
-  const open = ({ href, also }: (typeof LINKS)[number]) =>
+  const open = ({ href, also }: { href: string; also?: string }) =>
     href === "/" ? path === "/" || (also !== undefined && path.startsWith(also)) : path.startsWith(href);
 
   return (
     <nav aria-label="Main" className="flex flex-wrap gap-x-[22px] gap-y-1">
-      {LINKS.map((link) => (
+      {(admin ? [...LINKS, TEAM] : LINKS).map((link: { href: string; name: string; also?: string }) => (
         <Link
           key={link.href}
           href={link.href}
