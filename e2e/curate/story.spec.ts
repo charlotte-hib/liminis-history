@@ -71,6 +71,9 @@ test("a card's painting is chosen on Commons, shown on its slide at once, and ta
   const found = picker.getByRole("list", { name: "Paintings found" }).getByRole("button").first();
   await found.click();
   await expect(found).toHaveAttribute("aria-pressed", "true");
+  // The desk's keys wait while the picker is open: "a" approves nothing.
+  await page.keyboard.press("a");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("a draft waiting for you");
   await picker.getByRole("button", { name: "Use this painting" }).click();
   await expect(picker).toBeHidden();
 
