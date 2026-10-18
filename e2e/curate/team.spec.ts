@@ -19,19 +19,23 @@ test("the admin invites a curator, who joins with a passkey, then revokes them",
   await authenticator(context, page, PASSKEY);
   await page.goto("/team");
   await expect(page.getByRole("heading", { name: "The team" })).toBeVisible();
-  // Inviting takes a passkey of the last few minutes: the setup's may be older.
-  const stepUp = page.getByRole("link", { name: "Use your passkey to invite or revoke" });
-  if (await stepUp.isVisible()) {
-    await stepUp.click();
-    await page.getByRole("button", { name: "Sign in with a passkey" }).click();
-    await expect(page).toHaveURL(`${baseURL}/team`);
-  }
 
   const username = `e2e-${Date.now()}`;
-  await page.getByLabel("Name", { exact: true }).fill("Ada Example");
-  await page.getByLabel("Username").fill(username);
-  await page.getByRole("button", { name: "Invite" }).click();
+  const inviteAda = async () => {
+    await page.getByLabel("Name", { exact: true }).fill("Ada Example");
+    await page.getByLabel("Username").fill(username);
+    await page.getByRole("button", { name: "Invite" }).click();
+  };
   const sent = page.getByRole("region", { name: "Link to send" });
+  const signIn = page.getByRole("button", { name: "Sign in with a passkey" });
+  await inviteAda();
+  // Inviting takes a passkey of the last few minutes: with the setup's older, the button asks for it first.
+  await expect(sent.or(signIn)).toBeVisible();
+  if (await signIn.isVisible()) {
+    await signIn.click();
+    await expect(page).toHaveURL(`${baseURL}/team`);
+    await inviteAda();
+  }
   await expect(sent).toContainText("Send this link to Ada Example");
   const link = (await sent.locator("code").textContent())!;
   const row = page.getByRole("row").filter({ hasText: username });

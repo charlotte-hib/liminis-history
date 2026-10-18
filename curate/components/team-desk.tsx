@@ -28,7 +28,8 @@ const dayAndTime = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "sh
 
 /**
  * The team, and what the admin does with it: invite a curator, give one a new link, revoke one. Each takes a passkey
- * used in the last few minutes, as publishing does: with an older one, a link to use it again stands in their place.
+ * used in the last few minutes, as publishing does: with an older one, pressing any of them asks for it first, then
+ * comes back here to press it again.
  */
 export function TeamDesk({ team, secondsAgo }: { team: Team; secondsAgo: number }) {
   const router = useRouter();
@@ -43,7 +44,11 @@ export function TeamDesk({ team, secondsAgo }: { team: Team; secondsAgo: number 
   const fresh = team.maxAge - MARGIN;
   const stale = secondsAgo >= fresh;
 
-  const run = <T,>(call: () => Promise<Outcome<T>>, done: (data: T) => void) =>
+  // A whole page load: the sign-in leaves for auth, another server.
+  const askForPasskey = () => window.location.assign(new URL(stepUp(fresh), window.location.origin).href);
+
+  const run = <T,>(call: () => Promise<Outcome<T>>, done: (data: T) => void) => {
+    if (stale) return askForPasskey();
     startTransition(async () => {
       setProblem(undefined);
       const result = await call();
@@ -51,12 +56,12 @@ export function TeamDesk({ team, secondsAgo }: { team: Team; secondsAgo: number 
         done(result.data);
         router.refresh();
       } else if (result.status === 401 || result.status === 403) {
-        // A whole page load: the sign-in leaves for auth, another server.
-        window.location.assign(new URL(stepUp(fresh), window.location.origin).href);
+        askForPasskey();
       } else {
         setProblem(result.detail);
       }
     });
+  };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -102,7 +107,7 @@ export function TeamDesk({ team, secondsAgo }: { team: Team; secondsAgo: number 
                   {member.invitedBy ? `${day.format(new Date(member.created))}, by ${member.invitedBy}` : "—"}
                 </td>
                 <td className="px-4 py-3">
-                  {member.role === "CURATOR" && member.status !== "REVOKED" && !stale && (
+                  {member.role === "CURATOR" && member.status !== "REVOKED" && (
                     <span className="flex flex-wrap justify-end gap-2">
                       {revoking === member.username ? (
                         <>
@@ -154,37 +159,31 @@ export function TeamDesk({ team, secondsAgo }: { team: Team; secondsAgo: number 
         </section>
       )}
 
-      {stale ? (
-        <a href={stepUp(fresh)} className="button-primary self-start">
-          Use your passkey to invite or revoke
-        </a>
-      ) : (
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <h2 className="section-title">Invite a curator</h2>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1">
-              <span className="label">Name</span>
-              <input className={input} value={name} onChange={(event) => setName(event.target.value)} placeholder="Marie Dupont" />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="label">Username</span>
-              <input
-                className={`${input} font-mono`}
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                placeholder="marie.dupont"
-                aria-describedby="username-hint"
-              />
-            </label>
-            <button type="submit" className="button-primary" disabled={pending || !USERNAME.test(username) || !name.trim()}>
-              {pending ? "Inviting…" : "Invite"}
-            </button>
-          </div>
-          <p id="username-hint" className="text-xs text-muted">
-            Lower-case letters, digits, dots and dashes. It never changes: their decisions are logged under it.
-          </p>
-        </form>
-      )}
+      <form onSubmit={submit} className="flex flex-col gap-3">
+        <h2 className="section-title">Invite a curator</h2>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="label">Name</span>
+            <input className={input} value={name} onChange={(event) => setName(event.target.value)} placeholder="Marie Dupont" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="label">Username</span>
+            <input
+              className={`${input} font-mono`}
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="marie.dupont"
+              aria-describedby="username-hint"
+            />
+          </label>
+          <button type="submit" className="button-primary" disabled={pending || !USERNAME.test(username) || !name.trim()}>
+            {pending ? "Inviting…" : "Invite"}
+          </button>
+        </div>
+        <p id="username-hint" className="text-xs text-muted">
+          Lower-case letters, digits, dots and dashes. It never changes: their decisions are logged under it.
+        </p>
+      </form>
 
       {problem && <p className="text-conflict">{problem}</p>}
     </div>
