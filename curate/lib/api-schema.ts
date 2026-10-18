@@ -399,8 +399,10 @@ export interface paths {
          * @description The approved claims as the files of `data/` that publishing writes whole (`data/occupations.jsonl`,
          *     `data/corrections.jsonl`), compared with those files on the data repository's `main`: each record added,
          *     changed or removed; and the approved stories written into their moments' files (`data/moments/<id>.json`),
-         *     each a story changed. Also the publish pull request open, if any, the corrections for people written by hand
-         *     in `people.jsonl`, which the release gives no effect, and the approved stories held back.
+         *     each a story changed. The same changes in words: each person's facts as the site shows them before and after,
+         *     each occupation's domain, each moment's header lines and cards. Also the publish pull request open, if any, the
+         *     corrections for people written by hand in `people.jsonl`, which the release gives no effect, and the approved
+         *     stories held back.
          */
         get: operations["previewPublication"];
         put?: never;
@@ -952,6 +954,12 @@ export interface components {
             base: string;
             /** @description The files publishing writes, with their changes, in the same order every time. */
             files: components["schemas"]["FileChanges"][];
+            /** @description The people whose facts the corrections change, by name, accents ignored. */
+            people: components["schemas"]["PersonChange"][];
+            /** @description The occupations whose domain changes, by label. */
+            occupations: components["schemas"]["OccupationChange"][];
+            /** @description The moments whose header or story changes, by id. */
+            moments: components["schemas"]["MomentChange"][];
             pullRequest?: components["schemas"]["PullRequest"];
             /** @description People written by hand in `people.jsonl` with a correction, which their record overrides. */
             withoutEffect: components["schemas"]["Qid"][];
@@ -973,11 +981,103 @@ export interface components {
         RecordChange: {
             /** @description The record's id, a Q-id, or the moment's id in a moment's file. */
             id: string;
-            /** @enum {string} */
-            change: "ADDED" | "CHANGED" | "REMOVED";
+            change: components["schemas"]["Change"];
             /** @description The record's line as `main` has it, JSON; a moment's hook, world and cards only, in its file. None when added. */
             before?: string;
             /** @description The record's line as publishing writes it, JSON. None when removed. */
+            after?: string;
+        };
+        /** @enum {string} */
+        Change: "ADDED" | "CHANGED" | "REMOVED";
+        /**
+         * @description A person whose line in `corrections.jsonl` changes (`change`), with each fact the site would show otherwise:
+         *     before, the value in effect on `main` (its correction, else Wikidata's), after, the one once published, in words.
+         */
+        PersonChange: {
+            person: components["schemas"]["Qid"];
+            /** @description The person's name as approved, else as Wikidata gives it. */
+            name: string;
+            change: components["schemas"]["Change"];
+            facts: components["schemas"]["FactChange"][];
+        };
+        FactChange: {
+            /** @enum {string} */
+            fact: "NAME" | "FRENCH_NAME" | "BORN" | "DIED" | "DATES_APPROXIMATE" | "OCCUPATIONS";
+            /**
+             * @description None when there is none.
+             * @example 1802
+             */
+            before?: string;
+            /**
+             * @description None when there is none.
+             * @example 1801
+             */
+            after?: string;
+        };
+        /**
+         * @description An occupation whose line in `occupations.jsonl` changes: its domain on `main` (`before`, none when not mapped
+         *     there) and once published (`after`, none when no longer mapped).
+         */
+        OccupationChange: {
+            occupation: components["schemas"]["Qid"];
+            /** @example lithographer */
+            label: string;
+            change: components["schemas"]["Change"];
+            before?: components["schemas"]["OccupationChoice"];
+            after?: components["schemas"]["OccupationChoice"];
+        };
+        /**
+         * @description A moment whose header or story changes. Its hook (none when it stays as it is), the lines of its world around
+         *     that change, and its cards added, removed, changed or moved, in the story's new order, removed ones last. A card
+         *     is the same card before and after when it shows the same person, life or event (a scene card: the same type),
+         *     in order.
+         */
+        MomentChange: {
+            moment: components["schemas"]["MomentId"];
+            /** @example Edo, 1830s */
+            title: string;
+            hook?: components["schemas"]["TextChange"];
+            world: components["schemas"]["WorldChange"][];
+            cards: components["schemas"]["CardChange"][];
+            /** Format: int32 */
+            unchangedCards: number;
+        };
+        TextChange: {
+            before?: string;
+            after?: string;
+        };
+        WorldChange: {
+            /** @enum {string} */
+            part: "GOVERNS" | "EVERYDAY" | "ARTS" | "MEANWHILE";
+            before?: string;
+            after?: string;
+        };
+        CardChange: {
+            change: components["schemas"]["Change"];
+            type: components["schemas"]["CardType"];
+            /** @description The id of the person, life or event the card shows. None on a scene card. */
+            shows?: string;
+            /** @description Who or what the card shows, by name. */
+            label?: string;
+            /**
+             * Format: int32
+             * @description The card's number on `main`. None when added.
+             */
+            from?: number;
+            /**
+             * Format: int32
+             * @description The card's number once published. None when removed.
+             */
+            to?: number;
+            /** @description The card changed places among the others, not only its number. */
+            moved: boolean;
+            /** @description Its texts and year that change. */
+            fields: components["schemas"]["CardFieldChange"][];
+        };
+        CardFieldChange: {
+            /** @enum {string} */
+            field: "KICKER" | "TITLE" | "TEXT" | "YEAR";
+            before?: string;
             after?: string;
         };
         HeldBack: {

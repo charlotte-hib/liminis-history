@@ -51,6 +51,12 @@ class DataFiles(private val claims: ClaimRepository, jsonMapper: JsonMapper) {
         lineMapper.readTree(line)["id"]?.asString() ?: throw UnavailableException("$path holds a line without an id: $line")
     }.toSortedMap()
 
+    /** A line of `corrections.jsonl`. */
+    fun readCorrection(line: String): CorrectionRecord = lineMapper.readValue(line, CorrectionRecord::class.java)
+
+    /** A line of `occupations.jsonl`. */
+    fun readOccupation(line: String): OccupationRecord = lineMapper.readValue(line, OccupationRecord::class.java)
+
     /** The Q-ids of the people of [text], `people.jsonl`: those written by hand who have one. */
     fun qids(text: String?): Set<String> = records(text).mapNotNull { lineMapper.readTree(it)["qid"]?.asString() }.toSet()
 

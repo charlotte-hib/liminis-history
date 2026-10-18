@@ -2,10 +2,12 @@ package art.liminis.web
 
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
+import com.github.tomakehurst.wiremock.client.WireMock.containing
 import com.github.tomakehurst.wiremock.client.WireMock.equalTo
 import com.github.tomakehurst.wiremock.client.WireMock.equalToJson
 import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor
+import com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath
 import com.github.tomakehurst.wiremock.client.WireMock.notFound
 import com.github.tomakehurst.wiremock.client.WireMock.okJson
 import com.github.tomakehurst.wiremock.client.WireMock.patch
@@ -117,9 +119,11 @@ class PublicationApiTests(
         )
     }
 
+    private val occupationLabels = mapOf("Q36180" to "writer", "Q82955" to "linguist")
+
     private fun facts(person: String, label: String, born: Int, died: Int, occupations: List<String> = listOf("Q36180")) = PersonFacts(
         person = person, label = label, born = born, bornPrecision = 9, died = died, diedEstimated = false,
-        datesApproximate = false, occupations = occupations.map { Occupation(it, it) }, places = emptyList(),
+        datesApproximate = false, occupations = occupations.map { Occupation(it, occupationLabels[it] ?: it) }, places = emptyList(),
     )
 
     private fun approve(proposal: Payload, approved: Payload = proposal) {
@@ -175,6 +179,26 @@ class PublicationApiTests(
             jsonPath("$.files[1].changes[0].change") { value("REMOVED") }
             jsonPath("$.files[1].changes[1].after") { value("""{"id":"Q535","born":1801,"occupations":["Q82955"]}""") }
             jsonPath("$.files[1].changes.length()") { value(2) }
+            // In words, by name: the value in effect is the correction's, else Wikidata's from the claim.
+            jsonPath("$.people.length()") { value(2) }
+            jsonPath("$.people[0].person") { value("Q1") }
+            jsonPath("$.people[0].change") { value("REMOVED") }
+            jsonPath("$.people[0].facts[0].fact") { value("NAME") }
+            jsonPath("$.people[0].facts[0].before") { value("Someone corrected before") }
+            jsonPath("$.people[1].name") { value("Victor Hugo") }
+            jsonPath("$.people[1].facts.length()") { value(2) }
+            jsonPath("$.people[1].facts[0].fact") { value("BORN") }
+            jsonPath("$.people[1].facts[0].before") { value("1802") }
+            jsonPath("$.people[1].facts[0].after") { value("1801") }
+            jsonPath("$.people[1].facts[1].fact") { value("OCCUPATIONS") }
+            jsonPath("$.people[1].facts[1].before") { value("writer, linguist") }
+            jsonPath("$.people[1].facts[1].after") { value("linguist") }
+            jsonPath("$.occupations[0].label") { value("aristocrat") }
+            jsonPath("$.occupations[0].before") { doesNotExist() }
+            jsonPath("$.occupations[0].after") { value("NONE") }
+            jsonPath("$.occupations[1].label") { value("writer") }
+            jsonPath("$.occupations[1].after") { value("ARTS") }
+            jsonPath("$.moments.length()") { value(0) }
             jsonPath("$.pullRequest") { doesNotExist() }
             // Victor Hugo is written by hand in people.jsonl: his record wins.
             jsonPath("$.withoutEffect[0]") { value("Q535") }
@@ -226,6 +250,13 @@ class PublicationApiTests(
         github.verify(postRequestedFor(urlPathEqualTo("$repo/git/commits")).withRequestBody(equalToJson("""{"tree": "new-tree", "parents": ["$base"]}""", true, true)))
         github.verify(postRequestedFor(urlPathEqualTo("$repo/git/refs")).withRequestBody(equalToJson("""{"ref": "refs/heads/publish", "sha": "new-commit"}""")))
         github.verify(postRequestedFor(urlPathEqualTo("$repo/pulls")).withRequestBody(equalToJson("""{"head": "publish", "base": "main"}""", true, true)))
+        // The pull request says what changes in words.
+        github.verify(
+            postRequestedFor(urlPathEqualTo("$repo/pulls"))
+                .withRequestBody(matchingJsonPath("$.body", containing("- Victor Hugo (Q535): born 1802 → 1801; occupations writer, linguist → linguist")))
+                .withRequestBody(matchingJsonPath("$.body", containing("- Arts and ideas (1): writer")))
+                .withRequestBody(matchingJsonPath("$.body", containing("- None (1): aristocrat"))),
+        )
         // Every call as the App's installation.
         github.verify(getRequestedFor(urlPathEqualTo("$repo/contents/data/people.jsonl")).withHeader(HttpHeaders.AUTHORIZATION, equalTo("Bearer ghs_installation")))
     }
@@ -350,6 +381,14 @@ class PublicationApiTests(
             jsonPath("$.files[3].changes[0].before") { value("""{"hook":"Old hook."}""") }
             jsonPath("$.files[3].changes[0].after") { value(containsString(""""cards":[{"type":"PERSON","text":"Someone there.","year":1875,"person":"victor-hugo"}]""")) }
             jsonPath("$.files.length()") { value(4) }
+            jsonPath("$.moments[1].moment") { value("paris-1870s") }
+            jsonPath("$.moments[1].hook.before") { value("Old hook.") }
+            jsonPath("$.moments[1].hook.after") { value("A new hook.") }
+            jsonPath("$.moments[1].world.length()") { value(4) }
+            jsonPath("$.moments[1].world[0].before") { doesNotExist() }
+            jsonPath("$.moments[1].cards[0].change") { value("ADDED") }
+            jsonPath("$.moments[1].cards[0].label") { value("Someone") }
+            jsonPath("$.moments[1].cards[0].to") { value(1) }
             jsonPath("$.heldBack[0].moment") { value("edo-1830s") }
             jsonPath("$.heldBack[0].reason") { value(containsString("2 cards show fetched people")) }
             jsonPath("$.heldBack[0].reason") { value(containsString("card 1, Someone (Q5586); card 2, Tokugawa Ienari (Q439717)")) }
@@ -362,5 +401,48 @@ class PublicationApiTests(
         val tree = github.findAll(postRequestedFor(urlPathEqualTo("$repo/git/trees"))).single().bodyAsString
         assertTrue("data/moments/paris-1870s.json" in tree && "data/moments/edo-1830s.json" in tree, tree)
         assertTrue("""\"hook\": \"A new hook.\"""" in tree, tree)
+    }
+
+    @Test
+    fun `matches a story's cards by whom or what they show, and names a card that moved among the others`() {
+        val card = { type: String, shows: String?, text: String -> """{"type": "$type"${shows?.let { """, "${type.lowercase()}": "$it"""" }.orEmpty()}, "text": "$text"}""" }
+        val paris = """{"id": "paris-1870s", "place": "Paris", "period": "1870s", "hook": "Old hook.", "cards": [
+            ${card("SCENE", null, "The city.")}, ${card("PERSON", "victor-hugo", "Hugo.")},
+            ${card("PERSON", "emile-zola", "Zola.")}, ${card("LIFE", "paris-laundress", "A laundress.")}]}"""
+        file("data/moments/paris-1870s.json", paris)
+        file("data/corrections.jsonl", null)
+        val story = Story(
+            "paris-1870s",
+            listOf(
+                StoryCard(CardType.PERSON, text = "Zola writes.", person = "emile-zola", label = "Émile Zola"),
+                StoryCard(CardType.SCENE, text = "The city."),
+                StoryCard(CardType.PERSON, text = "Hugo.", person = "victor-hugo", label = "Victor Hugo"),
+                StoryCard(CardType.EVENT, text = "A fair.", event = "paris-fair-1878", label = "The 1878 fair"),
+            ),
+        )
+        claims.save(Claim.candidate(story, Origin.CLAUDE, emptyList()).apply { status = ClaimStatus.APPROVED })
+
+        mockMvc.get("/api/publication") { signedIn() }.andExpect {
+            status { isOk() }
+            jsonPath("$.moments[0].title") { value("Paris, 1870s") }
+            jsonPath("$.moments[0].hook") { doesNotExist() }
+            jsonPath("$.moments[0].unchangedCards") { value(2) }
+            jsonPath("$.moments[0].cards.length()") { value(3) }
+            jsonPath("$.moments[0].cards[0].shows") { value("emile-zola") }
+            jsonPath("$.moments[0].cards[0].change") { value("CHANGED") }
+            jsonPath("$.moments[0].cards[0].from") { value(3) }
+            jsonPath("$.moments[0].cards[0].to") { value(1) }
+            jsonPath("$.moments[0].cards[0].moved") { value(true) }
+            jsonPath("$.moments[0].cards[0].fields[0].field") { value("TEXT") }
+            jsonPath("$.moments[0].cards[0].fields[0].before") { value("Zola.") }
+            jsonPath("$.moments[0].cards[0].fields[0].after") { value("Zola writes.") }
+            jsonPath("$.moments[0].cards[1].change") { value("ADDED") }
+            jsonPath("$.moments[0].cards[1].label") { value("The 1878 fair") }
+            jsonPath("$.moments[0].cards[1].to") { value(4) }
+            jsonPath("$.moments[0].cards[2].change") { value("REMOVED") }
+            jsonPath("$.moments[0].cards[2].type") { value("LIFE") }
+            jsonPath("$.moments[0].cards[2].from") { value(4) }
+            jsonPath("$.moments[0].cards[2].fields[0].before") { value("A laundress.") }
+        }
     }
 }

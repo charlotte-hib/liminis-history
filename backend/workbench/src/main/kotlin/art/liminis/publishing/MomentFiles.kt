@@ -17,6 +17,9 @@ import art.liminis.release.WorldRecord
 import art.liminis.support.UnavailableException
 import kotlin.reflect.full.primaryConstructor
 
+/** What a moment's file says of it at the top of its page, "Paris, 1870s" and its hook and world, and in its story. */
+data class MomentContent(val title: String, val hook: String?, val world: WorldRecord?, val cards: List<CardRecord>)
+
 /**
  * The moments' files of the data repository, `data/moments/<id>.json`, which publishing writes the approved pages and
  * stories into. Only their fields change (a page's hook and world, a story's cards); the rest of the file, written by
@@ -71,6 +74,17 @@ class MomentFiles(jsonMapper: JsonMapper) {
         return mapper.writeValueAsString(mapper.createObjectNode().apply { for (name in listOf(HOOK, WORLD, CARDS)) file[name]?.let { set(name, it) } })
     }
 
+    /** What [text], a moment's file, says at the top of the moment's page and in its story. */
+    fun content(text: String): MomentContent {
+        val file = read(text)
+        return MomentContent(
+            title = listOfNotNull(file[PLACE]?.asString(), file[PERIOD]?.asString()).joinToString(", "),
+            hook = file[HOOK]?.asString(),
+            world = file[WORLD]?.let { mapper.treeToValue(it, WorldRecord::class.java) },
+            cards = file[CARDS]?.values().orEmpty().map { mapper.treeToValue(it, CardRecord::class.java) },
+        )
+    }
+
     /** Whom or what a card shows: its type and the id it names. */
     private fun shown(card: JsonNode) = listOf(TYPE, PERSON, LIFE, EVENT).map { card[it]?.asString() }
 
@@ -78,6 +92,8 @@ class MomentFiles(jsonMapper: JsonMapper) {
         mapper.readTree(text) as? ObjectNode ?: throw UnavailableException("A moment's file holds no JSON object")
 
     private companion object {
+        const val PLACE = "place"
+        const val PERIOD = "period"
         const val HOOK = "hook"
         const val WORLD = "world"
         const val CARDS = "cards"
