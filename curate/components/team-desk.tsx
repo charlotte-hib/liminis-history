@@ -13,8 +13,11 @@ type Outcome<T> = { ok: true; data: T } | { ok: false; status: number; detail: s
 /** A minute short of auth's limit, so that a passkey shown as fresh enough still is when a button is pressed. */
 const MARGIN = 60;
 
-/** Where auth asks for the passkey again unless it was used within [fresh] seconds, then sends the admin back here. */
-const stepUp = (fresh: number) => `/auth/sign-in?to=${encodeURIComponent("/team")}&max_age=${fresh}`;
+/** Where auth asks for the passkey again unless it was used within [fresh] seconds, then sends the admin [back] here. */
+const stepUp = (fresh: number, back: string) => `/auth/sign-in?to=${encodeURIComponent(back)}&max_age=${fresh}`;
+
+/** What the admin was doing when asked for the passkey, as the page's query brings it back: the form or the confirm. */
+export type Resume = { revoke?: string; username?: string; name?: string };
 
 /** As auth checks a username: lower-case letters, digits, dots and dashes, starting with a letter. */
 const USERNAME = /^[a-z][a-z0-9.-]{1,39}$/;
@@ -29,34 +32,35 @@ const dayAndTime = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "sh
 /**
  * The team, and what the admin does with it: invite a curator, give one a new link, revoke one. Each takes a passkey
  * used in the last few minutes, as publishing does: with an older one, pressing any of them asks for it first, then
- * comes back here to press it again.
+ * comes back here with the form filled in or the revocation to confirm, to press it again.
  */
-export function TeamDesk({ team, secondsAgo }: { team: Team; secondsAgo: number }) {
+export function TeamDesk({ team, secondsAgo, resume }: { team: Team; secondsAgo: number; resume: Resume }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [problem, setProblem] = useState<string>();
   const [sent, setSent] = useState<Invitation>();
-  const [revoking, setRevoking] = useState<string>();
-  const [username, setUsername] = useState("");
-  const [name, setName] = useState("");
+  const [revoking, setRevoking] = useState(resume.revoke);
+  const [username, setUsername] = useState(resume.username ?? "");
+  const [name, setName] = useState(resume.name ?? "");
 
   // The window the link asks auth for is the one the buttons check: a wider one would bring back a passkey too old.
   const fresh = team.maxAge - MARGIN;
   const stale = secondsAgo >= fresh;
 
   // A whole page load: the sign-in leaves for auth, another server.
-  const askForPasskey = () => window.location.assign(new URL(stepUp(fresh), window.location.origin).href);
+  const askForPasskey = (back: string) => window.location.assign(new URL(stepUp(fresh, back), window.location.origin).href);
 
-  const run = <T,>(call: () => Promise<Outcome<T>>, done: (data: T) => void) => {
-    if (stale) return askForPasskey();
+  const run = <T,>(call: () => Promise<Outcome<T>>, done: (data: T) => void, back = "/team") => {
+    if (stale) return askForPasskey(back);
     startTransition(async () => {
       setProblem(undefined);
       const result = await call();
       if (result.ok) {
         done(result.data);
-        router.refresh();
+        // Leaves the query that brought back the form or the confirm, and reads the team again.
+        router.replace("/team");
       } else if (result.status === 401 || result.status === 403) {
-        askForPasskey();
+        askForPasskey(back);
       } else {
         setProblem(result.detail);
       }
@@ -72,6 +76,7 @@ export function TeamDesk({ team, secondsAgo }: { team: Team; secondsAgo: number 
         setUsername("");
         setName("");
       },
+      `/team?${new URLSearchParams({ username, name })}`,
     );
   };
 
@@ -116,7 +121,13 @@ export function TeamDesk({ team, secondsAgo }: { team: Team; secondsAgo: number 
                             type="button"
                             className="button-small border-conflict text-conflict"
                             disabled={pending}
-                            onClick={() => run(() => revoke(member.username), () => setRevoking(undefined))}
+                            onClick={() =>
+                              run(
+                                () => revoke(member.username),
+                                () => setRevoking(undefined),
+                                `/team?${new URLSearchParams({ revoke: member.username })}`,
+                              )
+                            }
                           >
                             Revoke {member.name}
                           </button>
