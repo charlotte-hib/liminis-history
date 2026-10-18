@@ -22,10 +22,10 @@ data class PaintingSearch(val paintings: List<FoundPainting>, val leftOut: Int, 
 
 /**
  * Finds paintings on Wikimedia Commons for a story card or a moment: by searching, or the one file a link or a file
- * name points at. Only CC0 images and those in the public domain in Europe are kept, as none of them asks for
- * attribution: the site shows no licence. Public domain in Europe is what Commons marks PD-old, the artist dead 70
- * years or more; a file public domain in the United States only is left out. Each gets a credit from what Commons says
- * of its artist, title and date, for the curator to edit.
+ * name points at. Only CC0 images and those in the public domain are kept, as none of them asks for attribution: the
+ * site shows no licence. A file public domain in the United States only is left out, as the site is read in Europe:
+ * a work published there before 1931 can still be under copyright in Europe, 70 years after its artist's death. Each
+ * gets a credit from what Commons says of its artist, title and date, for the curator to edit.
  */
 @Service
 class Paintings(private val wikimedia: WikimediaClient) {
@@ -63,14 +63,16 @@ class Paintings(private val wikimedia: WikimediaClient) {
     }
 
     /**
-     * CC0, or public domain in Europe: Commons' licence `pd` with a PD-old template among its hidden categories
-     * (`PD-old-70`, `PD-old-100-expired`, `PD-Art (PD-old-auto)`…). None for any other licence.
+     * CC0, or public domain: Commons' licence `pd`, unless its hidden categories give only a reason that holds in the
+     * United States (`PD-US-expired`, `PD-1996`…) and no PD-old one (the artist dead 70 years or more). Old works are
+     * often marked by other templates (`PD-Art (Yorck Project)`, `PD-Japan`, the Public Domain Mark alone), so a PD-old
+     * template is not asked for. None for any other licence.
      */
     private fun licence(file: JsonNode): PaintingLicence? {
         val code = metadata(file, "License")?.lowercase() ?: return null
         return when {
             code == "cc0" -> PaintingLicence.CC0
-            (code == "pd" || code.startsWith("pd-")) && categories(file).any { PD_OLD.containsMatchIn(it) } -> PaintingLicence.PUBLIC_DOMAIN
+            (code == "pd" || code.startsWith("pd-")) && !unitedStatesOnly(file) -> PaintingLicence.PUBLIC_DOMAIN
             else -> null
         }
     }
@@ -80,10 +82,14 @@ class Paintings(private val wikimedia: WikimediaClient) {
         val code = metadata(file, "License")?.lowercase()
         return when {
             code == null -> "no licence stated"
-            code == "pd" || code.startsWith("pd-") ->
-                if (categories(file).any { PD_US.containsMatchIn(it) }) "public domain in the United States only" else "public domain, the artist's death not stated"
+            code == "pd" || code.startsWith("pd-") -> "public domain in the United States only"
             else -> metadata(file, "LicenseShortName")?.let(::plain) ?: code
         }
+    }
+
+    private fun unitedStatesOnly(file: JsonNode): Boolean {
+        val categories = categories(file)
+        return categories.any { PD_US.containsMatchIn(it) } && categories.none { PD_OLD.containsMatchIn(it) }
     }
 
     private fun categories(file: JsonNode) = file.path("categories").values().map { it.path("title").asString() }
@@ -134,9 +140,9 @@ class Paintings(private val wikimedia: WikimediaClient) {
         val LIFE_DATES = Regex("""\s*\(\d{3,4}\s*[-–]\s*\d{3,4}\)""")
         val TIME_OF_DAY = Regex("""\d{1,2}:\d{2}""")
         val CIRCA = Regex("""\b(circa|about|ca\.)\s+""", RegexOption.IGNORE_CASE)
-        /** Licence templates among a file's hidden categories: the artist dead 70 years or more; free in the US only. */
-        val PD_OLD = Regex("""^Category:PD-old|\(PD-old""")
-        val PD_US = Regex("""^Category:PD[ -]US""")
+        /** Licence templates among a file's hidden categories: the artist dead 70 years or more; free in the US. */
+        val PD_OLD = Regex("""^Category:PD[ -]old|\(PD-old""", RegexOption.IGNORE_CASE)
+        val PD_US = Regex("""^Category:PD[ -](US|1996)\b""")
 
         /** Wikimedia adds tracking parameters to the addresses it hands out: the image is the same without them. */
         fun withoutQuery(url: String) = url.substringBefore('?')

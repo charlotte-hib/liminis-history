@@ -338,9 +338,9 @@ export interface paths {
          * Find a painting on Wikimedia Commons
          * @description Images on Wikimedia Commons that a story card or a moment can show: those found by searching for `q`, or the
          *     one file `q` names (a link to its page, on Commons or a Wikipedia, or to the image, or `File:` and its name).
-         *     Only CC0 images and those public domain in Europe (a PD-old licence on Commons: the artist died 70 years ago or
-         *     more) are listed; the others are counted, with their licences. Each comes at 1,280 pixels wide at most, with a
-         *     credit made from what Commons says of its artist, title and date, to edit.
+         *     Only CC0 images and those in the public domain are listed, except those public domain in the United States
+         *     only, as the site is read in Europe; the others are counted, with their licences. Each comes at 1,280 pixels
+         *     wide at most, with a credit made from what Commons says of its artist, title and date, to edit.
          */
         get: operations["findPaintings"];
         put?: never;

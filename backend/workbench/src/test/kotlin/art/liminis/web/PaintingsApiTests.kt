@@ -41,17 +41,19 @@ class PaintingsApiTests(@Autowired private val mockMvc: MockMvc) {
     private val greatWave = "File:Tsunami by hokusai 19th century.jpg"
 
     @Test
-    fun `a search lists the images public domain in Europe and CC0, at 1,280 pixels, with a credit to edit, and counts the others`() {
+    fun `a search lists the images public domain and CC0, at 1,280 pixels, with a credit to edit, and counts the others`() {
         commons.stubFor(get(api).withQueryParam("gsrsearch", equalTo("Caillebotte Paris street filetype:bitmap")).willReturn(recorded("search-caillebotte.json")))
 
         mockMvc.get("/api/paintings") { signedIn(); param("q", "  Caillebotte Paris street "); param("limit", "8") }.andExpect {
             status { isOk() }
-            jsonPath("$.paintings.length()") { value(4) }
+            jsonPath("$.paintings.length()") { value(5) }
             jsonPath("$.paintings[0].title") { value(startsWith("File:Gustave Caillebotte - Paris Street; Rainy Day")) }
             jsonPath("$.paintings[0].painting.url") { value(matchesPattern("https://thumb\\.wikimedia\\.org/.+/1280px-[^?]+")) }
             jsonPath("$.paintings[0].thumbnail") { value(matchesPattern("https://thumb\\.wikimedia\\.org/.+/330px-[^?]+")) }
             jsonPath("$.paintings[0].painting.source") { value(startsWith("https://commons.wikimedia.org/wiki/File:Gustave_Caillebotte")) }
             jsonPath("$.paintings[0].painting.licence") { value("PUBLIC_DOMAIN") }
+            // Public domain marked by a template other than PD-old (here the Public Domain Mark alone) is kept too.
+            jsonPath("$.paintings[3].title") { value("File:Caillebotte Rue de Paris.jpg") }
             // The English title when Commons gives several; a title taken from the file's name, or an upload's date, left out.
             jsonPath("$.paintings[*].painting.credit") {
                 value(
@@ -59,14 +61,14 @@ class PaintingsApiTests(@Autowired private val mockMvc: MockMvc) {
                         "Gustave Caillebotte, Paris Street in Rainy Weather, 1877",
                         "Gustave Caillebotte, Paris Street in Rainy Weather, 1877",
                         "Gustave Caillebotte, Paris Street; Rainy Day, 1877",
+                        "Gustave Caillebotte, Paris Street; Rainy Day, 1877",
                         "Gustave Caillebotte",
                     ),
                 )
             }
             jsonPath("$.paintings[0].width") { value(greaterThan(1280)) }
-            // Public domain without Commons saying the artist died 70 years ago or more is left out too.
-            jsonPath("$.leftOut") { value(4) }
-            jsonPath("$.leftOutLicences") { value(contains("CC BY-SA 4.0", "CC BY 2.0", "public domain, the artist's death not stated", "CC BY 3.0")) }
+            jsonPath("$.leftOut") { value(3) }
+            jsonPath("$.leftOutLicences") { value(contains("CC BY-SA 4.0", "CC BY 2.0", "CC BY 3.0")) }
         }
     }
 
