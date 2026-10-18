@@ -38,6 +38,7 @@ class WorkbenchSecurityTests(
         "GET /api/people" to CURATION_READ,
         "GET /api/people/{qid}/evidence" to CURATION_READ,
         "GET /api/occupations/{qid}" to CURATION_READ,
+        "GET /api/paintings" to CURATION_READ,
         "GET /api/moments" to CURATION_READ,
         "GET /api/moments/{id}" to CURATION_READ,
         "GET /api/moments/{id}/people" to CURATION_READ,

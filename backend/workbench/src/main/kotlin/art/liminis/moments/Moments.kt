@@ -9,13 +9,12 @@ import art.liminis.curation.ClaimRules
 import art.liminis.curation.ClaimStatus
 import art.liminis.curation.Claims
 import art.liminis.curation.MomentPage
+import art.liminis.curation.Painting
 import art.liminis.curation.StoryCard
 import art.liminis.curation.StoryLine
 import art.liminis.curation.StoryWorld
 import art.liminis.dataset.DatasetStore
 import art.liminis.dataset.PersonSummary
-import art.liminis.domain.Artwork
-import art.liminis.domain.CardType
 import art.liminis.domain.Life
 import art.liminis.domain.Moment
 import art.liminis.domain.WorldAround
@@ -41,25 +40,24 @@ data class MomentOverview(
     val page: ClaimStatus?,
 )
 
-/** A moment with the story the release has: its hook, the world around it and its cards. */
-data class MomentStory(val overview: MomentOverview, val hook: String, val world: WorldAround?, val cards: List<StoryCard>)
+/** A moment with the header and story the release has: its hook, the world around it, its painting and its cards. */
+data class MomentStory(val overview: MomentOverview, val hook: String, val world: WorldAround?, val art: Painting?, val cards: List<StoryCard>)
 
 /** A person alive in a moment, with where their facts claim stands, if they have one. */
 data class MomentPerson(val person: PersonSummary, val claim: ClaimStatus?)
 
 data class MomentPeople(val total: Int, val people: List<MomentPerson>)
 
-/** What a moment's story cards show: its painting, the paintings its cards carry, and the people, lives and events named. */
+/**
+ * What a moment's story cards show: the moment's painting, behind every card without its own, and the people, lives and
+ * events named.
+ */
 data class StoryPreview(
-    val art: Artwork?,
-    val cardArt: List<CardArtwork>,
+    val art: Painting?,
     val people: List<PreviewPerson>,
     val lives: List<Life>,
     val events: List<PreviewEvent>,
 )
-
-/** A painting one of the release's cards carries, with what that card shows. */
-data class CardArtwork(val type: CardType, val person: String?, val life: String?, val event: String?, val art: Artwork)
 
 /** A person as a card shows them, by the id the card names them by. */
 data class PreviewPerson(
@@ -106,14 +104,16 @@ class Moments(
                 type = card.type, kicker = card.kicker, title = card.title, text = card.text, year = card.year,
                 person = card.person?.id, life = card.life?.id, event = card.event?.id,
                 label = card.person?.name ?: card.life?.label ?: card.event?.title,
+                art = card.art?.let(Painting::of),
             )
         }
-        return MomentStory(overview(moment, storyCards.size), moment.hook, moment.world, storyCards)
+        return MomentStory(overview(moment, storyCards.size), moment.hook, moment.world, moment.art?.let(Painting::of), storyCards)
     }
 
     /**
-     * The text of a moment's [page] as the curator wrote it from the release's: a claim approved at once, the release's
-     * text as its proposal. Refused when the moment's page has a claim already, drafted or written: decide on that one.
+     * A moment's header, [page], as the curator wrote it from the release's: a claim approved at once, the release's
+     * text and painting as its proposal. Refused when the moment's header has a claim already, drafted or written:
+     * decide on that one.
      */
     @Transactional
     fun writePage(page: MomentPage, note: String?, by: String): ClaimDetail {
@@ -122,6 +122,7 @@ class Moments(
             moment = moment.id,
             hook = StoryLine(moment.hook),
             world = moment.world?.let(::worldOf) ?: StoryWorld(StoryLine(""), StoryLine(""), StoryLine(""), StoryLine("")),
+            art = moment.art?.let(Painting::of),
         )
         return curation.addApproved(page, released, by, note)
     }
@@ -140,7 +141,8 @@ class Moments(
 
     /**
      * What [id]'s story cards show, for the [people], [lives] and [events] they name: a person written by hand from the
-     * release, a fetched one from the dataset. Ids found nowhere are left out.
+     * release, a fetched one from the dataset. Ids found nowhere are left out. The moment's painting is its header
+     * claim's, unless rejected (none if the curator took it away), else the release's.
      */
     @Transactional(readOnly = true)
     fun preview(id: String, people: Collection<String>, lives: Collection<String>, events: Collection<String>): StoryPreview {
@@ -151,11 +153,9 @@ class Moments(
         val fetched = dataset.portraits(people - byHand.map { it.id }.toSet()).map {
             PreviewPerson(it.person, it.label, it.born, it.died, it.occupation, it.portrait, it.intro?.let(::bioOf))
         }
+        val header = claims.findById(pageOf(moment)).orElse(null)?.takeIf { it.status != ClaimStatus.REJECTED }
         return StoryPreview(
-            art = moment.art,
-            cardArt = moment.cards.mapNotNull { card ->
-                card.art?.let { CardArtwork(card.type, card.person?.id, card.life?.id, card.event?.id, it) }
-            },
+            art = if (header != null) (header.payload as MomentPage).art else moment.art?.let(Painting::of),
             people = (byHand + fetched).sortedBy { it.id },
             lives = releaseLives.findAllById(lives).sortedBy { it.id },
             events = releaseEvents.findAllById(events).sortedBy { it.id }.map { event ->

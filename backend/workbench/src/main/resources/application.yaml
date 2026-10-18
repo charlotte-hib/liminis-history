@@ -89,6 +89,7 @@ app:
     wikidata-api: https://www.wikidata.org/w/api.php
     wikipedia-api: https://{language}.wikipedia.org/w/api.php
     wikidata-sparql: https://query.wikidata.org/sparql
+    commons-api: https://commons.wikimedia.org/w/api.php
     # The query service stops a query after 60 seconds: a little longer, for its answer to arrive.
     sparql-timeout: 75s
     # Wikidata took 6 s to send 50 people's entities (2 MB) on 2026-10-10, past the 5 s other clients are given.

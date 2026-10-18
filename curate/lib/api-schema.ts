@@ -327,6 +327,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/paintings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find a painting on Wikimedia Commons
+         * @description Images on Wikimedia Commons that a story card or a moment can show: those found by searching for `q`, or the
+         *     one file `q` names (a link to its page, on Commons or a Wikipedia, or to the image, or `File:` and its name).
+         *     Only CC0 images and those in the public domain are listed, except those public domain in the United States
+         *     only, as the site is read in Europe; the others are counted, with their licences. Each comes at 1,280 pixels
+         *     wide at most, with a credit made from what Commons says of its artist, title and date, to edit.
+         */
+        get: operations["findPaintings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/occupations/{qid}": {
         parameters: {
             query?: never;
@@ -622,11 +646,14 @@ export interface components {
             moment: components["schemas"]["MomentId"];
             hook: components["schemas"]["StoryLine"];
             world: components["schemas"]["StoryWorld"];
+            /** @description The moment's painting, behind its header and every card without one of its own. */
+            art?: components["schemas"]["Painting"];
         };
         /** @description The text of a moment's page as the curator wrote it. */
         MomentPageText: {
             hook: string;
             world: components["schemas"]["WorldText"];
+            art?: components["schemas"]["Painting"];
             note?: string;
         };
         /** @description The world around a moment, one line each. */
@@ -663,6 +690,46 @@ export interface components {
             /** @description The name of the person, life or event the card shows, for reading. Not published. */
             label?: string;
             citations: components["schemas"]["Citation"][];
+            /** @description The card's own painting. Without one, the card shows the moment's. */
+            art?: components["schemas"]["Painting"];
+        };
+        /**
+         * @description An image a card or a moment shows, as it would ship into the moment's file: its address, the credit under it,
+         *     and the page it is published on. Its licence is the curator's to check, and is not published.
+         */
+        Painting: {
+            url: string;
+            credit: string;
+            /** @description The page the image is published on, with its licence. */
+            source: string;
+            /** @description None for a painting the release had, chosen by hand. */
+            licence?: components["schemas"]["PaintingLicence"];
+        };
+        /** @enum {string} */
+        PaintingLicence: "PUBLIC_DOMAIN" | "CC0";
+        PaintingSearch: {
+            paintings: components["schemas"]["FoundPainting"][];
+            /**
+             * Format: int32
+             * @description The images found under other licences, left out.
+             */
+            leftOut: number;
+            /** @description Their licences, as Commons names them. */
+            leftOutLicences: string[];
+        };
+        FoundPainting: {
+            painting: components["schemas"]["Painting"];
+            /** @description The file's name on Commons. */
+            title: string;
+            /** @description A small copy, about 330 pixels wide, to choose from. */
+            thumbnail: string;
+            /**
+             * Format: int32
+             * @description The original's width, in pixels.
+             */
+            width: number;
+            /** Format: int32 */
+            height: number;
         };
         /** @enum {string} */
         CardType: "SCENE" | "PERSON" | "LIFE" | "EVENT";
@@ -702,19 +769,19 @@ export interface components {
             /** @description The release's hook. */
             hook: string;
             world?: components["schemas"]["World"];
+            /** @description The release's painting for the moment. */
+            art?: components["schemas"]["Painting"];
             /** @description The release's cards, in order. */
             storyCards: components["schemas"]["StoryCard"][];
             /** @description The last run that drafted the moment's story since the workbench started, if any. */
             draft?: components["schemas"]["Run"];
         };
         StoryPreview: {
-            /** @description The moment's painting, behind every card without one of its own. */
-            art?: components["schemas"]["Artwork"];
             /**
-             * @description The paintings the release's cards carry, by what each card shows: publishing keeps a painting for a card
-             *     showing the same.
+             * @description The moment's painting, behind every card without one of its own: its header claim's, unless rejected, else
+             *     the release's.
              */
-            cardArt: components["schemas"]["CardArtwork"][];
+            art?: components["schemas"]["Painting"];
             people: components["schemas"]["PreviewPerson"][];
             lives: components["schemas"]["PreviewLife"][];
             events: components["schemas"]["PreviewEvent"][];
@@ -724,13 +791,6 @@ export interface components {
             url: string;
             credit: string;
             sourceUrl: string;
-        };
-        CardArtwork: {
-            type: components["schemas"]["CardType"];
-            person?: string;
-            life?: string;
-            event?: string;
-            art: components["schemas"]["Artwork"];
         };
         /**
          * @description What a card shows, by its type.
@@ -1053,7 +1113,7 @@ export interface components {
             after?: string;
         };
         /**
-         * @description A moment whose header or story changes. Its hook (none when it stays as it is), the lines of its world around
+         * @description A moment whose header or story changes. Its hook and its painting (none when they stay as they are), the lines of its world around
          *     that change, and its cards added, removed, changed or moved, in the story's new order, removed ones last. A card
          *     is the same card before and after when it shows the same person, life or event (a scene card: the same type),
          *     in order.
@@ -1064,6 +1124,8 @@ export interface components {
             title: string;
             hook?: components["schemas"]["TextChange"];
             world: components["schemas"]["WorldChange"][];
+            /** @description The moment's painting, by its credit, when it changes. None when it stays. */
+            painting?: components["schemas"]["TextChange"];
             cards: components["schemas"]["CardChange"][];
             /** Format: int32 */
             unchangedCards: number;
@@ -1097,12 +1159,12 @@ export interface components {
             to?: number;
             /** @description The card changed places among the others, not only its number. */
             moved: boolean;
-            /** @description Its texts and year that change. */
+            /** @description Its texts, year and painting (by its credit) that change. */
             fields: components["schemas"]["CardFieldChange"][];
         };
         CardFieldChange: {
             /** @enum {string} */
-            field: "KICKER" | "TITLE" | "TEXT" | "YEAR";
+            field: "KICKER" | "TITLE" | "TEXT" | "YEAR" | "PAINTING";
             before?: string;
             after?: string;
         };
@@ -1687,6 +1749,33 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    findPaintings: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What was found, best first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaintingSearch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getOccupation: {

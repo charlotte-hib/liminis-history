@@ -27,6 +27,8 @@ tags:
     description: The fetched occupations and who holds them, to map them to the site's domains.
   - name: moments
     description: The release's moments, everyone alive in each, and their stories, drafted with Claude.
+  - name: paintings
+    description: The images on Wikimedia Commons a story card or a moment can show.
   - name: runs
     description: Imports, mappings, proposals and drafts, one at a time, in the background.
   - name: publication
@@ -643,6 +645,50 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/paintings:
+    get:
+      tags: [paintings]
+      operationId: findPaintings
+      security:
+        - auth: ["curation:read"]
+      summary: Find a painting on Wikimedia Commons
+      description: |
+        Images on Wikimedia Commons that a story card or a moment can show: those found by searching for `q`, or the
+        one file `q` names (a link to its page, on Commons or a Wikipedia, or to the image, or `File:` and its name).
+        Only CC0 images and those in the public domain are listed, except those public domain in the United States
+        only, as the site is read in Europe; the others are counted, with their licences. Each comes at 1,280 pixels
+        wide at most, with a credit made from what Commons says of its artist, title and date, to edit.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 500
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 48
+            default: 24
+      responses:
+        "200":
+          description: What was found, best first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaintingSearch"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+
   /api/occupations/{qid}:
     get:
       tags: [occupations]
@@ -1258,6 +1304,10 @@ components:
           $ref: "#/components/schemas/StoryLine"
         world:
           $ref: "#/components/schemas/StoryWorld"
+        art:
+          description: The moment's painting, behind its header and every card without one of its own.
+          allOf:
+            - $ref: "#/components/schemas/Painting"
 
     MomentPageText:
       type: object
@@ -1270,6 +1320,8 @@ components:
           maxLength: 400
         world:
           $ref: "#/components/schemas/WorldText"
+        art:
+          $ref: "#/components/schemas/Painting"
         note:
           type: string
           maxLength: 2000
@@ -1360,6 +1412,77 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Citation"
+        art:
+          description: The card's own painting. Without one, the card shows the moment's.
+          allOf:
+            - $ref: "#/components/schemas/Painting"
+
+    Painting:
+      type: object
+      description: |
+        An image a card or a moment shows, as it would ship into the moment's file: its address, the credit under it,
+        and the page it is published on. Its licence is the curator's to check, and is not published.
+      required: [url, credit, source]
+      properties:
+        url:
+          type: string
+          maxLength: 2000
+          pattern: "^https://\\S+$"
+        credit:
+          type: string
+          minLength: 1
+          maxLength: 300
+        source:
+          type: string
+          description: The page the image is published on, with its licence.
+          maxLength: 2000
+          pattern: "^https://\\S+$"
+        licence:
+          description: None for a painting the release had, chosen by hand.
+          allOf:
+            - $ref: "#/components/schemas/PaintingLicence"
+
+    PaintingLicence:
+      type: string
+      enum: [PUBLIC_DOMAIN, CC0]
+
+    PaintingSearch:
+      type: object
+      required: [paintings, leftOut, leftOutLicences]
+      properties:
+        paintings:
+          type: array
+          items:
+            $ref: "#/components/schemas/FoundPainting"
+        leftOut:
+          type: integer
+          format: int32
+          description: The images found under other licences, left out.
+        leftOutLicences:
+          type: array
+          description: Their licences, as Commons names them.
+          items:
+            type: string
+
+    FoundPainting:
+      type: object
+      required: [painting, title, thumbnail, width, height]
+      properties:
+        painting:
+          $ref: "#/components/schemas/Painting"
+        title:
+          type: string
+          description: The file's name on Commons.
+        thumbnail:
+          type: string
+          description: A small copy, about 330 pixels wide, to choose from.
+        width:
+          type: integer
+          format: int32
+          description: The original's width, in pixels.
+        height:
+          type: integer
+          format: int32
 
     CardType:
       type: string
@@ -1433,6 +1556,10 @@ components:
               description: The release's hook.
             world:
               $ref: "#/components/schemas/World"
+            art:
+              description: The release's painting for the moment.
+              allOf:
+                - $ref: "#/components/schemas/Painting"
             storyCards:
               type: array
               description: The release's cards, in order.
@@ -1445,19 +1572,14 @@ components:
 
     StoryPreview:
       type: object
-      required: [cardArt, people, lives, events]
+      required: [people, lives, events]
       properties:
         art:
-          description: The moment's painting, behind every card without one of its own.
-          allOf:
-            - $ref: "#/components/schemas/Artwork"
-        cardArt:
-          type: array
           description: |
-            The paintings the release's cards carry, by what each card shows: publishing keeps a painting for a card
-            showing the same.
-          items:
-            $ref: "#/components/schemas/CardArtwork"
+            The moment's painting, behind every card without one of its own: its header claim's, unless rejected, else
+            the release's.
+          allOf:
+            - $ref: "#/components/schemas/Painting"
         people:
           type: array
           items:
@@ -1482,21 +1604,6 @@ components:
           type: string
         sourceUrl:
           type: string
-
-    CardArtwork:
-      type: object
-      required: [type, art]
-      properties:
-        type:
-          $ref: "#/components/schemas/CardType"
-        person:
-          type: string
-        life:
-          type: string
-        event:
-          type: string
-        art:
-          $ref: "#/components/schemas/Artwork"
 
     SubjectType:
       type: string
@@ -2075,7 +2182,7 @@ components:
     MomentChange:
       type: object
       description: |
-        A moment whose header or story changes. Its hook (none when it stays as it is), the lines of its world around
+        A moment whose header or story changes. Its hook and its painting (none when they stay as they are), the lines of its world around
         that change, and its cards added, removed, changed or moved, in the story's new order, removed ones last. A card
         is the same card before and after when it shows the same person, life or event (a scene card: the same type),
         in order.
@@ -2092,6 +2199,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WorldChange"
+        painting:
+          description: The moment's painting, by its credit, when it changes. None when it stays.
+          allOf:
+            - $ref: "#/components/schemas/TextChange"
         cards:
           type: array
           items:
@@ -2147,7 +2258,7 @@ components:
           description: The card changed places among the others, not only its number.
         fields:
           type: array
-          description: Its texts and year that change.
+          description: Its texts, year and painting (by its credit) that change.
           items:
             $ref: "#/components/schemas/CardFieldChange"
 
@@ -2157,7 +2268,7 @@ components:
       properties:
         field:
           type: string
-          enum: [KICKER, TITLE, TEXT, YEAR]
+          enum: [KICKER, TITLE, TEXT, YEAR, PAINTING]
         before:
           type: string
         after:

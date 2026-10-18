@@ -4,7 +4,7 @@ import { year } from "@/lib/years";
 
 type StoryCard = components["schemas"]["StoryCard"];
 type StoryPreview = components["schemas"]["StoryPreview"];
-type Artwork = components["schemas"]["Artwork"];
+type Painting = components["schemas"]["Painting"];
 type PreviewPerson = components["schemas"]["PreviewPerson"];
 type PreviewLife = components["schemas"]["PreviewLife"];
 type PreviewEvent = components["schemas"]["PreviewEvent"];
@@ -22,13 +22,8 @@ export const subjectsOf = (preview: Pick<StoryPreview, "people" | "lives" | "eve
   events: Object.fromEntries(preview.events.map((event) => [event.id, event])),
 });
 
-/** The painting behind a card: its own, kept by publishing for a card showing the same, else the moment's. */
-export function artOf(card: StoryCard, preview: Pick<StoryPreview, "art" | "cardArt">): Artwork | undefined {
-  const own = preview.cardArt.find(
-    (art) => art.type === card.type && art.person === card.person && art.life === card.life && art.event === card.event,
-  );
-  return own?.art ?? preview.art;
-}
+/** The painting behind a card: its own, else the moment's. */
+export const artOf = (card: StoryCard, preview: Pick<StoryPreview, "art">): Painting | undefined => card.art ?? preview.art;
 
 /** Whole years from one year to a later one, skipping the year 0 that never existed. */
 const yearsBetween = (from: number, to: number) => to - from - (from < 0 && to > 0 ? 1 : 0);
@@ -39,7 +34,7 @@ function ageText(born: number, when: number) {
   return age === 0 ? "a newborn" : `${age} ${age === 1 ? "year" : "years"} old`;
 }
 
-type Props = { card: StoryCard; subjects: Subjects; art?: Artwork; moment: string; number: number; count: number };
+type Props = { card: StoryCard; subjects: Subjects; art?: Painting; moment: string; number: number; count: number };
 
 /**
  * A card as visitors will see it, framed small: the site's story player (frontend/components/story-player.tsx), still,

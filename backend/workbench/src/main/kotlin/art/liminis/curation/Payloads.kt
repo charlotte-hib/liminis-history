@@ -2,6 +2,7 @@ package art.liminis.curation
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import art.liminis.domain.Artwork
 import art.liminis.domain.CardType
 
 // The records claims are about, stored in the JSON columns payload and proposal, and in each decision: the same rules
@@ -87,11 +88,12 @@ enum class OccupationChoice { POWER, ARTS, EVERYDAY, NONE }
 data class Story(val moment: String, val cards: List<StoryCard>) : Payload
 
 /**
- * The text at the top of a moment's page: the hook under its title and the world around it, which publishing writes
- * into the moment's file. Drafted with Claude beside the story, or written from the release's text on the moment's
- * page. Each line keeps the quotes it was written from, if any, which are not published.
+ * The top of a moment's page, its header: the hook under its title, the world around it and the moment's painting,
+ * which publishing writes into the moment's file. Drafted with Claude beside the story (the painting kept from the
+ * release), or written from the release's on the header's page. Each line keeps the quotes it was written from, if
+ * any, which are not published.
  */
-data class MomentPage(val moment: String, val hook: StoryLine, val world: StoryWorld) : Payload
+data class MomentPage(val moment: String, val hook: StoryLine, val world: StoryWorld, val art: Painting? = null) : Payload
 
 data class StoryLine(val text: String, val citations: List<Citation> = emptyList())
 
@@ -112,7 +114,24 @@ data class StoryCard(
     val event: String? = null,
     val label: String? = null,
     val citations: List<Citation> = emptyList(),
+    /** The card's own painting. Without one, the card shows the moment's. */
+    val art: Painting? = null,
 )
+
+/**
+ * An image a card or a moment shows: its address, the credit under it and the page it is published on, as publishing
+ * writes them. Its [licence], checked when the curator chose it, is not published: none for a painting the release
+ * had, chosen by hand.
+ */
+data class Painting(val url: String, val credit: String, val source: String, val licence: PaintingLicence? = null) {
+    companion object {
+        /** A painting of the release's, chosen by hand: its licence unrecorded. */
+        fun of(artwork: Artwork) = Painting(artwork.url, artwork.credit, artwork.sourceUrl)
+    }
+}
+
+/** The licences a painting may have: none asks for attribution. */
+enum class PaintingLicence { PUBLIC_DOMAIN, CC0 }
 
 /** A passage copied from the text [source] (`person:Q535`, `event:carmen-premiere`), titled [title]. */
 data class Citation(val source: String, val title: String, val quote: String)

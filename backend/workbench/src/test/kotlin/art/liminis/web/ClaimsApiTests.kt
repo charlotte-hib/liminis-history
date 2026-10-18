@@ -325,6 +325,15 @@ class ClaimsApiTests(
             jsonPath("$.payload.cards[0].type") { value("SCENE") }
             jsonPath("$.payload.cards[0].citations[0].title") { value("Victor Hugo (1802–1885), writer") }
         }
+        // A card's painting must be served over HTTPS, as a header's: the payload is refused before any rule.
+        val unsafe = """
+            {"action": "APPROVE", "payload": {"type": "STORY", "moment": "paris-1870s",
+              "cards": [{"type": "SCENE", "title": "A city", "citations": [],
+                         "art": {"url": "javascript:alert(1)", "credit": "Anyone", "source": "https://example.org"}}]}}
+        """.trimIndent()
+        mockMvc.post("/api/claims/{id}/decisions", "story:paris-1870s") { json(unsafe); ifMatch(etag("story:paris-1870s")) }.andExpect {
+            status { isBadRequest() }
+        }
         val edited = """
             {"action": "APPROVE", "payload": {"type": "STORY", "moment": "paris-1870s",
               "cards": [{"type": "PERSON", "person": "victor-hugo", "text": "Back.", "citations": []}]}}
@@ -370,7 +379,10 @@ class ClaimsApiTests(
             jsonPath("$.status") { value("APPROVED") }
             jsonPath("$.origin") { value("MANUAL") }
             jsonPath("$.payload.hook.text") { value("A republic, and its painters.") }
+            jsonPath("$.payload.art") { doesNotExist() }
             jsonPath("$.proposal.hook.text") { value("A republic born out of defeat, and painters the Salon keeps rejecting.") }
+            jsonPath("$.proposal.art.credit") { value("Gustave Caillebotte, Paris Street; Rainy Day, 1877") }
+            jsonPath("$.proposal.art.licence") { doesNotExist() }
             jsonPath("$.decisions[0].to") { value("APPROVED") }
             jsonPath("$.decisions[0].edited") { value(true) }
         }
@@ -384,8 +396,19 @@ class ClaimsApiTests(
             status { isCreated() }
             jsonPath("$.payload.hook.text") { value("A hook.") }
         }
+        // With a painting: its credit trimmed, its licence kept; one with a blank credit, or not served over HTTPS, refused.
+        val painting = """{"url": "https://example.org/fuji.jpg", "credit": " Hokusai, Red Fuji ", "source": "https://example.org/fuji", "licence": "CC0"}"""
+        mockMvc.post("/api/moments/{id}/page", "edo-1830s") { json(pageText("Waves.", painting)) }.andExpect {
+            status { isCreated() }
+            jsonPath("$.payload.art.credit") { value("Hokusai, Red Fuji") }
+            jsonPath("$.payload.art.licence") { value("CC0") }
+        }
+        mockMvc.post("/api/moments/{id}/page", "paris-1890s") { json(pageText("Belle Époque.", painting.replace("Hokusai, Red Fuji", "  "))) }
+            .andExpect { status { isBadRequest() } }
+        mockMvc.post("/api/moments/{id}/page", "paris-1890s") { json(pageText("Belle Époque.", painting.replace("https://example.org/fuji.jpg", "http://example.org/fuji.jpg"))) }
+            .andExpect { status { isBadRequest() } }
     }
 
-    private fun pageText(hook: String) =
-        """{"hook": "$hook", "world": {"governs": "g", "everyday": "e", "arts": "a", "meanwhile": "m"}}"""
+    private fun pageText(hook: String, art: String? = null) =
+        """{"hook": "$hook", "world": {"governs": "g", "everyday": "e", "arts": "a", "meanwhile": "m"}${art?.let { ", \"art\": $it" }.orEmpty()}}"""
 }

@@ -12,6 +12,7 @@ import art.liminis.domain.CardType
 import art.liminis.domain.Domain
 import art.liminis.release.AnecdoteRecord
 import art.liminis.release.AnecdoteSourceRecord
+import art.liminis.release.ArtRecord
 import art.liminis.release.CardRecord
 import art.liminis.release.CorrectionRecord
 import art.liminis.release.WorldRecord
@@ -31,12 +32,16 @@ enum class Fact { NAME, FRENCH_NAME, BORN, DIED, DATES_APPROXIMATE, OCCUPATIONS 
 /** An occupation whose domain changes: [before] none when main does not map it, [after] none when it no longer is. */
 data class OccupationChange(val occupation: String, val label: String, val change: Change, val before: OccupationChoice?, val after: OccupationChoice?)
 
-/** A moment whose header or story changes: its hook, if it changes, the lines of its world that do, and its cards. */
+/**
+ * A moment whose header or story changes: its hook and its painting (by its credit), if they change, the lines of its
+ * world that do, and its cards.
+ */
 data class MomentChange(
     val moment: String,
     val title: String,
     val hook: TextChange?,
     val world: List<WorldChange>,
+    val painting: TextChange?,
     val cards: List<CardChange>,
     val unchangedCards: Int,
 )
@@ -61,7 +66,7 @@ data class CardChange(
 
 data class CardFieldChange(val field: CardField, val before: String?, val after: String?)
 
-enum class CardField { KICKER, TITLE, TEXT, YEAR }
+enum class CardField { KICKER, TITLE, TEXT, YEAR, PAINTING }
 
 /** An anecdote added, removed or changed, about [person] in [year] (once published, else on main), with its fields that change. */
 data class AnecdoteChange(val anecdote: String, val person: String, val name: String, val change: Change, val year: Int, val fields: List<AnecdoteFieldChange>)
@@ -179,7 +184,8 @@ class ChangesInWords(
             if (old == new) null else WorldChange(part, old, new)
         }
         return MomentChange(
-            moment, will.title, TextChange(was.hook, will.hook).takeIf { was.hook != will.hook }, world, cards, unchanged,
+            moment, will.title, TextChange(was.hook, will.hook).takeIf { was.hook != will.hook }, world,
+            painting(was.art, will.art), cards, unchanged,
         )
     }
 
@@ -219,6 +225,13 @@ class ChangesInWords(
         val old = before?.let(value)
         val new = after?.let(value)
         if (old == new) null else CardFieldChange(field, old, new)
+    } + listOfNotNull(painting(before?.art, after?.art)?.let { CardFieldChange(CardField.PAINTING, it.before, it.after) })
+
+    /** A painting that changes, by its credit: another image under the same credit says so. */
+    private fun painting(before: ArtRecord?, after: ArtRecord?): TextChange? {
+        if (before == after) return null
+        val credit = after?.credit?.let { if (it == before?.credit) "$it (another image)" else it }
+        return TextChange(before?.credit, credit)
     }
 
     /** The names of whom and what [shown] cards show: the release's people, lives and events, else the dataset's people. */
@@ -276,6 +289,7 @@ class ChangesInWords(
             lines += moments.map { moment ->
                 val parts = listOfNotNull(moment.hook?.let { "hook changed" }) +
                     moment.world.map { "${WORLD.getValue(it.part)} changed" } +
+                    listOfNotNull(moment.painting?.let { "painting changed" }) +
                     moment.cards.map(::cardInWords)
                 "- ${moment.title} (${moment.moment}): ${parts.joinToString("; ")}"
             }
@@ -345,6 +359,7 @@ class ChangesInWords(
         val ANECDOTE_FIELDS = mapOf(AnecdoteField.YEAR to "year", AnecdoteField.TEXT to "text", AnecdoteField.SOURCE to "source")
         val CARD_FIELDS = mapOf(
             CardField.KICKER to "kicker", CardField.TITLE to "title", CardField.TEXT to "what visitors read", CardField.YEAR to "year",
+            CardField.PAINTING to "painting",
         )
 
         /** A year in words: BCE for the negative ones. */

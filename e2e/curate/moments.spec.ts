@@ -36,18 +36,46 @@ test("generating a story and header is started from the moment's page, and its o
   await expect(page.getByRole("status")).toContainText("The last draft failed");
 });
 
-// The header is edited under its preview on the moment's page: from the release's text the first time, which approving
-// writes as the moment's header claim, approved at once; from that claim afterwards.
+// The header has a page of its own, reached from the moment's: edited under its preview, from the release's text the
+// first time, which approving writes as the moment's header claim, approved at once; from that claim afterwards.
 test("a moment's header is edited under its preview, and approved", async ({ page }) => {
   await page.goto("/moments/paris-1890s");
-  const header = page.getByRole("region", { name: "Moment header" });
+  await page.getByRole("link", { name: "Edit the header" }).click();
+  await expect(page).toHaveURL(/\/moments\/paris-1890s\/header$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Moment header" })).toBeVisible();
   const hook = `A hook written by the test at ${Date.now()}.`;
-  await header.getByLabel("The hook · under the title").fill(hook);
-  await expect(header.getByRole("paragraph").filter({ hasText: hook })).toBeVisible();
+  await page.getByLabel("The hook · under the title").fill(hook);
+  await expect(page.getByRole("paragraph").filter({ hasText: hook })).toBeVisible();
 
-  await header.getByRole("button", { name: "Approve my changes" }).click();
-  await expect(header.getByRole("status")).toContainText("Approved");
-  await expect(header.getByText("moment-page:paris-1890s · approved")).toBeVisible();
-  await expect(header.getByLabel("The hook · under the title")).toHaveValue(hook);
-  await expect(header.getByRole("button", { name: "Approve", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Approve my changes" }).click();
+  await expect(page.getByRole("status")).toContainText("Approved");
+  await expect(page.getByText("moment-page:paris-1890s · approved")).toBeVisible();
+  await expect(page.getByLabel("The hook · under the title")).toHaveValue(hook);
+  await expect(page.getByRole("button", { name: "Approve", exact: true })).toBeDisabled();
+
+  // The moment's page says so in its header row.
+  await page.getByRole("link", { name: /Paris, 1890s/ }).click();
+  await expect(page.getByRole("region", { name: "Moment header" })).toContainText("Written by you, approved");
+});
+
+// Searching Commons through the workbench: the test needs the internet.
+test("a moment's painting is chosen with its header, the preview following", async ({ page }) => {
+  await page.goto("/moments/kyoto-1590s/header");
+  const box = page.getByRole("region", { name: "The moment's painting" });
+  await box.getByRole("button", { name: /^Choose (a|another) painting$/ }).click();
+
+  const picker = page.getByRole("dialog");
+  await picker.getByRole("searchbox").fill("Kano Eitoku");
+  await picker.getByRole("list", { name: "Paintings found" }).getByRole("button").first().click();
+  await picker.getByRole("button", { name: "Use this painting" }).click();
+
+  const credit = `A credit written by the test at ${Date.now()}`;
+  await box.getByLabel("Credit, under the painting").fill(credit);
+  // The header as visitors see it carries the credit under its painting.
+  await expect(page.getByText(credit, { exact: true }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Approve my changes" }).click();
+  await expect(page.getByRole("status")).toContainText("Approved");
+  await page.reload();
+  await expect(box.getByLabel("Credit, under the painting")).toHaveValue(credit);
 });

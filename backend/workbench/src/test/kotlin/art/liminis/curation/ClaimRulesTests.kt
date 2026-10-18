@@ -152,6 +152,22 @@ class ClaimRulesTests {
     }
 
     @Test
+    fun `every painting chosen for a card or a moment carries a credit`() {
+        val draft = story("Back from exile.")
+        val painting = Painting("https://example.org/fuji.jpg", "Hokusai, Red Fuji", "https://example.org/fuji", PaintingLicence.PUBLIC_DOMAIN)
+        val painted = draft.copy(cards = draft.cards.map { it.copy(art = painting) })
+        assertEquals(ClaimStatus.APPROVED, ClaimRules.decide(state(ClaimStatus.CANDIDATE, draft, draft), NewDecision(Verdict.APPROVE, painted)).status)
+        val uncredited = draft.copy(cards = draft.cards.map { it.copy(art = painting.copy(credit = " ")) })
+        assertThrows<InvalidRequestException> { ClaimRules.decide(state(ClaimStatus.CANDIDATE, draft, draft), NewDecision(Verdict.APPROVE, uncredited)) }
+
+        val header = page("A hook.")
+        ClaimRules.decide(state(ClaimStatus.CANDIDATE, header, header), NewDecision(Verdict.APPROVE, header.copy(art = painting)))
+        assertThrows<InvalidRequestException> {
+            ClaimRules.decide(state(ClaimStatus.CANDIDATE, header, header), NewDecision(Verdict.APPROVE, header.copy(art = painting.copy(credit = ""))))
+        }
+    }
+
+    @Test
     fun `a new draft of a story waits for review, whatever became of the last one, unless the curator edited it`() {
         val first = story("First draft.")
         val edited = story("Edited by the curator.")

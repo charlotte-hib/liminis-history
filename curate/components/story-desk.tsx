@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { decide, draftStory, previewOf, undo } from "@/app/actions";
 import { History } from "@/components/claim-parts";
 import { parseYear } from "@/components/edit-forms";
+import { PaintingBox } from "@/components/painting-picker";
 import { artOf, Slide, subjectsOf, type Subjects } from "@/components/slide";
 import { SubjectSearch } from "@/components/subject-search";
 import type { components } from "@/lib/api-schema";
@@ -57,6 +58,7 @@ function storyOf(draft: Draft, base: Story): Story {
         event: field === "event" ? card.event?.trim() : undefined,
         label: card.label,
         citations: card.citations,
+        art: card.art ? { ...card.art, credit: card.art.credit.trim() } : undefined,
       };
     }),
   };
@@ -71,6 +73,7 @@ function problemOf(draft: Draft, missing: Set<string>): string | null {
     if (field && !card[field]?.trim()) return `Card ${i + 1}: say which ${field} it shows.`;
     if (field && missing.has(`${field}:${card[field]!.trim()}`)) return `Card ${i + 1}: no ${field} “${card[field]!.trim()}” in the release or the dataset.`;
     if (card.type === "SCENE" && !card.title?.trim()) return `Card ${i + 1}: a scene needs a title.`;
+    if (card.art && !card.art.credit.trim()) return `Card ${i + 1}: give its painting a credit.`;
   }
   return null;
 }
@@ -248,7 +251,8 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
     if (mode !== "view") return;
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || pending) return;
-      if ((event.target as HTMLElement).closest("input, textarea, select, [contenteditable]")) return;
+      // Typing, and anything in a dialog such as the painting picker, keeps its keys.
+      if ((event.target as HTMLElement).closest("input, textarea, select, [contenteditable], [role=dialog]")) return;
       const action: Record<string, () => void> = {
         a: () => decideOn("APPROVE", note),
         r: () => setMode("REJECT"),
@@ -299,8 +303,8 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
 
       <section aria-label="The story at a glance" className="flex flex-col gap-3.5 px-10 pt-5">
         <span className="text-[12.5px] text-muted">
-          The whole story at a glance · drag a card to move it · the hook and the world around are in the{" "}
-          <Link href={`/moments/${moment.id}#header`} className="text-lamp hover:underline">
+          The whole story at a glance · drag a card to move it · the hook, the world around and the moment&apos;s painting are in the{" "}
+          <Link href={`/moments/${moment.id}/header`} className="text-lamp hover:underline">
             moment header
           </Link>
         </span>
@@ -353,7 +357,12 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
               <span>
                 As visitors will see it · card {index + 1} of {draft.cards.length}
               </span>
-              {artOf(story.cards[index], preview) && <span>Background: {artOf(story.cards[index], preview)!.credit}</span>}
+              {artOf(story.cards[index], preview) && (
+                <span>
+                  Background: {artOf(story.cards[index], preview)!.credit}
+                  {!story.cards[index].art && " (the moment's painting)"}
+                </span>
+              )}
             </figcaption>
           </figure>
           <OpenCard
@@ -365,6 +374,9 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
             subjects={subjects}
             missing={missing}
             sources={claim.sources}
+            title={`A painting for card ${index + 1}, ${nameOf(card, subjects)}`}
+            hint={card.type === "SCENE" ? `${card.title ?? ""} ${moment.place}`.trim() : nameOf(card, subjects)}
+            momentArt={preview.art?.credit}
             onChange={(change) => changeCard(index, change)}
             onMove={(by) => move(index, index + by)}
             onRemove={() => remove(index)}
@@ -527,13 +539,18 @@ type OpenProps = {
   subjects: Subjects;
   missing: Set<string>;
   sources: Source[];
+  /** The painting picker's title, and the words its search starts from. */
+  title: string;
+  hint: string;
+  /** The moment's painting, by its credit: what the card shows without one of its own. */
+  momentArt?: string;
   onChange: (change: Partial<DraftCard>) => void;
   onMove: (by: number) => void;
   onRemove: () => void;
 };
 
-/** The open card: what visitors read, what it shows, and the quotes it rests on. */
-function OpenCard({ moment, card, number, count, subjects, missing, sources, onChange, onMove, onRemove }: OpenProps) {
+/** The open card: what visitors read, what it shows, its painting, and the quotes it rests on. */
+function OpenCard({ moment, card, number, count, subjects, missing, sources, title, hint, momentArt, onChange, onMove, onRemove }: OpenProps) {
   const field = SHOWS[card.type];
   const id = field ? card[field]?.trim() : undefined;
   const found = id ? (field === "person" ? subjects.people[id]?.name : field === "life" ? subjects.lives[id]?.label : subjects.events[id]?.title) : undefined;
@@ -554,7 +571,7 @@ function OpenCard({ moment, card, number, count, subjects, missing, sources, onC
         <div className="grid grid-cols-[130px_100px_minmax(0,1fr)] items-end gap-3">
           <label className="flex flex-col gap-1.5">
             <span className="label">Type</span>
-            <select value={card.type} onChange={(e) => onChange({ type: e.target.value as CardType, label: undefined })} className={box}>
+            <select value={card.type} onChange={(e) => onChange({ type: e.target.value as CardType, label: undefined, art: undefined })} className={box}>
               {(Object.keys(SHOWS) as CardType[]).map((type) => (
                 <option key={type} value={type}>
                   {KINDS[type]}
@@ -573,7 +590,8 @@ function OpenCard({ moment, card, number, count, subjects, missing, sources, onC
               type={card.type as Exclude<CardType, "SCENE">}
               label={`The ${field}`}
               name={found ?? card.label ?? id ?? ""}
-              onChoose={(subject) => onChange({ [field]: subject.id, label: subject.label })}
+              // A painting chosen for whom or what the card showed goes with them: Hugo's portrait never stays on Zola.
+              onChoose={(subject) => onChange({ [field]: subject.id, label: subject.label, ...(subject.id !== id && { art: undefined }) })}
             />
           ) : (
             <span />
@@ -616,12 +634,21 @@ function OpenCard({ moment, card, number, count, subjects, missing, sources, onC
         />
       </label>
 
+      <PaintingBox
+        label="Painting"
+        painting={card.art}
+        title={title}
+        hint={hint}
+        remove="Use the moment's painting"
+        note={card.art ? undefined : momentArt ? `Without its own, the card shows the moment's painting: ${momentArt}.` : "The moment has no painting either."}
+        onChange={(art) => onChange({ art })}
+      />
+
       {card.citations.length ? (
         card.citations.map((citation, i) => <PinnedSource key={i} citation={citation} sources={sources} tilt={i % 2 ? 0.6 : -0.8} />)
       ) : (
         <p className="text-[12.5px] text-conflict">No quote: check it yourself.</p>
       )}
-
 
       <div className="flex flex-wrap gap-2">
         <button type="button" className="button-small" disabled={number === 1} onClick={() => onMove(-1)}>

@@ -49,6 +49,7 @@ const CARD_FIELDS: Record<CardChange["fields"][number]["field"], string> = {
   TITLE: "Title",
   TEXT: "What visitors read",
   YEAR: "Year",
+  PAINTING: "Painting",
 };
 
 /** What a publish would change on the site, in words, and the button that opens its pull request. */
@@ -251,6 +252,14 @@ function Moment({ moment }: { moment: MomentChange }) {
           </p>
         </div>
       ))}
+      {moment.painting && (
+        <div className="flex flex-col gap-1">
+          <span className="label">The moment&apos;s painting</span>
+          <span>
+            <ValueChange before={moment.painting.before} after={moment.painting.after} />
+          </span>
+        </div>
+      )}
       {(moment.cards.length > 0 || moment.unchangedCards > 0) && (
         <div className="flex flex-col gap-2">
           <span className="label">Cards</span>
@@ -285,7 +294,8 @@ function Card({ card }: { card: CardChange }) {
         <span key={field.field} className="flex flex-col">
           <span className="text-[12.5px] text-muted">{CARD_FIELDS[field.field]}</span>
           <span className={field.field === "TEXT" ? "font-serif text-[16px] leading-relaxed" : ""}>
-            <WordDiff before={field.before} after={field.after} />
+            {/* A painting is another image, not edited words: by its credit, before and after. */}
+            {field.field === "PAINTING" ? <ValueChange before={field.before} after={field.after} /> : <WordDiff before={field.before} after={field.after} />}
           </span>
         </span>
       ))}

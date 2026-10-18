@@ -42,6 +42,8 @@ dependencies {
 	// Which country a place lies in today: Natural Earth's borders in GeoJSON, read and searched with JTS.
 	implementation("org.locationtech.jts:jts-core:1.20.0")
 	implementation("org.locationtech.jts.io:jts-io-common:1.20.0")
+	// The artist, title and date Wikimedia Commons sends as HTML, made into a painting's credit (paintings/Paintings.kt).
+	implementation("org.jsoup:jsoup:1.23.2")
 	// Postgres on ./gradlew :workbench:bootRun: starts the db service of compose.workbench.yaml and connects to it.
 	developmentOnly("org.springframework.boot:spring-boot-docker-compose")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")

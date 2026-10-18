@@ -17,6 +17,7 @@ import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 import org.springframework.web.client.toEntity
 import tools.jackson.databind.JsonNode
+import tools.jackson.databind.node.ObjectNode
 import java.io.IOException
 import java.time.Duration
 
@@ -28,6 +29,8 @@ data class WikimediaProperties(
     val wikipediaApi: String,
     /** Wikidata's query service, for SPARQL. */
     val wikidataSparql: String,
+    /** Wikimedia Commons' Action API, for the paintings of story cards and moments. */
+    val commonsApi: String,
     /** How long a SPARQL query may take: the query service stops each one after 60 seconds. */
     val sparqlTimeout: Duration,
     /** How long an Action API answer may take to arrive in full: 50 people's entities run to megabytes. */
@@ -61,8 +64,8 @@ class WikimediaException(message: String) : RuntimeException(message)
 class SparqlTimeoutException(message: String) : RuntimeException(message)
 
 /**
- * The workbench's way to Wikimedia: Wikidata's and Wikipedia's Action APIs, which answer many entities or pages per
- * request, and Wikidata's query service. Returns their JSON as it came.
+ * The workbench's way to Wikimedia: Wikidata's, Wikipedia's and Commons' Action APIs, which answer many entities or
+ * pages per request, and Wikidata's query service. Returns their JSON as it came.
  *
  * Every call shares one pace, the Resilience4j instances named `wikimedia` in application.yaml: one request at a time,
  * two a second at most. When Wikimedia asks to retry later (HTTP 429, or the `maxlag` error when its servers are
@@ -181,6 +184,48 @@ class WikimediaClient(
             val normal = normalized[title] ?: title
             pages[redirects[normal] ?: normal]?.let { title to it }
         }.toMap()
+    }
+
+    /**
+     * Image files on Commons found by searching for [text], [limit] at most, best first (`generator=search`), each
+     * with its size, its address and a copy [width] pixels wide at most, its page, the licence, artist, title and date
+     * Commons says it has (`extmetadata`, in English), and its hidden categories under `categories`, where the licence
+     * templates say which public domain it is in.
+     */
+    fun commonsSearch(text: String, limit: Int, width: Int): List<JsonNode> =
+        commonsFiles(width, mapOf("generator" to "search", "gsrsearch" to "$text filetype:bitmap", "gsrnamespace" to "6", "gsrlimit" to "$limit"))
+            .sortedBy { it.path("index").asInt() }
+
+    /** The Commons file [title] (`File:` and its name), as [commonsSearch] gives each, or none when it does not exist. */
+    fun commonsFile(title: String, width: Int): JsonNode? =
+        commonsFiles(width, mapOf("titles" to title, "redirects" to "1")).firstOrNull()
+
+    private fun commonsFiles(width: Int, select: Map<String, String>): List<JsonNode> {
+        val parameters = mapOf(
+            "action" to "query",
+            "prop" to "imageinfo|categories",
+            "iiprop" to "url|size|extmetadata",
+            "iiurlwidth" to "$width",
+            "iiextmetadatafilter" to "License|LicenseShortName|Artist|ObjectName|DateTimeOriginal",
+            "iiextmetadatalanguage" to "en",
+            "clshow" to "hidden",
+            "cllimit" to "max",
+            "formatversion" to "2",
+        ) + select
+        // Files with many hidden categories run past one answer's 500: the rest come with `clcontinue`, same files.
+        var answer = get(properties.commonsApi, emptyMap(), properties.maxlag, parameters)
+        val files = answer.path("query").path("pages").values().filter { it.path("imageinfo").size() > 0 }.map { it.deepCopy() as ObjectNode }
+        val byId = files.associateBy { it.path("pageid").asLong() }
+        while (answer.path("continue").has("clcontinue")) {
+            val more = answer.path("continue").properties().associate { (name, value) -> name to value.asString() }
+            answer = get(properties.commonsApi, emptyMap(), properties.maxlag, parameters + more)
+            for (page in answer.path("query").path("pages").values()) {
+                val file = byId[page.path("pageid").asLong()] ?: continue
+                val categories = file.withArray("categories")
+                page.path("categories").values().forEach { categories.add(it) }
+            }
+        }
+        return files
     }
 
     /**
