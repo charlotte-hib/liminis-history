@@ -83,6 +83,10 @@ test("the admin invites a curator, who joins with a passkey and takes a claim, t
   await page.goto(atClaim);
   await expect(held).toContainText("Nobody holds this yet");
 
+  // Their open page stops at once: the workbench refuses their token, then auth their sign-in.
+  await them.goto(new URL("/", baseURL).href);
+  await expect(them.getByRole("heading", { name: "The sign-in did not go through" })).toBeVisible();
+
   // Their passkey is gone from auth: it signs no one in.
   await theirs.clearCookies();
   await them.goto(new URL("/", baseURL).href);

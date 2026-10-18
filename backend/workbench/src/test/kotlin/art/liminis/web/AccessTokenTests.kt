@@ -12,12 +12,15 @@ import com.nimbusds.jose.jwk.JWKSet
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
+import org.hamcrest.Matchers.containsString
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.http.HttpHeaders
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.wiremock.spring.ConfigureWireMock
@@ -32,7 +35,7 @@ import java.util.UUID
 /**
  * Access tokens as auth signs them, checked against keys published by a fake auth (WireMock): the issuer, the
  * audience, the expiry and the signing key all count, and a key published after a rotation is fetched when a token
- * names it.
+ * names it. A token of an account auth disabled, a revoked curator, is refused before it expires.
  */
 @SpringBootTest(
     properties = [
@@ -43,12 +46,20 @@ import java.util.UUID
 @AutoConfigureMockMvc
 @EnableWireMock(ConfigureWireMock(baseUrlProperties = ["auth.base-url"]))
 @Import(PostgresTestConfiguration::class)
-class AccessTokenTests(@Autowired private val mockMvc: MockMvc) {
+class AccessTokenTests(@Autowired private val mockMvc: MockMvc, @Autowired private val jdbc: JdbcTemplate) {
 
     @InjectWireMock
     private lateinit var auth: WireMockServer
 
     private val published = key()
+
+    // auth's accounts, as much of its table as the workbench reads: auth itself is not here to create it.
+    @BeforeEach
+    fun accounts() {
+        jdbc.execute("create schema if not exists auth")
+        jdbc.execute("create table if not exists auth.users (username text primary key, enabled boolean not null)")
+        jdbc.update("delete from auth.users")
+    }
 
     private fun key(): ECKey = ECKeyGenerator(Curve.P_256).keyID(UUID.randomUUID().toString()).generate()
 
@@ -61,11 +72,12 @@ class AccessTokenTests(@Autowired private val mockMvc: MockMvc) {
         issuer: String = "http://localhost:9000",
         audience: String = "workbench",
         expires: Instant = Instant.now() + Duration.ofMinutes(10),
+        subject: String = "curator",
     ): String {
         val claims = JWTClaimsSet.Builder()
             .issuer(issuer)
             .audience(audience)
-            .subject("curator")
+            .subject(subject)
             .claim("scope", listOf("curation:read"))
             .issueTime(Date.from(expires - Duration.ofMinutes(10)))
             .expirationTime(Date.from(expires))
@@ -90,6 +102,20 @@ class AccessTokenTests(@Autowired private val mockMvc: MockMvc) {
         queues(token(issuer = "http://localhost:9001")).andExpect { status { isUnauthorized() } }
         queues(token(expires = Instant.now() - Duration.ofMinutes(5))).andExpect { status { isUnauthorized() } }
         queues(token(key = key())).andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `refuses a revoked curator's token at once, and lets an account auth does not keep through`() {
+        publish(published)
+        jdbc.update("insert into auth.users (username, enabled) values ('curator', true), ('anne', true)")
+        queues(token(subject = "anne")).andExpect { status { isOk() } }
+        jdbc.update("update auth.users set enabled = false where username = 'anne'")
+        queues(token(subject = "anne")).andExpect {
+            status { isUnauthorized() }
+            header { string(HttpHeaders.WWW_AUTHENTICATE, containsString("invalid_token")) }
+        }
+        queues(token()).andExpect { status { isOk() } }
+        queues(token(subject = "wb")).andExpect { status { isOk() } }
     }
 
     @Test

@@ -7,10 +7,16 @@ import org.springframework.http.HttpMethod.DELETE
 import org.springframework.http.HttpMethod.GET
 import org.springframework.http.HttpMethod.POST
 import org.springframework.http.HttpMethod.PUT
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.invoke
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.security.oauth2.core.OAuth2Error
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes
+import org.springframework.security.oauth2.core.OAuth2TokenValidator
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult
+import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.firewall.HttpStatusRequestRejectedHandler
 import org.springframework.security.web.firewall.RequestRejectedHandler
@@ -20,7 +26,8 @@ import org.springframework.security.web.firewall.StrictHttpFirewall
  * Every request needs an access token from auth (a JWT, checked against auth's published keys, its issuer, its audience
  * and its expiry) with the scope its endpoint asks for, and must be addressed to localhost: a page that rebinds its own
  * domain to 127.0.0.1 still sends its own name. An endpoint left out of the rules below is refused to everyone. No
- * sessions, no cookies, so no CSRF to guard against.
+ * sessions, no cookies, so no CSRF to guard against. A curator the admin revoked is refused at once, not when their
+ * last token expires.
  */
 @Configuration
 class WorkbenchSecurity {
@@ -59,6 +66,18 @@ class WorkbenchSecurity {
             csrf { disable() }
         }
         return http.build()
+    }
+
+    /**
+     * Refuses the token of an account auth keeps disabled: a revoked curator. Read from auth's own table, in the same
+     * Postgres, on every request; a subject auth has no account for (the wb client) passes. Spring Boot adds it to the
+     * token's other checks.
+     */
+    @Bean
+    fun notRevoked(jdbc: JdbcClient): OAuth2TokenValidator<Jwt> = OAuth2TokenValidator { token ->
+        val enabled = jdbc.sql("select enabled from auth.users where username = ?").param(token.subject).query(Boolean::class.javaObjectType).optional()
+        if (enabled.orElse(true)) OAuth2TokenValidatorResult.success()
+        else OAuth2TokenValidatorResult.failure(OAuth2Error(OAuth2ErrorCodes.INVALID_TOKEN, "${token.subject} no longer has access", null))
     }
 
     @Bean

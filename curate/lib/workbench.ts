@@ -29,7 +29,9 @@ const WORKBENCH_URL = process.env.WORKBENCH_URL ?? "http://127.0.0.1:8090";
 
 /**
  * Sends the curator's access token from the session cookie, which only this server can decrypt: the browser never
- * sees the token. The proxy has already refreshed it if it was about to expire. auth's accounts API takes it too.
+ * sees the token. The proxy has already refreshed it if it was about to expire. auth's accounts API takes it too. A
+ * token refused as such (a curator the admin revoked) sends them to sign in, where auth refuses them too; a 401 asking
+ * for a recent passkey is left to the page.
  */
 export const signIn: Middleware = {
   async onRequest({ request }) {
@@ -37,6 +39,10 @@ export const signIn: Middleware = {
     if (!session) redirect("/auth/sign-in");
     request.headers.set("Authorization", `Bearer ${session.access}`);
     return request;
+  },
+  onResponse({ response }) {
+    if (response.status === 401 && response.headers.get("WWW-Authenticate")?.includes("invalid_token")) redirect("/auth/sign-in");
+    return response;
   },
 };
 
