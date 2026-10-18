@@ -958,12 +958,14 @@ export interface components {
             people: components["schemas"]["PersonChange"][];
             /** @description The occupations whose domain changes, by label. */
             occupations: components["schemas"]["OccupationChange"][];
+            /** @description The anecdotes added, changed or removed, by the name of whom they are about, then by year. */
+            anecdotes: components["schemas"]["AnecdoteChange"][];
             /** @description The moments whose header or story changes, by id. */
             moments: components["schemas"]["MomentChange"][];
             pullRequest?: components["schemas"]["PullRequest"];
             /** @description People written by hand in `people.jsonl` with a correction, which their record overrides. */
             withoutEffect: components["schemas"]["Qid"][];
-            /** @description Approved stories and moment pages not published, and why. */
+            /** @description Approved stories, moment pages and anecdotes not published, and why. */
             heldBack: components["schemas"]["HeldBack"][];
             /**
              * Format: int32
@@ -1027,6 +1029,30 @@ export interface components {
             after?: components["schemas"]["OccupationChoice"];
         };
         /**
+         * @description An anecdote whose line in `anecdotes.jsonl` changes, about `person` in `year` (once published, else on `main`),
+         *     with its fields that change, in words: all of them when added or removed.
+         */
+        AnecdoteChange: {
+            /**
+             * @description The anecdote's claim id.
+             * @example anecdote:Q5586:1804:db446a7bd1db
+             */
+            anecdote: string;
+            person: components["schemas"]["Qid"];
+            /** @description The person's name as written by hand in `people.jsonl`, else as the dataset gives it. */
+            name: string;
+            change: components["schemas"]["Change"];
+            year: components["schemas"]["Year"];
+            fields: components["schemas"]["AnecdoteFieldChange"][];
+        };
+        AnecdoteFieldChange: {
+            /** @enum {string} */
+            field: "YEAR" | "TEXT" | "SOURCE";
+            before?: string;
+            /** @description A source as its title, where in it, and its link, joined by commas. */
+            after?: string;
+        };
+        /**
          * @description A moment whose header or story changes. Its hook (none when it stays as it is), the lines of its world around
          *     that change, and its cards added, removed, changed or moved, in the story's new order, removed ones last. A card
          *     is the same card before and after when it shows the same person, life or event (a scene card: the same type),
@@ -1081,7 +1107,11 @@ export interface components {
             after?: string;
         };
         HeldBack: {
-            moment: components["schemas"]["MomentId"];
+            /**
+             * @description The moment's id, for its story or page, or the anecdote's claim id.
+             * @example edo-1830s
+             */
+            id: string;
             reason: string;
         };
         PullRequest: {
