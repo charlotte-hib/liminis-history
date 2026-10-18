@@ -17,6 +17,7 @@ import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 import org.springframework.web.client.toEntity
 import tools.jackson.databind.JsonNode
+import tools.jackson.databind.node.ObjectNode
 import java.io.IOException
 import java.time.Duration
 
@@ -187,8 +188,9 @@ class WikimediaClient(
 
     /**
      * Image files on Commons found by searching for [text], [limit] at most, best first (`generator=search`), each
-     * with its size, its address and a copy [width] pixels wide at most, its page, and the licence, artist, title and
-     * date Commons says it has (`extmetadata`, in English).
+     * with its size, its address and a copy [width] pixels wide at most, its page, the licence, artist, title and date
+     * Commons says it has (`extmetadata`, in English), and its hidden categories under `categories`, where the licence
+     * templates say which public domain it is in.
      */
     fun commonsSearch(text: String, limit: Int, width: Int): List<JsonNode> =
         commonsFiles(width, mapOf("generator" to "search", "gsrsearch" to "$text filetype:bitmap", "gsrnamespace" to "6", "gsrlimit" to "$limit"))
@@ -199,21 +201,31 @@ class WikimediaClient(
         commonsFiles(width, mapOf("titles" to title, "redirects" to "1")).firstOrNull()
 
     private fun commonsFiles(width: Int, select: Map<String, String>): List<JsonNode> {
-        val answer = get(
-            properties.commonsApi,
-            emptyMap(),
-            properties.maxlag,
-            mapOf(
-                "action" to "query",
-                "prop" to "imageinfo",
-                "iiprop" to "url|size|extmetadata",
-                "iiurlwidth" to "$width",
-                "iiextmetadatafilter" to "License|LicenseShortName|Artist|ObjectName|DateTimeOriginal",
-                "iiextmetadatalanguage" to "en",
-                "formatversion" to "2",
-            ) + select,
-        )
-        return answer.path("query").path("pages").values().filter { it.path("imageinfo").size() > 0 }
+        val parameters = mapOf(
+            "action" to "query",
+            "prop" to "imageinfo|categories",
+            "iiprop" to "url|size|extmetadata",
+            "iiurlwidth" to "$width",
+            "iiextmetadatafilter" to "License|LicenseShortName|Artist|ObjectName|DateTimeOriginal",
+            "iiextmetadatalanguage" to "en",
+            "clshow" to "hidden",
+            "cllimit" to "max",
+            "formatversion" to "2",
+        ) + select
+        // Files with many hidden categories run past one answer's 500: the rest come with `clcontinue`, same files.
+        var answer = get(properties.commonsApi, emptyMap(), properties.maxlag, parameters)
+        val files = answer.path("query").path("pages").values().filter { it.path("imageinfo").size() > 0 }.map { it.deepCopy() as ObjectNode }
+        val byId = files.associateBy { it.path("pageid").asLong() }
+        while (answer.path("continue").has("clcontinue")) {
+            val more = answer.path("continue").properties().associate { (name, value) -> name to value.asString() }
+            answer = get(properties.commonsApi, emptyMap(), properties.maxlag, parameters + more)
+            for (page in answer.path("query").path("pages").values()) {
+                val file = byId[page.path("pageid").asLong()] ?: continue
+                val categories = file.withArray("categories")
+                page.path("categories").values().forEach { categories.add(it) }
+            }
+        }
+        return files
     }
 
     /**

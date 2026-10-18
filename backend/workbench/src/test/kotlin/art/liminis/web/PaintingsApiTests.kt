@@ -41,12 +41,12 @@ class PaintingsApiTests(@Autowired private val mockMvc: MockMvc) {
     private val greatWave = "File:Tsunami by hokusai 19th century.jpg"
 
     @Test
-    fun `a search lists the public domain and CC0 images, at 1,280 pixels, with a credit to edit, and counts the others`() {
+    fun `a search lists the images public domain in Europe and CC0, at 1,280 pixels, with a credit to edit, and counts the others`() {
         commons.stubFor(get(api).withQueryParam("gsrsearch", equalTo("Caillebotte Paris street filetype:bitmap")).willReturn(recorded("search-caillebotte.json")))
 
         mockMvc.get("/api/paintings") { signedIn(); param("q", "  Caillebotte Paris street "); param("limit", "8") }.andExpect {
             status { isOk() }
-            jsonPath("$.paintings.length()") { value(5) }
+            jsonPath("$.paintings.length()") { value(4) }
             jsonPath("$.paintings[0].title") { value(startsWith("File:Gustave Caillebotte - Paris Street; Rainy Day")) }
             jsonPath("$.paintings[0].painting.url") { value(matchesPattern("https://thumb\\.wikimedia\\.org/.+/1280px-[^?]+")) }
             jsonPath("$.paintings[0].thumbnail") { value(matchesPattern("https://thumb\\.wikimedia\\.org/.+/330px-[^?]+")) }
@@ -59,14 +59,14 @@ class PaintingsApiTests(@Autowired private val mockMvc: MockMvc) {
                         "Gustave Caillebotte, Paris Street in Rainy Weather, 1877",
                         "Gustave Caillebotte, Paris Street in Rainy Weather, 1877",
                         "Gustave Caillebotte, Paris Street; Rainy Day, 1877",
-                        "Gustave Caillebotte, Paris Street; Rainy Day, 1877",
                         "Gustave Caillebotte",
                     ),
                 )
             }
             jsonPath("$.paintings[0].width") { value(greaterThan(1280)) }
-            jsonPath("$.leftOut") { value(3) }
-            jsonPath("$.leftOutLicences") { value(contains("CC BY-SA 4.0", "CC BY 2.0", "CC BY 3.0")) }
+            // Public domain without Commons saying the artist died 70 years ago or more is left out too.
+            jsonPath("$.leftOut") { value(4) }
+            jsonPath("$.leftOutLicences") { value(contains("CC BY-SA 4.0", "CC BY 2.0", "public domain, the artist's death not stated", "CC BY 3.0")) }
         }
     }
 
@@ -109,6 +109,18 @@ class PaintingsApiTests(@Autowired private val mockMvc: MockMvc) {
     }
 
     @Test
+    fun `a file public domain in the United States only is left out, as the site is read in Europe`() {
+        val title = "File:\" A Black Mark for the Squad. A.W.O.L.\" - NARA - 512701.tif"
+        commons.stubFor(get(api).withQueryParam("titles", equalTo(title)).willReturn(recorded("file-pd-us.json")))
+
+        mockMvc.get("/api/paintings") { signedIn(); param("q", title) }.andExpect {
+            status { isOk() }
+            jsonPath("$.paintings.length()") { value(0) }
+            jsonPath("$.leftOutLicences") { value(contains("public domain in the United States only")) }
+        }
+    }
+
+    @Test
     fun `Commons failing answers 503, and the search needs the curation read scope`() {
         commons.stubFor(get(api).willReturn(okJson("""{"error": {"code": "internal_api_error", "info": "Something broke"}}""")))
 
@@ -116,6 +128,9 @@ class PaintingsApiTests(@Autowired private val mockMvc: MockMvc) {
             status { isServiceUnavailable() }
             jsonPath("$.detail") { value(containsString("Something broke")) }
         }
+        // An HTTP error Commons answers with, other than the busy ones the client waits out.
+        commons.stubFor(get(api).willReturn(aResponse().withStatus(500)))
+        mockMvc.get("/api/paintings") { signedIn(); param("q", "Hokusai") }.andExpect { status { isServiceUnavailable() } }
         mockMvc.get("/api/paintings") { signedIn(listOf(RUNS)); param("q", "Hokusai") }.andExpect { status { isForbidden() } }
         mockMvc.get("/api/paintings") { signedIn(); param("q", "H") }.andExpect { status { isBadRequest() } }
     }

@@ -9,6 +9,9 @@ import art.liminis.support.UnavailableException
 import art.liminis.wikimedia.WikimediaBusyException
 import art.liminis.wikimedia.WikimediaClient
 import art.liminis.wikimedia.WikimediaException
+import io.github.resilience4j.bulkhead.BulkheadFullException
+import io.github.resilience4j.ratelimiter.RequestNotPermitted
+import org.springframework.web.client.RestClientException
 import java.net.URLDecoder
 
 /** An image found on Commons, as a card or a moment would show it, with a small copy to choose it by. */
@@ -19,8 +22,10 @@ data class PaintingSearch(val paintings: List<FoundPainting>, val leftOut: Int, 
 
 /**
  * Finds paintings on Wikimedia Commons for a story card or a moment: by searching, or the one file a link or a file
- * name points at. Only public domain and CC0 images are kept, as none of them asks for attribution: the site shows
- * no licence. Each gets a credit from what Commons says of its artist, title and date, for the curator to edit.
+ * name points at. Only CC0 images and those in the public domain in Europe are kept, as none of them asks for
+ * attribution: the site shows no licence. Public domain in Europe is what Commons marks PD-old, the artist dead 70
+ * years or more; a file public domain in the United States only is left out. Each gets a credit from what Commons says
+ * of its artist, title and date, for the curator to edit.
  */
 @Service
 class Paintings(private val wikimedia: WikimediaClient) {
@@ -29,16 +34,18 @@ class Paintings(private val wikimedia: WikimediaClient) {
         val text = q.trim()
         val files = try {
             fileNamed(text)?.let { listOfNotNull(wikimedia.commonsFile(it, WIDTH)) } ?: wikimedia.commonsSearch(text, limit, WIDTH)
-        } catch (e: WikimediaException) {
-            throw UnavailableException("Wikimedia Commons did not answer: ${e.message}")
         } catch (e: WikimediaBusyException) {
             throw UnavailableException("Wikimedia Commons is busy: ${e.message}")
+        } catch (e: RuntimeException) {
+            // An error Commons answered with, a failed request, or the shared pace's wait running out.
+            if (e !is WikimediaException && e !is RestClientException && e !is RequestNotPermitted && e !is BulkheadFullException) throw e
+            throw UnavailableException("Wikimedia Commons did not answer: ${e.message}")
         }
         val (free, others) = files.partition { licence(it) != null }
         return PaintingSearch(
             paintings = free.map(::found),
             leftOut = others.size,
-            leftOutLicences = others.map { metadata(it, "LicenseShortName")?.let(::plain) ?: "no licence stated" }.distinct(),
+            leftOutLicences = others.map(::otherLicence).distinct(),
         )
     }
 
@@ -55,15 +62,31 @@ class Paintings(private val wikimedia: WikimediaClient) {
         )
     }
 
-    /** Public domain or CC0, as Commons' licence templates name them; none for any other licence. */
+    /**
+     * CC0, or public domain in Europe: Commons' licence `pd` with a PD-old template among its hidden categories
+     * (`PD-old-70`, `PD-old-100-expired`, `PD-Art (PD-old-auto)`…). None for any other licence.
+     */
     private fun licence(file: JsonNode): PaintingLicence? {
         val code = metadata(file, "License")?.lowercase() ?: return null
         return when {
             code == "cc0" -> PaintingLicence.CC0
-            code == "pd" || code.startsWith("pd-") -> PaintingLicence.PUBLIC_DOMAIN
+            (code == "pd" || code.startsWith("pd-")) && categories(file).any { PD_OLD.containsMatchIn(it) } -> PaintingLicence.PUBLIC_DOMAIN
             else -> null
         }
     }
+
+    /** Why a file was left out, by its licence. */
+    private fun otherLicence(file: JsonNode): String {
+        val code = metadata(file, "License")?.lowercase()
+        return when {
+            code == null -> "no licence stated"
+            code == "pd" || code.startsWith("pd-") ->
+                if (categories(file).any { PD_US.containsMatchIn(it) }) "public domain in the United States only" else "public domain, the artist's death not stated"
+            else -> metadata(file, "LicenseShortName")?.let(::plain) ?: code
+        }
+    }
+
+    private fun categories(file: JsonNode) = file.path("categories").values().map { it.path("title").asString() }
 
     /**
      * "Artist, title, date", from what the file's page on Commons says of them, else the file's name. A title taken
@@ -111,23 +134,37 @@ class Paintings(private val wikimedia: WikimediaClient) {
         val LIFE_DATES = Regex("""\s*\(\d{3,4}\s*[-–]\s*\d{3,4}\)""")
         val TIME_OF_DAY = Regex("""\d{1,2}:\d{2}""")
         val CIRCA = Regex("""\b(circa|about|ca\.)\s+""", RegexOption.IGNORE_CASE)
-        val COMMONS_PAGE = Regex("""^https?://commons\.(?:m\.)?wikimedia\.org/wiki/(File:[^?#]+)""", RegexOption.IGNORE_CASE)
-        val UPLOAD = Regex("""^https?://upload\.wikimedia\.org/wikipedia/commons/(?:thumb/)?[0-9a-f]/[0-9a-f]{2}/([^/?#]+)""")
-        val FILE = Regex("""^file:(.+)$""", RegexOption.IGNORE_CASE)
-
-        /**
-         * The Commons file [text] names: a link to its page, a link to the image itself or a copy of it, or `File:`
-         * and its name. None for words to search for.
-         */
-        fun fileNamed(text: String): String? {
-            val name = COMMONS_PAGE.find(text)?.groupValues?.get(1)?.removePrefix("File:")?.removePrefix("file:")
-                ?: UPLOAD.find(text)?.groupValues?.get(1)
-                ?: FILE.find(text)?.groupValues?.get(1)
-                ?: return null
-            return "File:" + URLDecoder.decode(name.replace("+", "%2B"), Charsets.UTF_8).replace('_', ' ').trim()
-        }
+        /** Licence templates among a file's hidden categories: the artist dead 70 years or more; free in the US only. */
+        val PD_OLD = Regex("""^Category:PD-old|\(PD-old""")
+        val PD_US = Regex("""^Category:PD[ -]US""")
 
         /** Wikimedia adds tracking parameters to the addresses it hands out: the image is the same without them. */
         fun withoutQuery(url: String) = url.substringBefore('?')
     }
 }
+
+private val FILE_PAGE = Regex(
+    """^https?://(?:commons\.(?:m\.)?wikimedia|[a-z-]+\.(?:m\.)?wikipedia)\.org/(?:wiki/|w/index\.php\?(?:[^#]*&)?title=)((?:file|image):[^?#&]+)""",
+    RegexOption.IGNORE_CASE,
+)
+private val UPLOAD = Regex("""^https?://(?:upload|thumb)\.wikimedia\.org/wikipedia/commons/(?:thumb/)?[0-9a-f]/[0-9a-f]{2}/([^/?#]+)""")
+private val FILE = Regex("""^(?:file|image):(.+)$""", RegexOption.IGNORE_CASE)
+
+/**
+ * The Commons file [text] names, as `File:` and its name with spaces: a link to its page (on Commons or a Wikipedia), a
+ * link to the image itself or a copy of it, or `File:` and its name. None for words to search for. A link's name is
+ * decoded; a typed name is taken as it is.
+ */
+internal fun fileNamed(text: String): String? {
+    val linked = FILE_PAGE.find(text)?.groupValues?.get(1)?.substringAfter(':') ?: UPLOAD.find(text)?.groupValues?.get(1)
+    val name = linked?.let(::decoded) ?: FILE.find(text)?.groupValues?.get(1) ?: return null
+    return "File:" + name.replace('_', ' ').trim()
+}
+
+/** A name as a link spells it: percent escapes decoded, a malformed one left as it is. */
+private fun decoded(name: String): String =
+    try {
+        URLDecoder.decode(name.replace("+", "%2B"), Charsets.UTF_8)
+    } catch (_: IllegalArgumentException) {
+        name
+    }

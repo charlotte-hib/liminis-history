@@ -325,6 +325,15 @@ class ClaimsApiTests(
             jsonPath("$.payload.cards[0].type") { value("SCENE") }
             jsonPath("$.payload.cards[0].citations[0].title") { value("Victor Hugo (1802–1885), writer") }
         }
+        // A card's painting must be served over HTTPS, as a header's: the payload is refused before any rule.
+        val unsafe = """
+            {"action": "APPROVE", "payload": {"type": "STORY", "moment": "paris-1870s",
+              "cards": [{"type": "SCENE", "title": "A city", "citations": [],
+                         "art": {"url": "javascript:alert(1)", "credit": "Anyone", "source": "https://example.org"}}]}}
+        """.trimIndent()
+        mockMvc.post("/api/claims/{id}/decisions", "story:paris-1870s") { json(unsafe); ifMatch(etag("story:paris-1870s")) }.andExpect {
+            status { isBadRequest() }
+        }
         val edited = """
             {"action": "APPROVE", "payload": {"type": "STORY", "moment": "paris-1870s",
               "cards": [{"type": "PERSON", "person": "victor-hugo", "text": "Back.", "citations": []}]}}
