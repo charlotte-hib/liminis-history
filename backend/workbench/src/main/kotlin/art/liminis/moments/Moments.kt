@@ -171,6 +171,9 @@ class Moments(
     @Transactional(readOnly = true)
     fun claimIds(id: String): List<String> = claimIds(find(id))
 
+    /** The claims a draft of [id] proposes: its story and its header. */
+    fun draftClaimIds(id: String): List<String> = find(id).let { listOf(storyOf(it), pageOf(it)) }
+
     private fun overview(moment: Moment, cards: Int): MomentOverview {
         val ids = claimIds(moment)
         val found: List<Claim> = claims.findAllById(ids)

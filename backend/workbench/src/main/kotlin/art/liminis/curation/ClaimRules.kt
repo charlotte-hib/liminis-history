@@ -18,6 +18,15 @@ object ClaimRules {
     /** Who the workbench's own decisions are logged as: proposing and refreshing claims. */
     const val RULES = "rule"
 
+    /**
+     * Whether [actor] may edit or decide on a claim held by [heldBy]: its holder may, and the admin; a claim nobody
+     * holds goes to whoever writes it first.
+     */
+    fun mayWrite(heldBy: String?, actor: Actor): Boolean = heldBy == null || heldBy == actor.name || actor.admin
+
+    /** Claims waiting or kept for later: those a curator takes to work on. */
+    fun isOpen(status: ClaimStatus): Boolean = status == ClaimStatus.CANDIDATE || status == ClaimStatus.NEEDS_WORK
+
     private val CHANGED_SINCE_APPROVED = FlagReason(Flag.CONFLICT, "CHANGED_SINCE_APPROVED")
     private val CHANGED_SINCE_EDITED = FlagReason(Flag.CONFLICT, "CHANGED_SINCE_EDITED")
     private val ONE_SOURCE = FlagReason(Flag.SINGLE_SOURCE, "ONE_SOURCE")

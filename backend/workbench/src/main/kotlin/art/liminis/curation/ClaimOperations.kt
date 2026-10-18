@@ -4,6 +4,12 @@ package art.liminis.curation
 // models (api/workbench.yaml) into these and back (ClaimApiMapper), so the service never depends on generated code.
 // Never stored as such, so free to change with the service.
 
+/** Who sends a request: their username, and whether they are the admin, who may write any claim. */
+data class Actor(val name: String, val admin: Boolean)
+
+/** How many claims a take or a release changed, and how many of those left as they were each other person holds. */
+data class Holds(val changed: Int, val heldByOthers: Map<String, Int> = emptyMap())
+
 /** A claim the curator found, with at least one source, and why they add it. */
 data class NewClaim(val payload: Payload, val sources: List<SourceRef>, val note: String? = null)
 

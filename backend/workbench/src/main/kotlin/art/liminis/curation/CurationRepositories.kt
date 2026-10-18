@@ -64,6 +64,14 @@ interface ClaimRepository : JpaRepository<Claim, String> {
             """,
     )
     fun flagCounts(): List<FlagCount>
+
+    /** Releases every claim [username] holds, raising their versions as a change through JPA would. */
+    @Modifying
+    @Query(
+        nativeQuery = true,
+        value = "update curation.claim set held_by = null, held_since = null, version = version + 1 where held_by = :username",
+    )
+    fun releaseAllHeldBy(username: String): Int
 }
 
 interface SourceRepository : JpaRepository<Source, Long> {

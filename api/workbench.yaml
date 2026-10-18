@@ -186,7 +186,9 @@ paths:
       description: |
         Approve (with an edited payload, if given), reject, or keep for later. A rejection and keeping for later need a
         note saying why. The decision is logged with the payload before and after. Needs the claim's version in
-        `If-Match`, so a decision is never taken on a claim that changed since it was read.
+        `If-Match`, so a decision is never taken on a claim that changed since it was read. Only the claim's holder, or
+        the admin, decides on it: a claim nobody holds goes to whoever decides first; one held by someone else is a
+        409.
       parameters:
         - $ref: "#/components/parameters/ClaimId"
         - $ref: "#/components/parameters/IfMatch"
@@ -228,7 +230,7 @@ paths:
       summary: Undo the last decision
       description: |
         Puts back the status and payload from before the curator's last decision on this claim, and logs it. Needs the
-        claim's version in `If-Match`, as deciding does.
+        claim's version in `If-Match`, as deciding does, and the claim held by whoever undoes, or by nobody.
       parameters:
         - $ref: "#/components/parameters/ClaimId"
         - $ref: "#/components/parameters/IfMatch"
@@ -254,6 +256,97 @@ paths:
           $ref: "#/components/responses/PreconditionFailed"
         "428":
           $ref: "#/components/responses/PreconditionRequired"
+
+  /api/claims/{id}/holder:
+    put:
+      tags: [claims]
+      operationId: takeClaim
+      security:
+        - auth: ["curation:write"]
+      summary: Take a claim
+      description: |
+        Makes the caller the claim's holder: from then on only they, or the admin, edit or decide on it, and everyone
+        else sees who holds it. With a `username`, the admin hands it to that person instead (`admin` scope); taking a
+        claim someone else holds is the admin's alone too. A hold is never released by time, only by the holder or the
+        admin.
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewHolder"
+      responses:
+        "200":
+          description: The claim, held.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [claims]
+      operationId: releaseClaim
+      security:
+        - auth: ["curation:write"]
+      summary: Release a claim
+      description: Gives the claim back to the queue, for anyone to take. Its holder's, or the admin's.
+      parameters:
+        - $ref: "#/components/parameters/ClaimId"
+      responses:
+        "200":
+          description: The claim, held by nobody.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/holders/{username}:
+    delete:
+      tags: [claims]
+      operationId: releaseHolder
+      security:
+        - auth: ["admin"]
+      summary: Release everything someone holds
+      description: Gives back to the queue every claim the person holds, as when the admin revokes them.
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: How many claims were released.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Holds"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /api/people:
     get:
@@ -420,6 +513,7 @@ paths:
       description: |
         Starts the run that drafts the moment's story with Claude and proposes its cards as the moment's `STORY` claim
         and its hook and world around as its `MOMENT_PAGE` claim, as `wb draft` does. The moment's `draft` follows it.
+        Refused (409) while someone else holds the story or the header, unless the admin asks.
       parameters:
         - name: id
           in: path
@@ -441,6 +535,62 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+
+  /api/moments/{id}/holder:
+    put:
+      tags: [moments]
+      operationId: takeMoment
+      security:
+        - auth: ["curation:write"]
+      summary: Take a moment's claims
+      description: |
+        Makes the caller the holder of the moment's open claims (waiting or kept for later): its people's facts, its
+        story and its header. Claims someone else holds stay theirs, and are counted.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/MomentId"
+      responses:
+        "200":
+          description: How many claims were taken, and who holds the others.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Holds"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [moments]
+      operationId: releaseMoment
+      security:
+        - auth: ["curation:write"]
+      summary: Release a moment's claims
+      description: Gives back to the queue the moment's claims the caller holds; the admin's call releases them all.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/MomentId"
+      responses:
+        "200":
+          description: How many claims were released.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Holds"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/moments/{id}/page:
     post:
@@ -882,6 +1032,7 @@ components:
             curation:read: Read queues, claims, people and their evidence.
             curation:write: Add claims, decide on them and undo a decision.
             publish: Publish the approved claims to the data repository, after a recent passkey.
+            admin: Hand a claim to someone, take or release anyone's claims (the admin's tokens only).
         clientCredentials:
           tokenUrl: http://localhost:9000/oauth2/token
           scopes:
@@ -935,7 +1086,8 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
     Conflict:
-      description: The claim already exists, there is nothing to undo, or a run is already running.
+      description: |
+        The claim already exists, there is nothing to undo, someone else holds the claim, or a run is already running.
       content:
         application/problem+json:
           schema:
@@ -1036,6 +1188,14 @@ components:
             $ref: "#/components/schemas/FlagReason"
         payload:
           $ref: "#/components/schemas/Payload"
+        heldBy:
+          type: string
+          description: The username of who holds the claim, if anyone. Only they, or the admin, edit or decide on it.
+          example: marie.dupont
+        heldSince:
+          type: string
+          format: date-time
+          description: Since when they hold it.
 
     ClaimDetail:
       allOf:
@@ -1056,6 +1216,36 @@ components:
               description: Oldest first.
               items:
                 $ref: "#/components/schemas/Decision"
+
+    NewHolder:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Who is to hold the claim, if not the caller. The admin's alone.
+          example: marie.dupont
+
+    Holds:
+      type: object
+      required: [changed, heldByOthers]
+      properties:
+        changed:
+          type: integer
+          description: How many claims were taken or released.
+        heldByOthers:
+          type: array
+          description: Who holds the claims left as they were, and how many each.
+          items:
+            $ref: "#/components/schemas/HolderCount"
+
+    HolderCount:
+      type: object
+      required: [username, claims]
+      properties:
+        username:
+          type: string
+        claims:
+          type: integer
 
     NewClaim:
       type: object

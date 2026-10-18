@@ -99,7 +99,7 @@ class PersonFactsProposalsTests(
     @Test
     fun `a refresh updates a claim waiting for review, and sends an approved one back to review`() {
         proposals.propose()
-        claims.decide("person-facts:Q535", version("person-facts:Q535"), NewDecision(Verdict.APPROVE), "curator")
+        claims.decide("person-facts:Q535", version("person-facts:Q535"), NewDecision(Verdict.APPROVE), CurationFixtures.CURATOR)
 
         CurationFixtures.map(dataset, PEOPLE.map {
             when (it) {
@@ -126,16 +126,16 @@ class PersonFactsProposalsTests(
         // Proposing again keeps the conflict, until the curator decides.
         proposals.propose()
         assertEquals(listOf(FlagReason(Flag.CONFLICT, "CHANGED_SINCE_APPROVED")), claim("person-facts:Q535").flags)
-        claims.decide("person-facts:Q535", version("person-facts:Q535"), NewDecision(Verdict.APPROVE, hugo.proposal), "curator")
+        claims.decide("person-facts:Q535", version("person-facts:Q535"), NewDecision(Verdict.APPROVE, hugo.proposal), CurationFixtures.CURATOR)
         assertEquals(emptyList(), claim("person-facts:Q535").flags)
     }
 
     @Test
     fun `a rejected claim stays rejected, and an edited one keeps the edit`() {
         proposals.propose()
-        claims.decide("person-facts:Q535", version("person-facts:Q535"), NewDecision(Verdict.REJECT, note = "Not this person"), "curator")
+        claims.decide("person-facts:Q535", version("person-facts:Q535"), NewDecision(Verdict.REJECT, note = "Not this person"), CurationFixtures.CURATOR)
         val zola = claim("person-facts:Q504").payload as PersonFacts
-        claims.decide("person-facts:Q504", version("person-facts:Q504"), NewDecision(Verdict.NEEDS_WORK, zola.copy(died = 1901), "Check the year"), "curator")
+        claims.decide("person-facts:Q504", version("person-facts:Q504"), NewDecision(Verdict.NEEDS_WORK, zola.copy(died = 1901), "Check the year"), CurationFixtures.CURATOR)
 
         CurationFixtures.map(dataset, PEOPLE.map { if (it == HUGO || it == ZOLA) it.copy(born = it.born - 1) else it })
         proposals.propose()

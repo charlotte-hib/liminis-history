@@ -2,8 +2,11 @@ package art.liminis.web
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import art.liminis.curation.Actor
+import org.springframework.http.HttpMethod.DELETE
 import org.springframework.http.HttpMethod.GET
 import org.springframework.http.HttpMethod.POST
+import org.springframework.http.HttpMethod.PUT
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.invoke
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -36,6 +39,11 @@ class WorkbenchSecurity {
                 for (path in listOf("/api/claims", "/api/claims/*/decisions", "/api/claims/*/undo", "/api/people/*/facts", "/api/moments/*/story", "/api/moments/*/page")) {
                     authorize(POST, path, hasAuthority(CURATION_WRITE))
                 }
+                for (path in listOf("/api/claims/*/holder", "/api/moments/*/holder")) {
+                    authorize(PUT, path, hasAuthority(CURATION_WRITE))
+                    authorize(DELETE, path, hasAuthority(CURATION_WRITE))
+                }
+                authorize(DELETE, "/api/holders/*", hasAuthority(ADMIN))
                 authorize(GET, "/api/publication", hasAuthority(CURATION_READ))
                 // And a recent passkey, which PublicationController checks.
                 authorize(POST, "/api/publication", hasAuthority(PUBLISH))
@@ -73,7 +81,16 @@ class WorkbenchSecurity {
         /** Publishing to the data repository: curate, after a recent passkey. */
         const val PUBLISH = "SCOPE_publish"
 
-        /** Who sent the current request, for the decision log: the curator signed in to curate, or the wb client. */
-        fun currentActor(): String = SecurityContextHolder.getContext().authentication!!.name
+        /** Writing anyone's claims, handing them on, releasing them: the admin, signed in to curate. */
+        const val ADMIN = "SCOPE_admin"
+
+        /**
+         * Who sent the current request, for the decision log and the claims they hold: a curator signed in to curate,
+         * the admin, or the wb client.
+         */
+        fun currentActor(): Actor {
+            val authentication = SecurityContextHolder.getContext().authentication!!
+            return Actor(authentication.name, authentication.authorities.any { it.authority == ADMIN })
+        }
     }
 }

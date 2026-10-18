@@ -15,6 +15,7 @@ import art.liminis.curation.Connection
 import art.liminis.curation.Decision
 import art.liminis.curation.Event
 import art.liminis.curation.Flag
+import art.liminis.curation.Holds
 import art.liminis.curation.NewClaim
 import art.liminis.curation.NewDecision
 import art.liminis.curation.OccupationDomain
@@ -40,6 +41,8 @@ import art.liminis.workbench.api.model.NewDecisionDto
 import art.liminis.workbench.api.model.OccupationDomainDto
 import art.liminis.workbench.api.model.PayloadDto
 import art.liminis.workbench.api.model.PersonFactsDto
+import art.liminis.workbench.api.model.HolderCountDto
+import art.liminis.workbench.api.model.HoldsDto
 import art.liminis.workbench.api.model.QueueDto
 import art.liminis.workbench.api.model.StoryDto
 import java.time.OffsetDateTime
@@ -55,6 +58,7 @@ abstract class ClaimApiMapper {
 
     abstract fun toDto(queue: Queue): QueueDto
 
+    @Mapping(target = "heldSince", source = "heldSince", qualifiedByName = ["utc"])
     abstract fun toDto(claim: Claim): ClaimDto
 
     @Mapping(target = "id", source = "claim.id")
@@ -65,7 +69,13 @@ abstract class ClaimApiMapper {
     @Mapping(target = "flags", source = "claim.flags")
     @Mapping(target = "payload", source = "claim.payload")
     @Mapping(target = "proposal", source = "claim.proposal")
+    @Mapping(target = "heldBy", source = "claim.heldBy")
+    @Mapping(target = "heldSince", source = "claim.heldSince", qualifiedByName = ["utc"])
     abstract fun toDto(detail: ClaimDetail): ClaimDetailDto
+
+    /** Who holds the claims left as they were, by username. */
+    fun toDto(holds: Holds): HoldsDto =
+        HoldsDto(holds.changed, holds.heldByOthers.toSortedMap().map { (username, claims) -> HolderCountDto(username, claims) })
 
     @Mapping(target = "decidedAt", source = "decidedAt", qualifiedByName = ["utc"])
     @Mapping(target = "edited", source = ".", qualifiedByName = ["edited"])
@@ -124,7 +134,7 @@ abstract class ClaimApiMapper {
     abstract fun toModel(flag: FlagDto): Flag
 
     @Named("utc")
-    fun utc(decidedAt: OffsetDateTime?): OffsetDateTime? = decidedAt?.withOffsetSameInstant(ZoneOffset.UTC)
+    fun utc(time: OffsetDateTime?): OffsetDateTime? = time?.withOffsetSameInstant(ZoneOffset.UTC)
 
     /** Whether the decision changed the payload. */
     @Named("edited")

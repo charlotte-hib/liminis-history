@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
+import org.springframework.security.access.AccessDeniedException
 import org.springframework.web.ErrorResponseException
 import org.springframework.web.bind.annotation.RestController
 import art.liminis.curation.ClaimDetail
@@ -21,6 +22,8 @@ import art.liminis.workbench.api.model.ClaimDto
 import art.liminis.workbench.api.model.ClaimStatusDto
 import art.liminis.workbench.api.model.ClaimTypeDto
 import art.liminis.workbench.api.model.FlagDto
+import art.liminis.workbench.api.model.HoldsDto
+import art.liminis.workbench.api.model.NewHolderDto
 import art.liminis.workbench.api.model.MomentPageTextDto
 import art.liminis.workbench.api.model.NewClaimDto
 import art.liminis.workbench.api.model.NewDecisionDto
@@ -51,7 +54,7 @@ class ClaimController(
 
     override fun proposeFacts(qid: String): ClaimDetailDto = answer(claims.detail(personFacts.propose(qid)))
 
-    override fun addClaim(newClaimDto: NewClaimDto): ClaimDetailDto = answer(claims.add(mapper.toModel(newClaimDto), currentActor()))
+    override fun addClaim(newClaimDto: NewClaimDto): ClaimDetailDto = answer(claims.add(mapper.toModel(newClaimDto), currentActor().name))
 
     override fun writeMomentPage(id: String, momentPageTextDto: MomentPageTextDto): ClaimDetailDto {
         // As curate sends a decision's lines: trimmed, so a stray space or line break never reaches the published file.
@@ -62,13 +65,25 @@ class ClaimController(
                 art?.let(mapper::toModel)?.let { it.copy(credit = it.credit.trim()) },
             )
         }
-        return answer(moments.writePage(page, momentPageTextDto.note, currentActor()))
+        return answer(moments.writePage(page, momentPageTextDto.note, currentActor().name))
     }
 
     override fun decide(id: String, newDecisionDto: NewDecisionDto, ifMatch: String?): ClaimDetailDto =
         answer(claims.decide(id, version(id, ifMatch), mapper.toModel(newDecisionDto), currentActor()))
 
     override fun undo(id: String, ifMatch: String?): ClaimDetailDto = answer(claims.undo(id, version(id, ifMatch), currentActor()))
+
+    override fun takeClaim(id: String, newHolderDto: NewHolderDto?): ClaimDetailDto {
+        val actor = currentActor()
+        val holder = newHolderDto?.username ?: actor.name
+        // Handing a claim to someone else is the admin's alone.
+        if (holder != actor.name && !actor.admin) throw AccessDeniedException("Only the admin hands a claim to someone else")
+        return answer(claims.take(id, actor, holder))
+    }
+
+    override fun releaseClaim(id: String): ClaimDetailDto = answer(claims.release(id, currentActor()))
+
+    override fun releaseHolder(username: String): HoldsDto = mapper.toDto(claims.releaseAllHeldBy(username))
 
     /** The claim as the API shows it, with its version as the ETag. */
     private fun answer(detail: ClaimDetail): ClaimDetailDto {

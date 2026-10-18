@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.request
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping
 import art.liminis.testing.PostgresTestConfiguration
+import art.liminis.web.WorkbenchSecurity.Companion.ADMIN
 import art.liminis.web.WorkbenchSecurity.Companion.CURATION_READ
 import art.liminis.web.WorkbenchSecurity.Companion.CURATION_WRITE
 import art.liminis.web.WorkbenchSecurity.Companion.PUBLISH
@@ -50,6 +51,11 @@ class WorkbenchSecurityTests(
         "POST /api/claims" to CURATION_WRITE,
         "POST /api/claims/{id}/decisions" to CURATION_WRITE,
         "POST /api/claims/{id}/undo" to CURATION_WRITE,
+        "PUT /api/claims/{id}/holder" to CURATION_WRITE,
+        "DELETE /api/claims/{id}/holder" to CURATION_WRITE,
+        "PUT /api/moments/{id}/holder" to CURATION_WRITE,
+        "DELETE /api/moments/{id}/holder" to CURATION_WRITE,
+        "DELETE /api/holders/{username}" to ADMIN,
         "GET /api/runs" to RUNS,
         "POST /api/runs" to RUNS,
         "GET /api/runs/{id}" to RUNS,
@@ -64,7 +70,7 @@ class WorkbenchSecurityTests(
 
     /** The endpoint's method and path, its path variables filled in. */
     private fun call(endpoint: String) = endpoint.split(" ").let { (method, path) ->
-        HttpMethod.valueOf(method) to path.replace("{id}", "1").replace("{qid}", "Q1")
+        HttpMethod.valueOf(method) to path.replace("{id}", "1").replace("{qid}", "Q1").replace("{username}", "someone")
     }
 
     @Test

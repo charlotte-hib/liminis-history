@@ -18,6 +18,9 @@ import art.liminis.dataset.PlaceRow
  */
 object CurationFixtures {
 
+    /** The admin, as the API's tests sign in. */
+    val CURATOR = Actor("curator", admin = true)
+
     val HUGO = person("Q535", "Victor Hugo", 1802, 1885, sitelinks = 200, birthplace = "Q37776", deathplace = "Q90")
     val ZOLA = person("Q504", "Émile Zola", 1840, 1902, sitelinks = 150, birthplace = "Q90", flags = setOf(PersonFlag.DEATH_UNREFERENCED))
     /** French, alive in the 1870s, but less known than Hugo and Zola: left out when only two are proposed per moment. */
