@@ -11,6 +11,7 @@ import {
   type Outcome,
   type PersonSummary,
   type MomentPageText,
+  type PaintingSearch,
   type Publication,
   type StoryPreview,
   type SubjectType,
@@ -87,4 +88,9 @@ export async function publish(base: string): Promise<Outcome<Publication>> {
 export async function previewOf(moment: string, ids: { person: string[]; life: string[]; event: string[] }): Promise<Outcome<StoryPreview>> {
   const query = { person: ids.person.slice(0, 24), life: ids.life.slice(0, 24), event: ids.event.slice(0, 24) };
   return outcome(workbench.GET("/api/moments/{id}/preview", { params: { path: { id: moment }, query } }));
+}
+
+/** Paintings on Wikimedia Commons, public domain or CC0, found by words, or the one a link or file name points at. */
+export async function findPaintings(q: string): Promise<Outcome<PaintingSearch>> {
+  return outcome(workbench.GET("/api/paintings", { params: { query: { q: q.trim().slice(0, 500), limit: 24 } } }));
 }

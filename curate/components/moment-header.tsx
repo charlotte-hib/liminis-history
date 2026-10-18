@@ -2,7 +2,7 @@ import Image from "next/image";
 import type { components } from "@/lib/api-schema";
 import { year } from "@/lib/years";
 
-type Artwork = components["schemas"]["Artwork"];
+type Painting = components["schemas"]["Painting"];
 type World = components["schemas"]["World"];
 
 const ROWS = [
@@ -12,7 +12,7 @@ const ROWS = [
   { key: "meanwhile", label: "Meanwhile" },
 ] as const;
 
-type Props = { title: string; region: string; start: number; end: number; hook: string; world?: World; art?: Artwork };
+type Props = { title: string; region: string; start: number; end: number; hook: string; world?: World; art?: Painting };
 
 /**
  * The top of a moment's page as visitors see it, framed small: its painting, title and hook, then the world around

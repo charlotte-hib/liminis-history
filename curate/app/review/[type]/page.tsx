@@ -14,10 +14,10 @@ export default async function ReviewPage({ params, searchParams }: PageProps<"/r
   const moment = typeof query.moment === "string" ? query.moment : undefined;
   const claims = await queue(found.type, later ? "NEEDS_WORK" : "CANDIDATE", moment);
   const id = typeof query.claim === "string" ? query.claim : claims[0]?.id;
-  // A story is reviewed on its own page beside its preview, a moment's header on the moment's page under it.
+  // A story is reviewed on its own page beside its preview, a moment's header on its own page under itself.
   if (found.type === "STORY" && id?.startsWith("story:")) redirect(`/moments/${encodeURIComponent(id.slice("story:".length))}/story`);
   if (found.type === "MOMENT_PAGE" && id?.startsWith("moment-page:")) {
-    redirect(`/moments/${encodeURIComponent(id.slice("moment-page:".length))}#header`);
+    redirect(`/moments/${encodeURIComponent(id.slice("moment-page:".length))}/header`);
   }
   const current = id ? await review(id) : null;
   if (id && !current) notFound();

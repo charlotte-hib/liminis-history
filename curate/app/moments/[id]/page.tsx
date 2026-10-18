@@ -1,31 +1,42 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { HeaderDesk } from "@/components/header-desk";
 import { DraftButton, FactsStatus, ReviewButton } from "@/components/moment-actions";
 import { STATUS } from "@/lib/labels";
 import type { components } from "@/lib/api-schema";
-import { etag, workbench } from "@/lib/workbench";
+import { workbench } from "@/lib/workbench";
 import { year } from "@/lib/years";
 
 type MomentDetail = components["schemas"]["MomentDetail"];
+type MomentPage = components["schemas"]["MomentPage"];
+type Painting = components["schemas"]["Painting"];
+type Story = components["schemas"]["Story"];
+type StoryCard = components["schemas"]["StoryCard"];
 
 /** People a page lists, the best known first. */
 const PAGE = 50;
 
-/** One moment: its story and header, drafted and published, and everyone alive there with their claims. */
+/**
+ * One moment at a glance: its header and its story, each a row leading to its own page, then everyone alive there with
+ * their claims.
+ */
 export default async function MomentPage({ params, searchParams }: PageProps<"/moments/[id]">) {
   await connection();
   const { id } = await params;
   const query = await searchParams;
   const page = Math.max(1, Number(query.page) || 1);
-  const [{ data: moment }, { data: people }, { data: preview }, header] = await Promise.all([
+  const [{ data: moment }, { data: people }, { data: header }, { data: story }] = await Promise.all([
     workbench.GET("/api/moments/{id}", { params: { path: { id } } }),
     workbench.GET("/api/moments/{id}/people", { params: { path: { id }, query: { offset: (page - 1) * PAGE, limit: PAGE } } }),
-    workbench.GET("/api/moments/{id}/preview", { params: { path: { id } } }),
     workbench.GET("/api/claims/{id}", { params: { path: { id: `moment-page:${id}` } } }),
+    workbench.GET("/api/claims/{id}", { params: { path: { id: `story:${id}` } } }),
   ]);
   if (!moment || !people) notFound();
+  // The header and story under review, unless rejected, else the release's.
+  const headerShown = header && header.status !== "REJECTED" ? (header.payload as MomentPage) : null;
+  const art = headerShown ? headerShown.art : moment.art;
+  const cards = story && story.status !== "REJECTED" ? (story.payload as Story).cards : moment.storyCards;
   const pages = Math.max(1, Math.ceil(people.total / PAGE));
   // The moment's waiting claims count its story's and header's too, which are shown above.
   const waitingFacts = moment.waiting - (moment.story === "CANDIDATE" ? 1 : 0) - (moment.page === "CANDIDATE" ? 1 : 0);
@@ -41,33 +52,49 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
         </span>
       </div>
 
-      <section aria-labelledby="story" className="flex flex-col gap-3">
-        <h2 id="story" className="section-title">
-          Story
-        </h2>
-        {moment.story && (
-          <p>
-            The story is {STATUS[moment.story]}
-            {moment.story === "APPROVED" && ": publishing writes it into the moment's file"}. The header below is approved on its own.
-          </p>
-        )}
-        <DraftButton moment={moment.id} draft={moment.draft} story={moment.story} />
-        <Published moment={moment} />
-      </section>
-
-      <section id="header" aria-labelledby="header-title" className="flex scroll-mt-6 flex-col gap-3">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="header-title" className="section-title">
-            Moment header
-          </h2>
-          <span className="text-muted">
-            {header.data && header.data.status !== "REJECTED"
-              ? `The hook and the world around, ${header.data.origin === "CLAUDE" ? "drafted by Claude" : "as you wrote them"}, ${STATUS[header.data.status]}`
-              : "The hook and the world around as the release has them: edit them below"}
+      <Link
+        href={`/moments/${moment.id}/header`}
+        className="flex flex-wrap items-center gap-5 rounded border border-line bg-surface p-3 hover:border-edge"
+      >
+        <span className="relative h-[110px] w-[220px] flex-none overflow-hidden rounded-sm bg-[#1b1712]">
+          {art && <Image src={art.url} alt="" fill unoptimized sizes="220px" className="object-cover" />}
+          <span className="absolute inset-0 bg-gradient-to-t from-[#14110d]/90 to-[#14110d]/10" />
+          <span className="absolute inset-x-2.5 bottom-2 font-serif text-[12px] leading-snug text-white">{headerShown?.hook.text ?? moment.hook}</span>
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="label">Moment header</span>
+          <span className="font-serif text-lg">Hook, world around and the moment&apos;s painting</span>
+          <span className={`text-[13px] ${header?.status === "APPROVED" ? "text-ok" : header?.status === "CANDIDATE" ? "text-conflict" : "text-muted"}`}>
+            {header && header.status !== "REJECTED"
+              ? `${header.origin === "CLAUDE" ? "Drafted by Claude" : "Written by you"}, ${STATUS[header.status]}`
+              : "As the release has it"}
           </span>
-        </div>
-        <HeaderDesk moment={moment} claim={header.data ?? null} version={header.data ? etag(header.response) : null} art={preview?.art} />
+        </span>
+        <span className="text-lamp">Edit the header →</span>
+      </Link>
+
+      <section aria-labelledby="story" className="flex flex-wrap items-center gap-5 rounded border border-line bg-surface p-3">
+        <CardStrip cards={cards} art={art} />
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <h2 id="story" className="label">
+            Story
+          </h2>
+          <span className="font-serif text-lg">
+            {cards.length ? `${cards.length} cards, ${paintedOf(cards)}` : "No cards yet"}
+          </span>
+          <span className="text-[13px] text-muted">
+            {moment.story ? `${story?.origin === "CLAUDE" ? "Drafted by Claude" : "Yours"}, ${STATUS[moment.story]}` : "As the release has it: generate a draft to review it"}
+            {fetchedOf(cards) > 0 && (
+              <span className="text-conflict">
+                {" "}
+                · ● {fetchedOf(cards) === 1 ? "1 shows someone" : `${fetchedOf(cards)} show people`} the site doesn&apos;t hold yet
+              </span>
+            )}
+          </span>
+        </span>
+        <DraftButton moment={moment.id} draft={moment.draft} story={moment.story} />
       </section>
+      <Published moment={moment} />
 
       <section aria-labelledby="people" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
@@ -133,6 +160,33 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
         )}
       </section>
     </main>
+  );
+}
+
+/** A fetched person, named by Q-id: the site holds them only once its release carries the fetched dataset. */
+const QID = /^Q\d+$/;
+
+const fetchedOf = (cards: StoryCard[]) => cards.filter((card) => card.type === "PERSON" && QID.test(card.person ?? "")).length;
+
+/** "2 with their own painting". */
+function paintedOf(cards: StoryCard[]): string {
+  const own = cards.filter((card) => card.art).length;
+  return own === 0 ? "none with its own painting" : own === 1 ? "one with its own painting" : `${own} with their own painting`;
+}
+
+/** The story's cards, small, each over its painting or the moment's. */
+function CardStrip({ cards, art }: { cards: StoryCard[]; art?: Painting }) {
+  return (
+    <span aria-hidden className="grid w-[220px] flex-none grid-cols-5 gap-1">
+      {cards.map((card, i) => {
+        const shown = card.art ?? art;
+        return (
+          <span key={i} className="relative aspect-[4/3] overflow-hidden rounded-[2px] bg-[#1b1712]">
+            {shown && <Image src={shown.url} alt="" fill unoptimized sizes="44px" className="object-cover" />}
+          </span>
+        );
+      })}
+    </span>
   );
 }
 

@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { decide, undo, writeMomentPage } from "@/app/actions";
 import { History } from "@/components/claim-parts";
 import { MomentHeader } from "@/components/moment-header";
+import { PaintingBox } from "@/components/painting-picker";
 import { Quotes } from "@/components/story-desk";
 import type { components } from "@/lib/api-schema";
 import { describe, STATUS } from "@/lib/labels";
@@ -12,7 +13,7 @@ import { describe, STATUS } from "@/lib/labels";
 type MomentPage = components["schemas"]["MomentPage"];
 type MomentDetail = components["schemas"]["MomentDetail"];
 type ClaimDetail = components["schemas"]["ClaimDetail"];
-type Artwork = components["schemas"]["Artwork"];
+type Painting = components["schemas"]["Painting"];
 type Citation = components["schemas"]["Citation"];
 type Action = components["schemas"]["NewDecision"]["action"];
 
@@ -25,17 +26,17 @@ const WORLD = [
 
 type WorldKey = (typeof WORLD)[number]["key"];
 
-/** The header's lines as typed. */
-type Draft = { hook: string; world: Record<WorldKey, string> };
+/** The header's lines as typed, and its painting. */
+type Draft = { hook: string; world: Record<WorldKey, string>; art?: Painting };
 
 const LINES: ("hook" | WorldKey)[] = ["hook", ...WORLD.map(({ key }) => key)];
 
 function draftOf(page: MomentPage): Draft {
   const { governs, everyday, arts, meanwhile } = page.world;
-  return { hook: page.hook.text, world: { governs: governs.text, everyday: everyday.text, arts: arts.text, meanwhile: meanwhile.text } };
+  return { hook: page.hook.text, world: { governs: governs.text, everyday: everyday.text, arts: arts.text, meanwhile: meanwhile.text }, art: page.art };
 }
 
-/** The release's own text, as a page without quotes. */
+/** The release's own text and painting, as a page without quotes. */
 function releasedOf(moment: MomentDetail): MomentPage {
   const line = (text = "") => ({ text, citations: [] });
   const world = moment.world;
@@ -44,10 +45,11 @@ function releasedOf(moment: MomentDetail): MomentPage {
     moment: moment.id,
     hook: line(moment.hook),
     world: { governs: line(world?.governs), everyday: line(world?.everyday), arts: line(world?.arts), meanwhile: line(world?.meanwhile) },
+    art: moment.art,
   };
 }
 
-/** The draft as the claim's payload: trimmed, each line keeping the quotes it was drafted from. */
+/** The draft as the claim's payload: trimmed, each line keeping the quotes it was drafted from, with its painting. */
 function pageOf(draft: Draft, base: MomentPage): MomentPage {
   const line = (text: string, citations: Citation[]) => ({ text: text.trim(), citations });
   return {
@@ -59,6 +61,7 @@ function pageOf(draft: Draft, base: MomentPage): MomentPage {
       arts: line(draft.world.arts, base.world.arts.citations),
       meanwhile: line(draft.world.meanwhile, base.world.meanwhile.citations),
     },
+    art: draft.art ? { ...draft.art, credit: draft.art.credit.trim() } : undefined,
   };
 }
 
@@ -69,15 +72,18 @@ type Decided = { version?: string; verdict: string };
 
 const VERDICTS: Record<Action, string> = { APPROVE: "Approved", REJECT: "Rejected", NEEDS_WORK: "Kept for later" };
 
-type Props = { moment: MomentDetail; claim: ClaimDetail | null; version: string | null; art?: Artwork };
+/** How many of the story's cards have a painting of their own, of how many: the others show the moment's. */
+type Painted = { own: number; cards: number };
+
+type Props = { moment: MomentDetail; claim: ClaimDetail | null; version: string | null; painted: Painted };
 
 /**
- * The top of a moment's page, edited where it is shown: the header as visitors see it follows the form beneath it.
- * With a claim drafted by Claude (or written before), the form starts from it, quotes beside each line, and the usual
- * verdicts apply. With none, or a rejected one, it starts from the release's text, and approving the changes writes the
- * claim and approves it at once.
+ * The top of a moment's page, its header, edited under itself: the header as visitors see it follows the form beneath
+ * it and the painting beside it. With a claim drafted by Claude (or written before), the form starts from it, quotes
+ * beside each line, and the usual verdicts apply. With none, or a rejected one, it starts from the release's text and
+ * painting, and approving the changes writes the claim and approves it at once.
  */
-export function HeaderDesk({ moment, claim, version, art }: Props) {
+export function HeaderDesk({ moment, claim, version, painted }: Props) {
   const router = useRouter();
   const current = claim && claim.status !== "REJECTED" ? (claim.payload as MomentPage) : null;
   const start = current ?? releasedOf(moment);
@@ -110,6 +116,7 @@ export function HeaderDesk({ moment, claim, version, art }: Props) {
     else startFrom(start);
   }
   const empty = !draft.hook.trim() || WORLD.some(({ key }) => !draft.world[key].trim());
+  const uncredited = !!draft.art && !draft.art.credit.trim();
   // Only a claim waiting or kept for later is approved as it stands; the release's own text needs a change first.
   const decidable = !!current && claim!.status !== "APPROVED";
 
@@ -121,13 +128,13 @@ export function HeaderDesk({ moment, claim, version, art }: Props) {
   }
 
   const approve = () => {
-    if (empty) return;
+    if (empty || uncredited) return;
     startTransition(async () => {
       setFailure(null);
       if (!claim) {
         const { governs, everyday, arts, meanwhile } = page.world;
         const world = { governs: governs.text, everyday: everyday.text, arts: arts.text, meanwhile: meanwhile.text };
-        const result = await writeMomentPage(moment.id, { hook: page.hook.text, world, note: note.trim() || undefined });
+        const result = await writeMomentPage(moment.id, { hook: page.hook.text, world, art: page.art, note: note.trim() || undefined });
         // A draft landed first: show it, the curator's edits kept beside it.
         if (!result.ok && result.status === 409) router.refresh();
         if (!result.ok) return setFailure(result);
@@ -177,7 +184,7 @@ export function HeaderDesk({ moment, claim, version, art }: Props) {
         end={moment.end}
         hook={page.hook.text}
         world={draft.world}
-        art={art}
+        art={draft.art}
       />
 
       {changed && (
@@ -204,28 +211,44 @@ export function HeaderDesk({ moment, claim, version, art }: Props) {
         </div>
       )}
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(360px,100%),1fr))] gap-x-8 gap-y-5">
-        {LINES.map((key) => {
-          const name = key === "hook" ? "The hook · under the title" : WORLD.find((line) => line.key === key)!.name;
-          const citations = citationsOf(base, key);
-          return (
-            <div key={key} className={`flex flex-col gap-1.5 ${key === "hook" ? "col-span-full" : ""}`}>
-              <label className="flex flex-col gap-1.5">
-                <span className="label">{name}</span>
-                <textarea
-                  value={key === "hook" ? draft.hook : draft.world[key]}
-                  maxLength={400}
-                  aria-describedby={citations.length ? `quotes-${key}` : undefined}
-                  onChange={(e) =>
-                    setDraft(key === "hook" ? { ...draft, hook: e.target.value } : { ...draft, world: { ...draft.world, [key]: e.target.value } })
-                  }
-                  className={`field-sizing-content resize-none border-b border-edge bg-transparent pb-2 font-serif leading-normal outline-none focus:border-ink ${key === "hook" ? "text-[22px]" : "min-h-16 text-[17px]"}`}
-                />
-              </label>
-              {citations.length > 0 && <Quotes id={`quotes-${key}`} citations={citations} sources={claim?.sources ?? []} compact />}
-            </div>
-          );
-        })}
+      <div className="flex flex-wrap items-start gap-10">
+        <div className="grid min-w-0 flex-[1_1_480px] grid-cols-1 gap-y-5">
+          {LINES.map((key) => {
+            const name = key === "hook" ? "The hook · under the title" : WORLD.find((line) => line.key === key)!.name;
+            const citations = citationsOf(base, key);
+            return (
+              <div key={key} className={`flex flex-col gap-1.5 ${key === "hook" ? "col-span-full" : ""}`}>
+                <label className="flex flex-col gap-1.5">
+                  <span className="label">{name}</span>
+                  <textarea
+                    value={key === "hook" ? draft.hook : draft.world[key]}
+                    maxLength={400}
+                    aria-describedby={citations.length ? `quotes-${key}` : undefined}
+                    onChange={(e) =>
+                      setDraft(key === "hook" ? { ...draft, hook: e.target.value } : { ...draft, world: { ...draft.world, [key]: e.target.value } })
+                    }
+                    className={`field-sizing-content resize-none border-b border-edge bg-transparent pb-2 font-serif leading-normal outline-none focus:border-ink ${key === "hook" ? "text-[22px]" : "min-h-16 text-[17px]"}`}
+                  />
+                </label>
+                {citations.length > 0 && <Quotes id={`quotes-${key}`} citations={citations} sources={claim?.sources ?? []} compact />}
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex min-w-0 flex-[0_1_520px] flex-col">
+          <PaintingBox
+            label="The moment's painting"
+            painting={draft.art}
+            title={`The painting of ${moment.place}, ${moment.period}`}
+            hint={`${moment.place} ${moment.period}`}
+            note={
+              painted.cards > 0
+                ? `Behind the header, and behind ${painted.cards - painted.own} of the ${painted.cards} cards: ${painted.own === 0 ? "none has its own" : painted.own === 1 ? "one has its own" : `${painted.own} have their own`}.`
+                : "Behind the header, and behind every card without its own."
+            }
+            onChange={(art) => setDraft({ ...draft, art })}
+          />
+        </div>
       </div>
 
       {findings.length > 0 && (
@@ -245,8 +268,8 @@ export function HeaderDesk({ moment, claim, version, art }: Props) {
             <button
               type="button"
               className="button-primary"
-              disabled={pending || empty || (!edited && !decidable)}
-              aria-describedby={empty ? "header-problem" : undefined}
+              disabled={pending || empty || uncredited || (!edited && !decidable)}
+              aria-describedby={empty || uncredited ? "header-problem" : undefined}
               onClick={approve}
             >
               {edited || !current ? "Approve my changes" : "Approve"}
@@ -291,9 +314,9 @@ export function HeaderDesk({ moment, claim, version, art }: Props) {
                 )}
               </span>
             )}
-            {empty && (
+            {(empty || uncredited) && (
               <span id="header-problem" className="text-conflict">
-                Write the hook and every line of the world around.
+                {empty ? "Write the hook and every line of the world around." : "Give the moment's painting a credit."}
               </span>
             )}
           </>
