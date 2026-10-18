@@ -31,7 +31,9 @@ export default defineConfig({
     { name: "sign-in", testMatch: /sign-in\.setup\.ts/ },
     // Right after the sign-in, while its passkey is less than a minute old.
     { name: "step-up", dependencies: ["sign-in"], testMatch: /step-up\.spec\.ts/, use: { storageState: SIGNED_IN } },
-    { name: "curate", dependencies: ["step-up"], testIgnore: /sign-out|step-up/, use: { storageState: SIGNED_IN } },
+    // While the admin's passkey is still recent enough to invite and revoke.
+    { name: "team", dependencies: ["step-up"], testMatch: /team\.spec\.ts/, use: { storageState: SIGNED_IN } },
+    { name: "curate", dependencies: ["team"], testIgnore: /sign-out|step-up|team/, use: { storageState: SIGNED_IN } },
     // Last, whatever the files are called: signing out revokes the session the other tests share.
     { name: "sign-out", dependencies: ["curate"], testMatch: /sign-out\.spec\.ts/, use: { storageState: SIGNED_IN } },
   ],
