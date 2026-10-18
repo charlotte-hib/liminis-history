@@ -5,6 +5,7 @@ import { DraftButton } from "@/components/moment-actions";
 import { StoryDesk } from "@/components/story-desk";
 import type { components } from "@/lib/api-schema";
 import { review } from "@/lib/queue";
+import { viewer } from "@/lib/viewer";
 import { workbench } from "@/lib/workbench";
 
 type Story = components["schemas"]["Story"];
@@ -43,5 +44,5 @@ export default async function StoryPage({ params }: PageProps<"/moments/[id]/sto
   });
   if (!preview) throw new Error(`The workbench could not preview the story of ${id}`);
 
-  return <StoryDesk moment={moment} claim={claim} version={version} preview={preview} />;
+  return <StoryDesk moment={moment} claim={claim} version={version} preview={preview} viewer={await viewer()} />;
 }

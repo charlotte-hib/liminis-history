@@ -12,9 +12,9 @@ async function authenticator(context: BrowserContext, page: Page, file?: string)
   if (file) await cdp.send("WebAuthn.addCredential", { authenticatorId, credential: JSON.parse(readFileSync(file, "utf8")) });
 }
 
-// The admin invites a curator, who joins with the link and a passkey of their own and sees no Team page; then the admin
-// revokes them, and their passkey no longer signs them in.
-test("the admin invites a curator, who joins with a passkey, then revokes them", async ({ page, context, browser, baseURL }) => {
+// The admin invites a curator, who joins with the link and a passkey of their own, sees no Team page and takes a claim;
+// then the admin revokes them: their claim goes back to the queue, and their passkey no longer signs them in.
+test("the admin invites a curator, who joins with a passkey and takes a claim, then revokes them", async ({ page, context, browser, baseURL }) => {
   test.setTimeout(120_000);
   await authenticator(context, page, PASSKEY);
   await page.goto("/team");
@@ -58,11 +58,30 @@ test("the admin invites a curator, who joins with a passkey, then revokes them",
   await them.goto(new URL("/team", baseURL).href);
   await expect(them.getByText("Only the admin manages the team.")).toBeVisible();
 
-  await page.reload();
+  // They take a claim (the admin frees it first, should an earlier run have left it held): the admin sees who holds it.
+  await page.goto("/review/person-facts");
+  const claim = (await page.getByText(/^person-facts:Q\d+$/).textContent())!;
+  const held = page.getByRole("region", { name: "Who works on this" });
+  if (await held.getByRole("button", { name: "Release" }).isVisible()) {
+    await held.getByRole("button", { name: "Release" }).click();
+    await expect(held).toContainText("Nobody holds this yet");
+  }
+  const atClaim = `/review/person-facts?claim=${encodeURIComponent(claim)}`;
+  await them.goto(new URL(atClaim, baseURL).href);
+  const holder = them.getByRole("region", { name: "Who works on this" });
+  await holder.getByRole("button", { name: "Take it" }).click();
+  await expect(holder).toContainText("You hold this");
+  await page.goto(atClaim);
+  await expect(held).toContainText(`Held by ${username}`);
+
+  await page.goto("/team");
   await expect(row).toContainText("Active");
   await row.getByRole("button", { name: "Revoke…" }).click();
   await row.getByRole("button", { name: "Revoke Ada Example" }).click();
   await expect(row).toContainText("Revoked");
+  // Their claims went back to the queue.
+  await page.goto(atClaim);
+  await expect(held).toContainText("Nobody holds this yet");
 
   // Their passkey is gone from auth: it signs no one in.
   await theirs.clearCookies();

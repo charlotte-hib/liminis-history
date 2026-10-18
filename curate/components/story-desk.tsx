@@ -7,9 +7,11 @@ import { decide, draftStory, previewOf, undo } from "@/app/actions";
 import { History } from "@/components/claim-parts";
 import { parseYear } from "@/components/edit-forms";
 import { PaintingBox } from "@/components/painting-picker";
+import { HolderBar } from "@/components/holder-bar";
 import { artOf, Slide, subjectsOf, type Subjects } from "@/components/slide";
 import { SubjectSearch } from "@/components/subject-search";
 import type { components } from "@/lib/api-schema";
+import { lockedFor, type Viewer } from "@/lib/holders";
 import { describe, STATUS } from "@/lib/labels";
 import { year } from "@/lib/years";
 
@@ -116,14 +118,14 @@ type Decided = { version: string; verdict: string };
 
 const VERDICTS: Record<Action, string> = { APPROVE: "Approved", REJECT: "Rejected", NEEDS_WORK: "Kept for later" };
 
-type Props = { moment: MomentDetail; claim: ClaimDetail; version: string; preview: StoryPreview };
+type Props = { moment: MomentDetail; claim: ClaimDetail; version: string; preview: StoryPreview; viewer: Viewer };
 
 /**
  * A moment's story laid out as on a desk: every card as an index card, and the open card beside its preview
  * as visitors will see it, with the quotes it rests on pinned beside it. Everything is edited in place; approving
  * saves the edits with the decision. Keys: A approve, R reject, N keep for later, ← → the open card, U undo.
  */
-export function StoryDesk({ moment, claim, version, preview }: Props) {
+export function StoryDesk({ moment, claim, version, preview, viewer }: Props) {
   const router = useRouter();
   const payload = claim.payload as Story;
   // A story drafted again after the curator's edits keeps them: the new draft is the claim's proposal.
@@ -142,7 +144,9 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
   const [note, setNote] = useState("");
   const [last, setLast] = useState<Decided | null>(null);
   const [failure, setFailure] = useState<{ status: number; detail: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [working, startTransition] = useTransition();
+  // Held by someone else: read only.
+  const pending = working || lockedFor(claim.heldBy, viewer);
 
   // A decision or an undo brings the claim back at a new version: edit from what it now holds.
   const [shown, setShown] = useState(version);
@@ -284,6 +288,9 @@ export function StoryDesk({ moment, claim, version, preview }: Props) {
           · the story, {claim.status === "CANDIDATE" ? "a draft waiting for you" : STATUS[claim.status]}
         </h1>
         <span className="ml-auto font-mono text-[12px] text-quiet">{claim.id}</span>
+      </div>
+      <div className="px-10 pt-4">
+        <HolderBar claim={claim} viewer={viewer} />
       </div>
 
       {redrafted && (

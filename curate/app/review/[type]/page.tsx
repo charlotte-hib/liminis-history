@@ -3,6 +3,7 @@ import { ReviewScreen } from "@/components/review-screen";
 import { QUEUES } from "@/lib/labels";
 import { queue, review } from "@/lib/queue";
 import { summaryOf } from "@/lib/summary";
+import { viewer } from "@/lib/viewer";
 
 /** One queue: its waiting claims beside the one under review, with what the sources say. */
 export default async function ReviewPage({ params, searchParams }: PageProps<"/review/[type]">) {
@@ -22,5 +23,5 @@ export default async function ReviewPage({ params, searchParams }: PageProps<"/r
   const current = id ? await review(id) : null;
   if (id && !current) notFound();
 
-  return <ReviewScreen queue={found} later={later} moment={moment} claims={claims.map(summaryOf)} current={current} />;
+  return <ReviewScreen queue={found} later={later} moment={moment} claims={claims.map(summaryOf)} current={current} viewer={await viewer()} />;
 }

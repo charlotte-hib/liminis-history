@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { DraftButton, FactsStatus, ReviewButton } from "@/components/moment-actions";
+import { DraftButton, FactsStatus, HoldMoment, ReviewButton } from "@/components/moment-actions";
 import { STATUS } from "@/lib/labels";
 import type { components } from "@/lib/api-schema";
 import { workbench } from "@/lib/workbench";
@@ -51,6 +51,7 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
           {moment.id} · {moment.region} · {year(moment.start)} – {year(moment.end)}
         </span>
       </div>
+      <HoldMoment moment={moment.id} />
 
       <section aria-labelledby="header" className="flex flex-wrap items-center gap-5 rounded border border-line bg-surface p-3">
         <span className="relative h-[110px] w-[220px] flex-none overflow-hidden rounded-sm bg-[#1b1712]">

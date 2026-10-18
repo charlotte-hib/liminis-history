@@ -175,10 +175,13 @@ export function passkey(value: Session): { secondsAgo: number; mayPublish: boole
   return { secondsAgo: now() - usedAt, mayPublish: scopes(claims).includes("publish") };
 }
 
-/** Who is signed in, as auth wrote it in the access token: their name, and whether they are the admin. */
-export function account(value: Session): { name: string; admin: boolean } {
+/**
+ * Who is signed in, as auth wrote it in the access token: their username (what the workbench logs and holds claims
+ * under), their name, and whether they are the admin.
+ */
+export function account(value: Session): { username: string; name: string; admin: boolean } {
   const claims = decodeJwt(value.access);
-  return { name: typeof claims.name === "string" ? claims.name : "", admin: scopes(claims).includes("admin") };
+  return { username: claims.sub ?? "", name: typeof claims.name === "string" ? claims.name : "", admin: scopes(claims).includes("admin") };
 }
 
 function scopes(claims: JWTPayload): string[] {

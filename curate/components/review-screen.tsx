@@ -7,9 +7,11 @@ import { decide, undo } from "@/app/actions";
 import { History, PayloadView, Sources } from "@/components/claim-parts";
 import { AnecdoteForm, FactsForm } from "@/components/edit-forms";
 import { FactsTable } from "@/components/facts";
+import { HolderBar } from "@/components/holder-bar";
 import { Intros } from "@/components/intros";
 import { CHOICES, OccupationView } from "@/components/occupation";
 import type { components } from "@/lib/api-schema";
+import { lockedFor, type Viewer } from "@/lib/holders";
 import { describe, FLAG_STYLE, FLAGS, flagsOf, type QUEUES } from "@/lib/labels";
 import type { Review } from "@/lib/queue";
 import type { ClaimSummary } from "@/lib/summary";
@@ -25,13 +27,13 @@ type Decided = { id: string; title: string; version: string; verdict: string };
 
 const VERDICTS: Record<Action, string> = { APPROVE: "Approved", REJECT: "Rejected", NEEDS_WORK: "Kept for later" };
 
-type Props = { queue: Queue; later: boolean; moment?: string; claims: ClaimSummary[]; current: Review | null };
+type Props = { queue: Queue; later: boolean; moment?: string; claims: ClaimSummary[]; current: Review | null; viewer: Viewer };
 
 /**
  * A queue's claims beside the one under review. Keys: A approve, E edit, R reject, N keep for later, S or J the next
  * claim, K the previous one, U undo the last decision; for an occupation, 1 to 4 choose its domain and approve.
  */
-export function ReviewScreen({ queue, later, moment, claims, current }: Props) {
+export function ReviewScreen({ queue, later, moment, claims, current, viewer }: Props) {
   const router = useRouter();
   const [last, setLast] = useState<Decided | null>(null);
   const [problem, setProblem] = useState<{ status: number; detail: string } | null>(null);
@@ -126,6 +128,7 @@ export function ReviewScreen({ queue, later, moment, claims, current }: Props) {
           <ClaimPanel
             key={`${current.claim.id} ${current.version}`}
             review={current}
+            viewer={viewer}
             pending={pending}
             problem={problem}
             last={last}
@@ -152,6 +155,7 @@ export function ReviewScreen({ queue, later, moment, claims, current }: Props) {
 
 type PanelProps = {
   review: Review;
+  viewer: Viewer;
   pending: boolean;
   problem: { status: number; detail: string } | null;
   last: Decided | null;
@@ -163,9 +167,12 @@ type PanelProps = {
 };
 
 /** One claim: its record against the evidence, and the keys to decide on it. */
-function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, onPrevious, onReload }: PanelProps) {
+function ClaimPanel({ review, viewer, pending: busy, problem, last, onDecide, onUndo, onNext, onPrevious, onReload }: PanelProps) {
   const { claim, evidence, person, occupation } = review;
   const payload = claim.payload;
+  // Held by someone else: read, and move on, but no decision.
+  const locked = lockedFor(claim.heldBy, viewer);
+  const pending = busy || locked;
   const [mode, setMode] = useState<"view" | "edit" | "REJECT" | "NEEDS_WORK">("view");
   const [note, setNote] = useState("");
   const editable = payload.type === "PERSON_FACTS" || payload.type === "ANECDOTE";
@@ -173,7 +180,7 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
   useEffect(() => {
     if (mode !== "view") return;
     const keys = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || pending) return;
+      if (event.metaKey || event.ctrlKey || event.altKey || busy) return;
       const target = event.target as HTMLElement;
       if (target.closest("input, textarea, select")) return;
       const action: Record<string, () => void> = {
@@ -191,14 +198,14 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
       if (payload.type === "OCCUPATION_DOMAIN") {
         for (const { choice, key } of CHOICES) action[key] = () => onDecide("APPROVE", { ...payload, domain: choice });
       }
-      const run = action[event.key];
+      const run = locked && !["s", "j", "ArrowDown", "k", "ArrowUp"].includes(event.key) ? undefined : action[event.key];
       if (!run) return;
       event.preventDefault();
       run();
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
-  }, [mode, pending, editable, payload, onDecide, onNext, onPrevious, onUndo]);
+  }, [mode, busy, locked, editable, payload, onDecide, onNext, onPrevious, onUndo]);
 
   const claimFlags = flagsOf(claim.flags, "claim");
   const { title } = titleOf(payload);
@@ -220,6 +227,7 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
           )}
         </div>
 
+        <HolderBar claim={claim} viewer={viewer} />
         {problem && <ProblemBanner problem={problem} onReload={onReload} />}
         {claimFlags.map((flag) => (
           <div key={flag.reason} role="note" className={`flex items-center gap-3 rounded px-4 py-2.5 ${FLAG_STYLE[flag.flag]}`}>
@@ -290,7 +298,7 @@ function ClaimPanel({ review, pending, problem, last, onDecide, onUndo, onNext, 
             <KeyButton keyName="E" label="Edit" disabled={pending || !editable} onClick={() => setMode("edit")} />
             <KeyButton keyName="R" label="Reject" disabled={pending} onClick={() => setMode("REJECT")} />
             <KeyButton keyName="N" label="Keep for later" disabled={pending} onClick={() => setMode("NEEDS_WORK")} />
-            <KeyButton keyName="S" label="Skip" disabled={pending} onClick={onNext} />
+            <KeyButton keyName="S" label="Skip" disabled={busy} onClick={onNext} />
             {last && <UndoBar last={last} pending={pending} onUndo={onUndo} />}
             <span className="ml-auto text-[12.5px] text-muted">J K or ↓ ↑ move in the list · U undoes</span>
           </>
