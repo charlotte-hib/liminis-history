@@ -11,10 +11,10 @@ import org.springframework.security.web.webauthn.management.UserCredentialReposi
 import org.springframework.stereotype.Component
 
 /**
- * The way in before any passkey exists, or after losing one: a one-time sign-in link in auth's log, valid 5 minutes,
- * once. It is printed on a start with no passkey registered, or with `app.auth.one-time-link`: only someone who can
- * start auth on the curator's computer can read it. It lets the curator in only to register a passkey; curate still
- * asks for one.
+ * The admin's way in before any passkey exists, or after losing one: a one-time sign-in link in auth's log, valid 5
+ * minutes, once. It is printed on a start with no passkey registered, or with `app.auth.one-time-link`: only someone
+ * who can start auth on the curator's computer can read it. It lets the admin in only to register a passkey; curate
+ * still asks for one. Curators get theirs from the admin (Accounts).
  */
 @Component
 class FirstSignIn(

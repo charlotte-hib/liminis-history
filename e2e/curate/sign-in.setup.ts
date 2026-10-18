@@ -6,7 +6,7 @@ import { PASSKEY, SIGNED_IN } from "../curate.config.js";
 function oneTimeLink(): string {
   const log = process.env.AUTH_LOG;
   if (!log) throw new Error("Set AUTH_LOG to the file auth's output goes to");
-  const links = readFileSync(log, "utf8").match(/http:\/\/localhost:9000\/login\/ott\?token=[\w-]+/g);
+  const links = readFileSync(log, "utf8").match(/http:\/\/localhost:\d+\/login\/ott\?token=[\w-]+/g);
   if (!links) throw new Error(`No one-time link in ${log}`);
   return links[links.length - 1];
 }

@@ -15,6 +15,10 @@ spring:
       schema: auth
       # The workbench's Postgres takes 20 connections, the workbench's pool 10: a few sign-ins a day need no more.
       maximum-pool-size: 3
+  # The accounts API's errors as Problem Details (RFC 9457), as the workbench's.
+  mvc:
+    problemdetails:
+      enabled: true
   flyway:
     locations: classpath:db/auth
     schemas: auth
@@ -46,3 +50,8 @@ app:
       rotate-after: 30d
       keep-for: 60d
       check-every: 1h
+    accounts:
+      # Time enough to forward the link and for its holder to find a moment.
+      invitation-valid-for: 7d
+      # As publishing asks: inviting and revoking take a passkey used in the last few minutes.
+      max-age: 5m

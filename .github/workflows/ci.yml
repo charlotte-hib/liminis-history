@@ -38,7 +38,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Lint the API contract
-        run: npx --yes @redocly/cli@2.54.2 lint ../api/openapi.yaml ../api/workbench.yaml --config ../api/redocly.yaml
+        run: npx --yes @redocly/cli@2.54.2 lint ../api/openapi.yaml ../api/workbench.yaml ../api/auth.yaml --config ../api/redocly.yaml
       - run: ./gradlew test
 
   frontend:
@@ -75,8 +75,8 @@ jobs:
           cache: npm
           cache-dependency-path: curate/package-lock.json
       - run: npm ci
-      - name: Check the API types are generated from the current spec
-        run: npm run api:types && git diff --exit-code lib/api-schema.ts
+      - name: Check the API types are generated from the current specs
+        run: npm run api:types && git diff --exit-code lib/api-schema.ts lib/auth-schema.ts
       - run: npm run lint
       - run: npm run build
 

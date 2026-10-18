@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port 3100",
     "lint": "eslint",
-    "api:types": "openapi-typescript ../api/workbench.yaml --output lib/api-schema.ts"
+    "api:types": "openapi-typescript ../api/workbench.yaml --output lib/api-schema.ts && openapi-typescript ../api/auth.yaml --output lib/auth-schema.ts"
   },
   "dependencies": {
     "diff": "9.0.0",

@@ -1,5 +1,6 @@
 "use server";
 
+import { accounts, type Account, type Invitation } from "@/lib/accounts";
 import {
   etag,
   failure,
@@ -93,4 +94,19 @@ export async function previewOf(moment: string, ids: { person: string[]; life: s
 /** Paintings on Wikimedia Commons, public domain or CC0, found by words, or the one a link or file name points at. */
 export async function findPaintings(q: string): Promise<Outcome<PaintingSearch>> {
   return outcome(workbench.GET("/api/paintings", { params: { query: { q: q.trim().slice(0, 500), limit: 24 } } }));
+}
+
+/** Adds a curator's account and gives back their invitation's link, for the admin to send. */
+export async function invite(username: string, name: string): Promise<Outcome<Invitation>> {
+  return outcome(accounts.POST("/api/accounts", { body: { username, name } }));
+}
+
+/** A new link for a curator: the one before stops working. */
+export async function inviteAgain(username: string): Promise<Outcome<Invitation>> {
+  return outcome(accounts.POST("/api/accounts/{username}/invitation", { params: { path: { username } } }));
+}
+
+/** Stops a curator at once: no more sign-in, passkey, link or session. */
+export async function revoke(username: string): Promise<Outcome<Account>> {
+  return outcome(accounts.POST("/api/accounts/{username}/revocation", { params: { path: { username } } }));
 }

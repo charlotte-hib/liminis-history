@@ -1,6 +1,8 @@
 package art.liminis.auth
 
 import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.security.core.GrantedAuthority
+import org.springframework.security.oauth2.core.oidc.OidcScopes
 import java.net.URI
 import java.nio.file.Path
 import java.time.Duration
@@ -14,6 +16,14 @@ data class AuthProperties(
     /** Prints a one-time sign-in link on start even when a passkey exists, to register another. */
     val oneTimeLink: Boolean,
     val signingKeys: SigningKeyProperties,
+    val accounts: AccountProperties,
+)
+
+data class AccountProperties(
+    /** How long an invitation's one-time link works. */
+    val invitationValidFor: Duration,
+    /** How long ago the admin may have used their passkey, at most, to invite or revoke. */
+    val maxAge: Duration,
 )
 
 data class SigningKeyProperties(
@@ -25,11 +35,17 @@ data class SigningKeyProperties(
     val checkEvery: Duration,
 )
 
-/** Who signs in: the curator alone, until historians get accounts of their own. */
+/** The admin's username: the account the curator had before there were others, its passkeys and decisions kept. */
 const val CURATOR = "curator"
 
 /** The API the access tokens are for: the workbench checks that it is in their audience. */
 const val AUDIENCE = "workbench"
+
+/** The accounts API, auth's own: the audience of the admin's access tokens too. */
+const val ACCOUNTS_AUDIENCE = "auth"
+
+/** The person's name, in curate's access tokens, for curate to show who is signed in. */
+const val NAME = "name"
 
 /** The claim of an access token that says when the curator last used their passkey, in seconds since 1970. */
 const val AUTH_TIME = "auth_time"
@@ -47,4 +63,21 @@ object Scopes {
 
     /** Publishing the decisions to the data repository: the workbench also asks for a recent passkey. */
     const val PUBLISH = "publish"
+
+    /** The team: seeing it, inviting and revoking curators (the accounts API). */
+    const val ADMIN = "admin"
+}
+
+/** What an account may do: the scopes its access tokens carry, whatever curate asks for. */
+enum class Role(val scopes: Set<String>) {
+    ADMIN(setOf(OidcScopes.OPENID, Scopes.CURATION_READ, Scopes.CURATION_WRITE, Scopes.PUBLISH, Scopes.ADMIN)),
+    CURATOR(setOf(OidcScopes.OPENID, Scopes.CURATION_READ, Scopes.CURATION_WRITE, Scopes.PUBLISH)),
+    ;
+
+    /** As Spring Security keeps it, in the table authorities. */
+    val authority = "ROLE_$name"
+
+    companion object {
+        fun of(authorities: Collection<GrantedAuthority>): Role? = entries.firstOrNull { role -> authorities.any { it.authority == role.authority } }
+    }
 }
