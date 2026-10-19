@@ -398,9 +398,10 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
 
     private fun ResultSet.instant(column: String) = getObject(column, OffsetDateTime::class.java).toInstant()
 
-    private companion object {
+    // NAMED and ALIVE_IN are shared with the people to review, which add the claims' status to the people they find.
+    internal companion object {
         /** A person's own columns; their occupations, places and flags are read apart. */
-        val PERSON = RowMapper { rs, _ ->
+        private val PERSON = RowMapper { rs, _ ->
             PersonRow(
                 qid = rs.getString("qid"),
                 label = rs.getString("label"),
@@ -420,22 +421,22 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
                 flags = emptySet(),
             )
         }
-        val ARTICLE = DataClassRowMapper(ArticleRow::class.java)
+        private val ARTICLE = DataClassRowMapper(ArticleRow::class.java)
 
         /** A person as lists show them, from `dataset.person p`. */
-        const val SUMMARY = """p.qid as person, p.label, p.label_fr, p.born, p.died, p.sitelinks,
+        private const val SUMMARY = """p.qid as person, p.label, p.label_fr, p.born, p.died, p.sitelinks,
                 (select o.label from dataset.person_occupation po join dataset.occupation o on o.qid = po.occupation
                  where po.person = p.qid order by po.position limit 1) as occupation"""
 
         /** The ISO code of the country a place lies in today: by its coordinates, else its first country with one. */
-        const val PLACE_COUNTRY = """coalesce(pl.coordinates_country,
+        private const val PLACE_COUNTRY = """coalesce(pl.coordinates_country,
             (select pc.iso from dataset.place_country pc where pc.place = pl.qid and pc.iso is not null order by pc.position limit 1))"""
 
         /**
          * Lowercase and without accents ("Émile" becomes "emile"), as the release's `fold_for_search` does; that
          * function lives in the release's schema, the extension in schema `extensions`, made by core's migrations.
          */
-        fun fold(sql: String) = "lower(extensions.unaccent('extensions.unaccent'::regdictionary, $sql))"
+        private fun fold(sql: String) = "lower(extensions.unaccent('extensions.unaccent'::regdictionary, $sql))"
 
         /** The person the first parameter names by Q-id, or whose label contains the second or the third. */
         val NAMED = """p.qid = ? or strpos(${fold("p.label")}, ${fold("?")}) > 0 or strpos(${fold("p.label_fr")}, ${fold("?")}) > 0"""

@@ -38,6 +38,10 @@ interface ClaimRepository : JpaRepository<Claim, String> {
     )
     fun list(type: String?, status: String?, flags: String?, ids: String?, after: Long, limit: Int): List<Claim>
 
+    /** The anecdotes told about [person], in the order they were proposed. */
+    @Query(nativeQuery = true, value = "select * from curation.claim where type = 'ANECDOTE' and payload ->> 'person' = :person order by seq")
+    fun anecdotesAbout(person: String): List<Claim>
+
     /** Every claim of [type] in [status], by id. */
     fun findByTypeAndStatusOrderById(type: ClaimType, status: ClaimStatus): List<Claim>
 
