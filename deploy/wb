@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# wb on the server, against the review stack (compose.review.yaml): what the curator's wb runs over Tailscale SSH
+# (WB_SERVER), and deploy.sh to see whether a run is going. Signs in with the secret auth keeps on the stack's volume,
+# which only the containers' user reads, copied for the command's length to a file only the deploy user reads.
+#   deploy/wb <wb command>   as backend/workbench/wb
+#   deploy/wb export-files   the last export's files, as a tar stream on standard output, for wb export to push
+set -euo pipefail
+
+main() {
+  cd "$(dirname "$0")/.."
+  if [[ ${1:-} == export-files ]]; then
+    docker cp "$(compose ps --quiet workbench):/app/dataset-export/." -
+    return
+  fi
+  secret=$(mktemp)
+  trap 'rm -f "$secret"' EXIT
+  compose exec -T auth cat /secrets/wb-client-secret > "$secret"
+  WB_URL=http://localhost:8090 WB_AUTH_URL=http://localhost:9000 WB_SECRET_FILE=$secret backend/workbench/wb "$@"
+}
+
+compose() {
+  docker compose -f compose.review.yaml --env-file review.env "$@"
+}
+
+main "$@"

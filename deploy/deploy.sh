@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Rolls out one release on the VPS, then rolls back to the previous one if the site is not healthy.
 # Run by the deploy workflow over Tailscale SSH, as the deploy user, from the repository checkout at that commit:
-#   deploy/deploy.sh <commit sha> <backend image@digest> <frontend image@digest> < <release bundle, .tar.gz>
+#   deploy/deploy.sh <commit sha> <backend image@digest> <frontend image@digest> \
+#     <workbench image@digest> <auth image@digest> <curate image@digest> < <release bundle, .tar.gz>
 # The release (commit, image digests and data directory) is written to .env, which Docker Compose reads.
 # The data comes from the private release bundle the commit's release.lock pins, which the workflow pulls and sends on
 # stdin; it is unpacked into releases/<RELEASE_ID>, and the three newest are kept. A commit without release.lock serves
@@ -12,6 +13,11 @@
 # The release's schema is named after RELEASE_SHA.
 # Prometheus and Grafana run once the server has grafana.env (GF_SECURITY_ADMIN_PASSWORD=...), kept on the
 # server only too; they start after the release is healthy and never cause a rollback.
+# The curators' review (compose.review.yaml) runs once the server has review.env (AUTH_URL=..., CURATE_URL=..., its
+# two public addresses, with no trailing slash): after the site, it moves to the commit's three images, unless the
+# workbench is running a run (an import takes hours, and a restart ends it), and goes back to its previous images if
+# unhealthy, failing the deploy; the site's release stands. Its keys are files in review-secrets/ (anthropic-api-key,
+# github-app.pem), its database password in review-db.env, which this script makes when missing.
 set -euo pipefail
 
 # Everything runs inside functions: bash reads them whole, before `git checkout` rewrites this file.
@@ -25,10 +31,12 @@ main() {
   local data
   if data=$(receive) && release "$1" "$2" "$3" "$data" && healthy; then
     monitor
+    local reviewed=0
+    review "${4:-}" "${5:-}" "${6:-}" || reviewed=$?
     prune
     docker image prune --force > /dev/null
     echo "Released $1"
-    return
+    return $reviewed
   fi
 
   if [[ -f .env.previous ]]; then
@@ -67,6 +75,72 @@ release() {
       profiles; } > .env &&
     docker compose pull --quiet backend frontend &&
     docker compose up --detach --remove-orphans --wait backend frontend
+}
+
+# Updates the review to these images (workbench, auth, curate), unless a run is going; rolls it back if unhealthy.
+review() {
+  [[ -f review.env && -n $1 ]] || return 0
+  review_files
+  if busy; then
+    echo "The workbench is running a run: the review keeps its images until the next deploy" >&2
+    return 0
+  fi
+  [[ -f review-images.env ]] && cp review-images.env review-images.env.previous
+  printf 'WORKBENCH_IMAGE=%s\nAUTH_IMAGE=%s\nCURATE_IMAGE=%s\n' "$1" "$2" "$3" > review-images.env
+  if review_up && review_healthy; then
+    echo "Review updated"
+    return 0
+  fi
+  echo "The review is unhealthy" >&2
+  if [[ -f review-images.env.previous ]]; then
+    echo "Rolling the review back to its previous images" >&2
+    cp review-images.env.previous review-images.env
+    review_up
+  fi
+  return 1
+}
+
+# Its database password, and its keys' folder: open to the deploy user only, its files readable by the containers'
+# user (10001), as Compose mounts them as they are.
+review_files() {
+  password review-db.env POSTGRES_PASSWORD
+  mkdir -p review-secrets && chmod 700 review-secrets
+  touch review-secrets/anthropic-api-key review-secrets/github-app.pem
+  chmod 644 review-secrets/anthropic-api-key review-secrets/github-app.pem
+}
+
+review_compose() {
+  local files=(--env-file review.env)
+  [[ -f review-images.env ]] && files+=(--env-file review-images.env)
+  docker compose -f compose.review.yaml "${files[@]}" "$@"
+}
+
+review_up() {
+  review_compose pull --quiet workbench auth curate &&
+    review_compose up --detach --remove-orphans --wait
+}
+
+# Whether the workbench is running a run, as wb sees it (deploy/wb).
+busy() {
+  review_compose ps --status running --services 2> /dev/null | grep -qx workbench || return 1
+  deploy/wb runs 2> /dev/null | grep -qw RUNNING
+}
+
+# Both public names, through Caddy: auth's sign-in page, and curate, which sends a visitor to sign in. Up to 3 minutes.
+review_healthy() {
+  local curate auth attempt
+  curate=$(host "$(value CURATE_URL review.env)")
+  auth=$(host "$(value AUTH_URL review.env)")
+  for attempt in $(seq 36); do
+    if probe "$auth" /login && probe "$curate" /; then return 0; fi
+    sleep 5
+  done
+  return 1
+}
+
+host() {
+  local rest=${1#*://}
+  echo "${rest%%/*}"
 }
 
 # Random passwords for the database, readable by the deploy user only, for the ones missing. Postgres reads the
@@ -113,14 +187,14 @@ monitor() {
 healthy() {
   local attempt
   for attempt in $(seq 36); do
-    if probe / && probe '/api/search?q=a'; then return 0; fi
+    if probe "$SITE" / && probe "$SITE" '/api/search?q=a'; then return 0; fi
     sleep 5
   done
   return 1
 }
 
 probe() {
-  curl --silent --fail --output /dev/null --max-time 5 --resolve "$SITE:443:127.0.0.1" "https://$SITE$1"
+  curl --silent --fail --output /dev/null --max-time 5 --resolve "$1:443:127.0.0.1" "https://$1$2"
 }
 
 value() {
