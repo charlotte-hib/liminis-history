@@ -66,11 +66,10 @@ export async function draftStory(moment: string): Promise<Outcome<{ id: number }
 }
 
 /**
- * The person as the site would show them, looked at from [moment] if given, with the years and first occupations being
- * edited.
+ * The person as the site would show them, looked at from [moment] if given, with the years and occupations being edited.
  */
 export async function previewPerson(qid: string, moment: string | undefined, facts: { born?: number; died?: number; occupation: string[] }): Promise<Outcome<PersonPreview>> {
-  const query = { moment, born: facts.born, died: facts.died, occupation: facts.occupation.slice(0, 3) };
+  const query = { moment, born: facts.born, died: facts.died, occupation: facts.occupation.slice(0, 50) };
   return outcome(workbench.GET("/api/people/{qid}/preview", { params: { path: { qid }, query } }));
 }
 

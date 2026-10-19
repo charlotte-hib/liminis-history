@@ -96,6 +96,11 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
     };
   }, [qid, scope.moment, bornYear, diedYear, occupations, anecdotes]);
 
+  // Moving away drops the edits not approved: ask first.
+  const leaving = () => !changed || window.confirm("Leave this person without approving your changes?");
+  const leave = (href: string | false | undefined) => href && leaving() && router.push(href);
+  const guard = (event: { preventDefault: () => void }) => !leaving() && event.preventDefault();
+
   const discard = () => {
     setFacts(proposed);
     setBorn(String(proposed.born));
@@ -114,7 +119,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
   };
 
   const undoLast = () => {
-    if (!last) return;
+    if (!last || !leaving()) return;
     startTransition(async () => {
       const result = await undo(last.id, last.version);
       if (!result.ok) return setProblem(result);
@@ -134,12 +139,11 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
       }
       if (event.key === "Escape" && !target.closest("[data-anecdote]")) return discard();
       if (event.metaKey || event.ctrlKey || event.altKey || target.closest("input, textarea, select")) return;
-      const go = (href: string | false | undefined) => href && router.push(href);
       const action: Record<string, () => void> = {
-        j: () => go(next),
-        ArrowRight: () => go(next),
-        k: () => go(previous),
-        ArrowLeft: () => go(previous),
+        j: () => leave(next),
+        ArrowRight: () => leave(next),
+        k: () => leave(previous),
+        ArrowLeft: () => leave(previous),
         u: undoLast,
         ...(!locked && { a: () => decideOn("APPROVE", note), r: () => setAsking("REJECT"), n: () => setAsking("NEEDS_WORK") }),
       };
@@ -166,14 +170,24 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
       <div className="flex flex-wrap items-start gap-11 px-10 py-7">
         <main className="flex min-w-0 flex-[1_1_600px] flex-col gap-6">
           <nav aria-label="People to review" className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
-            <Link href={list}>← People to review</Link>
+            <Link href={list} onClick={guard}>
+              ← People to review
+            </Link>
             <span className="text-muted">
               {neighbours.position ? `${neighbours.position} of ${neighbours.total}` : `${neighbours.total}`} {filter.alone}
               {moment && ` in ${moment.name}`}
             </span>
             <span className="ml-auto flex gap-5">
-              {previous && <Link href={previous}>← Previous</Link>}
-              {next && <Link href={next}>Next person →</Link>}
+              {previous && (
+                <Link href={previous} onClick={guard}>
+                  ← Previous
+                </Link>
+              )}
+              {next && (
+                <Link href={next} onClick={guard}>
+                  Next person →
+                </Link>
+              )}
             </span>
           </nav>
 

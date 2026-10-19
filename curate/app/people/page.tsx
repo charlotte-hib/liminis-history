@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { FactsStatus } from "@/components/moment-actions";
-import { ListKeys, MomentSelect, SearchBox } from "@/components/people-list";
+import { ListKeys, ListUndo, MomentSelect, SearchBox } from "@/components/people-list";
 import { describeOnField } from "@/lib/labels";
 import { momentChoices, PAGE, peopleToReview } from "@/lib/people";
 import { listHref, personHref, REVIEW_FILTERS, scopeOf } from "@/lib/review-scope";
@@ -16,7 +17,10 @@ export default async function PeopleToReview({ searchParams }: PageProps<"/peopl
   const params = await searchParams;
   const scope = scopeOf(params);
   const page = Math.max(1, Number(params.page) || 1);
-  const [moments, people] = await Promise.all([momentChoices(), peopleToReview(scope, page)]);
+  const moments = await momentChoices();
+  // A moment the release no longer has (an old link): everyone proposed instead.
+  if (scope.moment && !moments.some((m) => m.id === scope.moment)) redirect(listHref({ ...scope, moment: undefined, filter: "WAITING" }));
+  const people = await peopleToReview(scope, page);
   const pages = Math.max(1, Math.ceil(people.total / PAGE));
   const moment = moments.find((m) => m.id === scope.moment);
   const first = people.people[0];
@@ -112,6 +116,7 @@ export default async function PeopleToReview({ searchParams }: PageProps<"/peopl
           </span>
           {page < pages && <Link href={listHref(scope, { page: String(page + 1) })}>Less known →</Link>}
         </nav>
+        <ListUndo />
         <span className="ml-auto text-[12.5px] text-muted">J K move · ⏎ open · / find</span>
       </div>
     </main>

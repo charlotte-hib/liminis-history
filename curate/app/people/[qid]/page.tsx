@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { PersonDesk, ProposeFacts } from "@/components/person-desk";
 import { momentChoices, neighboursOf } from "@/lib/people";
 import { review } from "@/lib/queue";
-import { listHref, scopeOf } from "@/lib/review-scope";
+import { listHref, personHref, scopeOf } from "@/lib/review-scope";
 import { viewer } from "@/lib/viewer";
 import { workbench } from "@/lib/workbench";
 
@@ -20,14 +20,17 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   const { qid } = await params;
   if (!QID.test(qid)) notFound();
   const scope = scopeOf(await searchParams);
-  const [current, neighbours, preview, moments, who] = await Promise.all([
+  const moments = await momentChoices();
+  // A moment the release no longer has (an old link): the person among everyone proposed.
+  if (scope.moment && !moments.some((m) => m.id === scope.moment)) redirect(personHref(qid, { ...scope, moment: undefined, filter: "WAITING" }));
+  const [current, neighbours, preview, who] = await Promise.all([
     review(`person-facts:${qid}`),
     neighboursOf(qid, scope),
-    workbench.GET("/api/people/{qid}/preview", { params: { path: { qid }, query: { moment: scope.moment } } }).then(({ data }) => data),
-    momentChoices(),
+    workbench.GET("/api/people/{qid}/preview", { params: { path: { qid }, query: { moment: scope.moment } } }),
     viewer(),
   ]);
-  if (!preview) notFound();
+  if (preview.response.status === 404) notFound();
+  if (!preview.data) throw new Error(`The workbench did not preview ${qid}: ${JSON.stringify(preview.error)}`);
   const moment = moments.find((m) => m.id === scope.moment);
 
   if (!current) {
@@ -38,5 +41,5 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
       </main>
     );
   }
-  return <PersonDesk key={`${qid} ${current.version}`} review={current} preview={preview} neighbours={neighbours} scope={scope} moment={moment} viewer={who} />;
+  return <PersonDesk key={`${qid} ${current.version}`} review={current} preview={preview.data} neighbours={neighbours} scope={scope} moment={moment} viewer={who} />;
 }

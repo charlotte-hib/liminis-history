@@ -37,6 +37,9 @@ export async function peopleToReview(scope: ReviewScope, page: number): Promise<
 
 /** Who comes before and after the person in [scope]. */
 export async function neighboursOf(qid: string, scope: ReviewScope): Promise<ReviewNeighbours> {
-  const { data } = await workbench.GET("/api/people/{qid}/neighbours", { params: { path: { qid }, query: queryOf(scope) } });
-  return data ?? { total: 0 };
+  const { data, error, response } = await workbench.GET("/api/people/{qid}/neighbours", { params: { path: { qid }, query: queryOf(scope) } });
+  // Someone the dataset doesn't hold, and who has no claim: alone, as the page then says.
+  if (response.status === 404) return { total: 0 };
+  if (!data) throw new Error(`The workbench did not place ${qid} among the people to review: ${JSON.stringify(error)}`);
+  return data;
 }

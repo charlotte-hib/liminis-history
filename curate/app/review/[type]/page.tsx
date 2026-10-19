@@ -18,7 +18,8 @@ export default async function ReviewPage({ params, searchParams }: PageProps<"/r
   if (found.type === "PERSON_FACTS") {
     const scope: ReviewScope = { moment, filter: later ? "KEPT_FOR_LATER" : "WAITING" };
     const claim = typeof query.claim === "string" ? query.claim : "";
-    redirect(claim.startsWith("person-facts:") ? personHref(claim.slice("person-facts:".length), scope) : listHref(scope));
+    const qid = claim.match(/^person-facts:(Q[1-9][0-9]*)$/)?.[1];
+    redirect(qid ? personHref(qid, scope) : listHref(scope));
   }
   const claims = await queue(found.type, later ? "NEEDS_WORK" : "CANDIDATE", moment);
   const id = typeof query.claim === "string" ? query.claim : claims[0]?.id;
