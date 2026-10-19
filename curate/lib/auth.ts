@@ -7,14 +7,24 @@ import { base64url, decodeJwt, EncryptJWT, jwtDecrypt, type JWTPayload } from "j
 import * as oidc from "openid-client";
 
 /**
- * Signing the curator in through auth, the authorization server on this computer (`./gradlew :auth:bootRun`), as a
- * backend-for-frontend: the browser holds only encrypted cookies, and the tokens never reach it.
+ * Signing the curator in through auth, the authorization server (`./gradlew :auth:bootRun` on this computer, or beside
+ * curate on the server), as a backend-for-frontend: the browser holds only encrypted cookies, and the tokens never
+ * reach it.
  */
 
-/** auth, where curators sign in with a passkey, and whose accounts API the Team page calls. */
+/** auth as browsers reach it, where curators sign in with a passkey: its issuer. */
 export const AUTH_URL = new URL(process.env.AUTH_URL ?? "http://localhost:9000");
 
-/** curate as auth knows it: localhost, never 127.0.0.1, or the cookies set before signing in would not come back. */
+/**
+ * auth as this server reaches it: on the server, inside the Compose network, so curate's own calls (tokens, the
+ * accounts API) never go out and back through Caddy, nor count as one visitor against auth's rate limit.
+ */
+export const AUTH_INTERNAL_URL = new URL(process.env.AUTH_INTERNAL_URL ?? AUTH_URL);
+
+/**
+ * curate as auth knows it, and the one name it answers to. Locally localhost, never 127.0.0.1, or the cookies set
+ * before signing in would not come back.
+ */
 export const CURATE_URL = new URL(process.env.CURATE_URL ?? "http://localhost:3100");
 
 /** Where auth writes curate's client secret, and where curate keeps the key of its cookies. */
@@ -84,10 +94,21 @@ export const readSession = (value: string | undefined) => unseal<Session>(value)
 
 let serverMetadata: Promise<oidc.ServerMetadata> | undefined;
 
+/** Sends curate's own calls to auth's public address to [AUTH_INTERNAL_URL] instead. */
+const internally: oidc.CustomFetch = (url, options) => {
+  const target = new URL(url);
+  const inside = target.origin === AUTH_URL.origin ? new URL(target.pathname + target.search, AUTH_INTERNAL_URL) : target;
+  // openid-client's body type allows any Uint8Array, which Node's fetch takes, though its types say otherwise.
+  return fetch(inside, options as RequestInit);
+};
+
+/** On this computer, auth listens on localhost over plain HTTP. */
+const local = AUTH_URL.protocol === "http:";
+
 /** auth's endpoints, found once, and curate's secret, read every time: auth makes a new one if its file is lost. */
 async function client(): Promise<oidc.Configuration> {
   serverMetadata ??= oidc
-    .discovery(AUTH_URL, "curate", undefined, undefined, { execute: [oidc.allowInsecureRequests] })
+    .discovery(AUTH_URL, "curate", undefined, undefined, { execute: local ? [oidc.allowInsecureRequests] : [], [oidc.customFetch]: internally })
     .then((found) => found.serverMetadata())
     .catch((error) => {
       serverMetadata = undefined;
@@ -95,8 +116,8 @@ async function client(): Promise<oidc.Configuration> {
     });
   const secret = (await readFile(/* turbopackIgnore: true */ join(SECRETS_DIR, "curate-client-secret"), "utf8")).trim();
   const configuration = new oidc.Configuration(await serverMetadata, "curate", undefined, oidc.ClientSecretBasic(secret));
-  // auth listens on localhost only, over plain HTTP.
-  oidc.allowInsecureRequests(configuration);
+  configuration[oidc.customFetch] = internally;
+  if (local) oidc.allowInsecureRequests(configuration);
   return configuration;
 }
 

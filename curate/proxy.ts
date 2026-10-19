@@ -1,18 +1,26 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { CURATE_URL, expiring, readSession, refreshed, refused, SESSION_COOKIE, sessionCookie } from "@/lib/auth";
+import { take } from "@/lib/rate-limit";
 
 /** The names this computer answers to: nothing else may reach it, even through a name that points here. */
 const LOCAL = new Set(["localhost", "127.0.0.1"]);
 
+/** The names curate answers to: its own, and on this computer both of its local ones. */
+const NAMES = LOCAL.has(CURATE_URL.hostname) ? LOCAL : new Set([CURATE_URL.hostname]);
+
 /**
- * Answers only requests addressed to this computer, as the workbench does: a web page elsewhere could otherwise point
- * a name of its own at 127.0.0.1 (DNS rebinding) and decide on claims, since Next.js only checks that a Server Action's
- * Origin matches its Host. Then every page and action needs the curator signed in: without a session, pages go to
- * sign in; a session whose access token is about to expire is refreshed here, before the page reads it.
+ * Limits how fast one visitor can call curate (see `lib/rate-limit.ts`). Answers only requests addressed to curate's
+ * own name, as the workbench does: a web page elsewhere could otherwise point a name of its own at curate (DNS
+ * rebinding) and decide on claims, since Next.js only checks that a Server Action's Origin matches its Host. Then every
+ * page and action needs the curator signed in: without a session, pages go to sign in; a session whose access token is
+ * about to expire is refreshed here, before the page reads it.
  */
 export async function proxy(request: NextRequest) {
+  const wait = take(request.headers.get("x-forwarded-for"));
+  if (wait > 0) return new NextResponse("Too many requests. Wait a moment and try again.\n", { status: 429, headers: { "Retry-After": String(wait) } });
+
   const host = hostname(request.headers.get("host"));
-  if (!LOCAL.has(host)) return new NextResponse("curate only answers on localhost.\n", { status: 400 });
+  if (!NAMES.has(host)) return new NextResponse(`curate only answers on ${CURATE_URL.hostname}.\n`, { status: 400 });
   if (host !== CURATE_URL.hostname) return toCurateUrl(request);
 
   const { pathname } = request.nextUrl;

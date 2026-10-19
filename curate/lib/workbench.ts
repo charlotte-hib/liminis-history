@@ -24,7 +24,7 @@ export type Publication = components["schemas"]["Publication"];
 export type StoryPreview = components["schemas"]["StoryPreview"];
 export type SubjectType = components["schemas"]["SubjectType"];
 
-/** The workbench, on this computer only (`./gradlew :workbench:bootRun`). */
+/** The workbench: on this computer (`./gradlew :workbench:bootRun`), or on the Compose network (compose.review.yaml). */
 const WORKBENCH_URL = process.env.WORKBENCH_URL ?? "http://127.0.0.1:8090";
 
 /**
