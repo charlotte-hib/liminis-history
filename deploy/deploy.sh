@@ -16,8 +16,10 @@
 # The curators' review (compose.review.yaml) runs once the server has review.env (AUTH_URL=..., CURATE_URL=..., its
 # two public addresses, with no trailing slash): after the site, it moves to the commit's three images, unless the
 # workbench is running a run (an import takes hours, and a restart ends it), and goes back to its previous images if
-# unhealthy, failing the deploy; the site's release stands. Its keys are files in review-secrets/ (anthropic-api-key,
-# github-app.pem), its database password in review-db.env, which this script makes when missing.
+# unhealthy (images only: the compose file stays this commit's), exiting with 3 so the workflow reports it apart; the
+# site's release stands. Its keys are files in review-secrets/ (anthropic-api-key, github-app.pem), its database
+# password in review-db.env, which this script makes when missing. wb, which tells whether a run is going, needs curl
+# and python3 on the server.
 set -euo pipefail
 
 # Everything runs inside functions: bash reads them whole, before `git checkout` rewrites this file.
@@ -32,7 +34,7 @@ main() {
   if data=$(receive) && release "$1" "$2" "$3" "$data" && healthy; then
     monitor
     local reviewed=0
-    review "${4:-}" "${5:-}" "${6:-}" || reviewed=$?
+    review "${4:-}" "${5:-}" "${6:-}" || reviewed=3
     prune
     docker image prune --force > /dev/null
     echo "Released $1"
@@ -79,7 +81,13 @@ release() {
 
 # Updates the review to these images (workbench, auth, curate), unless a run is going; rolls it back if unhealthy.
 review() {
-  [[ -f review.env && -n $1 ]] || return 0
+  [[ -f review.env ]] || return 0
+  [[ -n $1 && -n $2 && -n $3 ]] || { echo "No images for the review" >&2; return 1; }
+  local name
+  for name in AUTH_URL CURATE_URL; do
+    [[ $(value $name review.env) =~ ^https://[^/\"\']+$ ]] ||
+      { echo "$name in review.env must be https://<name>, unquoted, with no trailing slash" >&2; return 1; }
+  done
   review_files
   if busy; then
     echo "The workbench is running a run: the review keeps its images until the next deploy" >&2
@@ -120,22 +128,37 @@ review_up() {
     review_compose up --detach --remove-orphans --wait
 }
 
-# Whether the workbench is running a run, as wb sees it (deploy/wb).
+# Whether the workbench is running a run, as wb sees it (deploy/wb). When it is up but wb can't tell, it counts as
+# busy: better a deploy that waits than an import cut short.
 busy() {
-  review_compose ps --status running --services 2> /dev/null | grep -qx workbench || return 1
-  deploy/wb runs 2> /dev/null | grep -qw RUNNING
+  local services runs
+  services=$(review_compose ps --status running --services 2> /dev/null) || return 1
+  grep -qx workbench <<< "$services" || return 1
+  runs=$(deploy/wb runs) || { echo "wb could not list the workbench's runs" >&2; return 0; }
+  grep -qw RUNNING <<< "$runs"
 }
 
-# Both public names, through Caddy: auth's sign-in page, and curate, which sends a visitor to sign in. Up to 3 minutes.
+# Up to 3 minutes: auth's sign-in page and curate's way to it through Caddy (curate finds auth and sends the visitor
+# to its public address), and the workbench on loopback, which asks for a token.
 review_healthy() {
   local curate auth attempt
   curate=$(host "$(value CURATE_URL review.env)")
   auth=$(host "$(value AUTH_URL review.env)")
   for attempt in $(seq 36); do
-    if probe "$auth" /login && probe "$curate" /; then return 0; fi
+    if probe "$auth" /login && signs_in "$curate" "$(value AUTH_URL review.env)" &&
+      [[ $(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 5 \
+        "http://127.0.0.1:$(value WORKBENCH_PORT review.env | grep . || echo 8090)/api/runs") == 401 ]]
+    then return 0; fi
     sleep 5
   done
   return 1
+}
+
+signs_in() {
+  local location
+  location=$(curl --silent --output /dev/null --write-out '%{redirect_url}' --max-time 5 --resolve "$1:443:127.0.0.1" \
+    "https://$1/auth/sign-in")
+  [[ $location == "$2/oauth2/authorize?"* ]]
 }
 
 host() {

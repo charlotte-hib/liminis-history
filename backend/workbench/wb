@@ -106,8 +106,13 @@ export_dataset() {
   [[ -d "$data_repo/data" ]] || { echo "wb: no data repository at $data_repo (WB_DATA_REPO)" >&2; exit 1; }
   if [[ -n "$server" ]]; then
     remote export-run
+    # Into a folder of its own first, so a cut copy never mixes with the last export: then only the export's files.
+    local copy
+    copy="$(mktemp -d)"
+    remote export-files | tar -x -C "$copy"
     mkdir -p "$export_dir"
-    remote export-files | tar -x -C "$export_dir"
+    mv "$copy"/manifest.json "$copy"/{people,articles,places,occupations}.jsonl.gz "$export_dir"/
+    rm -r "$copy"
   else
     start '{"kind": "DATASET_EXPORT"}'
   fi
@@ -145,7 +150,8 @@ export_dataset() {
 remote() {
   local tty=()
   [[ -t 0 && -t 1 ]] && tty=(-t)
-  ssh ${tty[@]+"${tty[@]}"} "$server" /opt/liminis/deploy/wb "$@"
+  # The arguments quoted, as the server's shell reads them again.
+  ssh ${tty[@]+"${tty[@]}"} "$server" /opt/liminis/deploy/wb "$(printf '%q ' "$@")"
 }
 
 if [[ -n "$server" ]]; then

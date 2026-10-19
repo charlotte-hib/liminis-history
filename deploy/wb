@@ -8,6 +8,8 @@ set -euo pipefail
 
 main() {
   cd "$(dirname "$0")/.."
+  # The ports, should review.env move them.
+  set -a && source review.env && set +a
   if [[ ${1:-} == export-files ]]; then
     docker cp "$(compose ps --quiet workbench):/app/dataset-export/." -
     return
@@ -15,7 +17,8 @@ main() {
   secret=$(mktemp)
   trap 'rm -f "$secret"' EXIT
   compose exec -T auth cat /secrets/wb-client-secret > "$secret"
-  WB_URL=http://localhost:8090 WB_AUTH_URL=http://localhost:9000 WB_SECRET_FILE=$secret backend/workbench/wb "$@"
+  WB_URL=http://localhost:${WORKBENCH_PORT:-8090} WB_AUTH_URL=http://localhost:${AUTH_PORT:-9000} WB_SECRET_FILE=$secret \
+    backend/workbench/wb "$@"
 }
 
 compose() {

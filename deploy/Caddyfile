@@ -48,11 +48,13 @@ Disallow: /
 	reverse_proxy 127.0.0.1:3100
 }
 
-# Only what a browser needs: the sign-in pages, passkeys, the authorization and logout endpoints. Discovery, tokens,
-# keys and the accounts API are for curate, the workbench and wb, which call auth on the server itself.
+# Only what a browser needs: auth's pages (/, /login, /login/ott, /webauthn/register, /auth.css), Spring Security's
+# passkey script and endpoints (/login/webauthn.js, /login/webauthn, /webauthn/...), and the authorization server's
+# authorize and OpenID logout endpoints. Discovery, tokens, keys and the accounts API are for curate, the workbench and
+# wb, which call auth on the server itself. Check the list again after a Spring Security upgrade.
 (liminis-auth) {
 	import liminis-review
-	@browser path / /auth.css /login /login/* /logout /webauthn/* /oauth2/authorize /connect/logout
+	@browser path / /auth.css /login /login/* /webauthn/* /oauth2/authorize /connect/logout
 	handle @browser {
 		reverse_proxy 127.0.0.1:9000
 	}
