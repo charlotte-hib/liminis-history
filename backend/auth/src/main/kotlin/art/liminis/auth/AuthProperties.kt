@@ -15,6 +15,8 @@ data class AuthProperties(
     val curateUrl: URI,
     /** Prints a one-time sign-in link on start even when a passkey exists, to register another. */
     val oneTimeLink: Boolean,
+    /** The names a request may be addressed to (its Host), besides the issuer's: any other is turned away. */
+    val allowedHosts: Set<String>,
     val signingKeys: SigningKeyProperties,
     val accounts: AccountProperties,
 )

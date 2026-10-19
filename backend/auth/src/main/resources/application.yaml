@@ -28,10 +28,11 @@ spring:
     oauth2:
       authorizationserver:
         # Passkeys are bound to a name, and localhost is the only one a browser lets a site on plain HTTP use: never
-        # 127.0.0.1.
+        # 127.0.0.1. On the server, its public address over HTTPS (compose.review.yaml).
         issuer: http://localhost:9000
 
-# On the curator's computer only, never on the network: curate, wb and the workbench call it there.
+# On the curator's computer, on loopback only: curate, wb and the workbench call it there. On the server, behind the
+# server's Caddy, which says who the visitor is in X-Forwarded-For (compose.review.yaml).
 server:
   address: 127.0.0.1
   port: 9000
@@ -45,6 +46,7 @@ app:
     # Prints a one-time sign-in link even when a passkey exists, to register a new one: start with
     # --app.auth.one-time-link=true.
     one-time-link: false
+    allowed-hosts: [localhost, 127.0.0.1]
     signing-keys:
       # A new key signs from then on; the older one stays published, for the tokens it signed.
       rotate-after: 30d
