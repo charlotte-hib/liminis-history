@@ -1,5 +1,6 @@
-// The workbench: the curator's tools, on the Mac only, never in an image. A server on 127.0.0.1:8090 that the wb
-// command line and the review app call: imports, the dataset, claims to review, story drafts.
+// The workbench: the curators' tools, on the curator's computer or in an image for the server (backend/Dockerfile, target
+// workbench). A server on 127.0.0.1:8090 that the wb command line and the review app call: imports, the dataset, claims
+// to review, story drafts.
 plugins {
 	kotlin("jvm")
 	kotlin("plugin.spring")

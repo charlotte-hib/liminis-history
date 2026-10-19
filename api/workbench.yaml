@@ -3,12 +3,13 @@ info:
   title: Liminis workbench API
   version: 1.0.0
   description: |
-    The curator's workbench, on the Mac only: claims (anything a careful reader could dispute) with their sources and
-    the curator's decisions, and the runs that fetch, map and propose.
+    The curators' workbench: claims (anything a careful reader could dispute) with their sources and the curators'
+    decisions, and the runs that fetch, map and propose.
 
-    It listens on 127.0.0.1 only and answers only requests addressed to `localhost` or `127.0.0.1`. Every request
-    needs an access token from `auth` (on `localhost:9000`) with the scope its operation names: curate gets one for the
-    curator, signed in with a passkey; `wb` gets its own.
+    It listens on 127.0.0.1 only (on the server, on its Compose network only) and answers only requests addressed to
+    its own names (`localhost`, `127.0.0.1`, and on the server `workbench`). Every request needs an access token from
+    `auth` (on `localhost:9000`, or at its public address on the server) with the scope its operation names: curate
+    gets one for the curator, signed in with a passkey; `wb` gets its own.
 
     People are Wikidata ids (Q-ids). Years are integers, negative for BCE. There is no year 0: 1 BCE is followed by
     1 CE.
