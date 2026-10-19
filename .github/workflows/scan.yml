@@ -1,6 +1,6 @@
-# Known vulnerabilities in the two images, with Grype. Called by ci.yml on the images it has just built, so a pull
-# request shows them and main deploys nothing that fails; daily on the images in production, for CVEs published
-# after their release. Every finding goes to the Security tab; only a critical one with a fixed version fails.
+# Known vulnerabilities in the images, the site's and the review's, with Grype. Called by ci.yml on the images it has
+# just built, so a pull request shows them and main deploys nothing that fails; daily on the images of the commit in
+# production, for CVEs published after their release. Every finding goes to the Security tab; only a critical one with a fixed version fails.
 name: Vulnerability scan
 
 on:
@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [backend, frontend]
+        service: [backend, frontend, workbench, auth, curate]
     permissions:
       contents: read
       deployments: read

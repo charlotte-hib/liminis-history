@@ -1,0 +1,131 @@
+# The review on the server: curate, auth and the workbench in their images (curate/Dockerfile, backend/Dockerfile's
+# targets workbench and auth), with a Postgres of their own. Only curate and auth are for browsers: the server's Caddy
+# serves them by name, over HTTPS (AUTH_URL, CURATE_URL). The workbench and the database are on the Compose network,
+# the workbench's port published on loopback for wb on the server. Every port is published on loopback only.
+#
+# Locally, as on the server but on localhost (stop the curator's own auth first, or move its ports):
+#   mkdir -p review-secrets && touch review-secrets/anthropic-api-key review-secrets/github-app.pem
+#   echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > review-db.env
+#   docker compose -f compose.review.yaml up --build, then the one-time link in auth's log, then http://localhost:3100.
+# The keys' files are mounted as they are (Compose secrets without swarm): uid 10001, the images' user, must be able
+# to read them.
+name: liminis-review
+
+services:
+  # The workbench's Postgres (compose.workbench.yaml), with a volume of its own. Its password comes from review-db.env
+  # (POSTGRES_PASSWORD=..., untracked), required: Postgres reads it only when it creates its data, so a first start
+  # without it would keep db/workbench.env's public one.
+  db:
+    extends:
+      file: compose.workbench.yaml
+      service: db
+    env_file: !override
+      - db/workbench.env
+      - review-db.env
+    ports: !reset []
+    volumes: !override
+      - review-db-data:/var/lib/postgresql
+
+  workbench:
+    image: ${WORKBENCH_IMAGE:-liminis-workbench}
+    build:
+      context: ./backend
+      target: workbench
+      additional_contexts:
+        api: ./api
+    # The database's name, user and password, read by the settings below.
+    env_file:
+      - db/workbench.env
+      - review-db.env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/$${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: $${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: $${POSTGRES_PASSWORD}
+      # Tokens name auth by its public address; its keys are fetched on the Compose network.
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AUTH_URL:-http://localhost:9000}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://auth:9000/oauth2/jwks
+      # wb on loopback, curate by its name on the Compose network.
+      APP_WEB_ALLOWED_HOSTS: localhost,127.0.0.1,workbench
+      APP_PUBLISH_GITHUB_PRIVATE_KEY: /run/secrets/github-app.pem
+      # The release it reads moments, lives and events from: sample/, as ./gradlew :workbench:bootRun does.
+      APP_RELEASE_DIR: /app/release
+    # Files in the container, never environment variables (application.yaml reads anthropic-api-key from its file).
+    secrets:
+      - anthropic-api-key
+      - github-app.pem
+    volumes:
+      - ./sample:/app/release:ro
+      - dataset-export:/app/dataset-export
+      - natural-earth:/app/natural-earth
+    ports:
+      - "127.0.0.1:${WORKBENCH_PORT:-8090}:8090"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    # Mapping holds Natural Earth's borders and pages of people in memory.
+    mem_limit: 1536m
+
+  auth:
+    image: ${AUTH_IMAGE:-liminis-auth}
+    build:
+      context: ./backend
+      target: auth
+      additional_contexts:
+        api: ./api
+    env_file:
+      - db/workbench.env
+      - review-db.env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/$${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: $${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: $${POSTGRES_PASSWORD}
+      # The issuer, and the name passkeys are bound to.
+      SPRING_SECURITY_OAUTH2_AUTHORIZATIONSERVER_ISSUER: ${AUTH_URL:-http://localhost:9000}
+      APP_AUTH_CURATE_URL: ${CURATE_URL:-http://localhost:3100}
+      # Besides its issuer's name: curate and the workbench call it on the Compose network.
+      APP_AUTH_ALLOWED_HOSTS: localhost,127.0.0.1,auth
+      # The clients' secrets, on a volume curate reads.
+      APP_AUTH_SECRETS_DIR: /secrets
+      # Caddy, on the host, reaches auth from a private address: Tomcat then takes the visitor's address and HTTPS from
+      # X-Forwarded-For and X-Forwarded-Proto.
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+    volumes:
+      - secrets:/secrets
+    ports:
+      - "127.0.0.1:${AUTH_PORT:-9000}:9000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 512m
+
+  curate:
+    image: ${CURATE_IMAGE:-liminis-curate}
+    build: ./curate
+    environment:
+      AUTH_URL: ${AUTH_URL:-http://localhost:9000}
+      AUTH_INTERNAL_URL: http://auth:9000
+      CURATE_URL: ${CURATE_URL:-http://localhost:3100}
+      WORKBENCH_URL: http://workbench:8090
+    volumes:
+      - secrets:/secrets
+    ports:
+      - "127.0.0.1:${CURATE_PORT:-3100}:3100"
+    depends_on:
+      - auth
+      - workbench
+    restart: unless-stopped
+    mem_limit: 384m
+
+secrets:
+  anthropic-api-key:
+    file: ${ANTHROPIC_API_KEY_FILE:-review-secrets/anthropic-api-key}
+  github-app.pem:
+    file: ${GITHUB_APP_KEY_FILE:-review-secrets/github-app.pem}
+
+volumes:
+  review-db-data:
+  secrets:
+  dataset-export:
+  natural-earth:

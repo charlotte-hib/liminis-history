@@ -24,8 +24,9 @@ import org.springframework.security.web.firewall.StrictHttpFirewall
 
 /**
  * Every request needs an access token from auth (a JWT, checked against auth's published keys, its issuer, its audience
- * and its expiry) with the scope its endpoint asks for, and must be addressed to localhost: a page that rebinds its own
- * domain to 127.0.0.1 still sends its own name. An endpoint left out of the rules below is refused to everyone. No
+ * and its expiry) with the scope its endpoint asks for, and must be addressed to one of its own names (localhost, and on
+ * the server its name on the Compose network): a page that rebinds its own domain to 127.0.0.1 still sends its own
+ * name. An endpoint left out of the rules below is refused to everyone. No
  * sessions, no cookies, so no CSRF to guard against. A curator the admin revoked is refused at once, not when their
  * last token expires.
  */
@@ -81,7 +82,7 @@ class WorkbenchSecurity {
     }
 
     @Bean
-    fun firewall() = StrictHttpFirewall().apply { setAllowedHostnames { it == "localhost" || it == "127.0.0.1" } }
+    fun firewall(web: WebProperties) = StrictHttpFirewall().apply { setAllowedHostnames { it in web.allowedHosts } }
 
     /** A request the firewall turns away gets a 400, not a 500. */
     @Bean

@@ -1,6 +1,10 @@
 spring:
   application:
     name: workbench
+  # Keys given to the container as files (compose.review.yaml): each file a property named after it, as
+  # anthropic-api-key. None on the curator's computer.
+  config:
+    import: optional:configtree:/run/secrets/
   jackson:
     # Optional fields are left out rather than sent as null, as the contract describes them.
     default-property-inclusion: non_null
@@ -33,7 +37,8 @@ spring:
       read-timeout: 5s
   # Every request carries an access token from auth (backend/auth, on localhost:9000): a JWT the workbench checks against
   # auth's published keys, fetched on the first request and again whenever a token names a key it does not know (after
-  # a rotation), so auth may start after the workbench.
+  # a rotation), so auth may start after the workbench. On the server (compose.review.yaml), the issuer is auth's public
+  # address and the keys are fetched from auth on the Compose network.
   security:
     oauth2:
       resourceserver:
@@ -43,12 +48,15 @@ spring:
           audiences: workbench
           jws-algorithms: ES256
 
-# On the curator's computer only, never on the network: wb and curate call it there.
+# On the curator's computer, on loopback only: wb and curate call it there. On the server, on the Compose network only
+# (compose.review.yaml), its port published on loopback for wb.
 server:
   address: 127.0.0.1
   port: 8090
 
 app:
+  web:
+    allowed-hosts: [localhost, 127.0.0.1]
   curation:
     # The people of each moment whose facts are proposed for review (wb claims), the best known first.
     people-per-moment: 50

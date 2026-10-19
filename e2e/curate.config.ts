@@ -7,7 +7,7 @@ export const SIGNED_IN = "test-results/.auth/curator.json";
 export const PASSKEY = "test-results/.auth/passkey.json";
 
 /**
- * End-to-end tests of curate, the curator's review app, on the curator's computer only: never in CI, which runs no
+ * End-to-end tests of curate, the curators' review app, on the curator's computer only: never in CI, which runs no
  * workbench. Start auth with its output in a file and a one-time link (`./gradlew :auth:bootRun
  * --args=--app.auth.one-time-link=true > auth.log`), the workbench on a throwaway copy of its database (the tests add
  * and decide claims), propose the claims (`wb claims`, `wb occupations`), and curate against them, then:

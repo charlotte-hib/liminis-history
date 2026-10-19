@@ -1,6 +1,6 @@
-# The workbench's Postgres, on the Mac only, never deployed. ./gradlew :workbench:bootRun or :auth:bootRun starts it
-# through Spring Boot's Docker Compose support and connects to it; neither stops it on exit, as the other may still use
-# it: docker compose -f compose.workbench.yaml stop. It is the site's db service (docker-compose.yml), same
+# The workbench's Postgres on the curator's computer (compose.review.yaml extends it for the server). ./gradlew
+# :workbench:bootRun or :auth:bootRun starts it through Spring Boot's Docker Compose support and connects to it; neither
+# stops it on exit, as the other may still use it: docker compose -f compose.workbench.yaml stop. It is the site's db service (docker-compose.yml), same
 # image and collation, with settings of its own (db/workbench.env), its port published on loopback, on a port Docker
 # picks, and a named volume of its own: what the workbench fetches will live there.
 name: liminis-workbench

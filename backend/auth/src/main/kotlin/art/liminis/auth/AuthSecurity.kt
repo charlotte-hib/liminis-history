@@ -247,9 +247,15 @@ class AuthSecurity {
         }
     }
 
-    /** Only requests addressed to this computer: a page that rebinds its own name to 127.0.0.1 still sends that name. */
+    /**
+     * Only requests addressed to auth's own names: its issuer's, and those it answers to on this computer or on the
+     * server's Compose network. A page that rebinds its own name to 127.0.0.1 still sends that name.
+     */
     @Bean
-    fun firewall() = StrictHttpFirewall().apply { setAllowedHostnames { it == "localhost" || it == "127.0.0.1" } }
+    fun firewall(properties: AuthProperties, settings: AuthorizationServerSettings): StrictHttpFirewall {
+        val names = properties.allowedHosts + URI(settings.issuer!!).host
+        return StrictHttpFirewall().apply { setAllowedHostnames { it in names } }
+    }
 
     /** A request the firewall turns away gets a 400, not a 500. */
     @Bean

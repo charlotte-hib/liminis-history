@@ -59,7 +59,7 @@ Outside CI they drive the installed Google Chrome; CI installs Playwright's Chro
 
 Spring Boot 4 and Kotlin, JPA entities, MapStruct for DTOs, and MockMvc API tests that run against `sample/`.
 
-Four Gradle projects: `core` holds the model every app shares (JPA entities, repositories, small helpers), the release compiler and loader, and the Wikipedia enrichment; `site` the public API, the only project in the production image; `workbench` the curator's tools, never in an image (today, story drafting and the Wikidata import, below); and `auth`, the curator's sign-in to the workbench, never in an image either.
+Four Gradle projects: `core` holds the model every app shares (JPA entities, repositories, small helpers), the release compiler and loader, and the Wikipedia enrichment; `site` the public API, the site's image; `workbench` the curators' tools (today, story drafting and the Wikidata import, below); and `auth`, the curators' sign-in to the workbench. The last two run on the curator's computer, or from images of their own for the review on the server (below).
 
 The data is a **release**: a directory of JSON Lines files, described in [`sample/README.md`](sample/README.md). At startup the site reads the release in `app.release.dir` (Jackson), checks it and maps it to entities (MapStruct, `ReleaseMapper`), then stores it in Postgres. Its JSON Schema, `sample/release.schema.json`, is generated from the record classes (`./gradlew :core:releaseSchema`); the tests check it is current and that `sample/` matches it. `./gradlew bootRun` and the tests load `sample/`. The Docker image holds no data: Compose mounts the release read-only at `/app/release`, `sample/` locally and in CI. Production serves a private release instead: the curator's data lives in a private repository, whose CI checks it on the site and packs it into a private package on GHCR; `release.lock` pins that package by digest, and the deploy job pulls it and sends it to the server.
 
@@ -73,7 +73,7 @@ Next.js 16 App Router with server components for data. Calls to the backend go t
 
 ## The workbench
 
-The curator's tools run on the curator's machine only, never in an image: the workbench, a server on `127.0.0.1:8090`, `wb`, its command line, and `auth`, which signs them in. Start both servers, with Docker running, and leave them running:
+The curator's tools: the workbench, a server on `127.0.0.1:8090`, `wb`, its command line, and `auth`, which signs them in. On the curator's computer, start both servers, with Docker running, and leave them running:
 
 ```sh
 cd backend
@@ -99,7 +99,7 @@ Each command starts a run in the background, one at a time, and follows it; `wb 
 
 ### Signing in: `auth`
 
-`auth` is an OAuth 2.1 and OpenID Connect authorization server on `localhost:9000` (Spring Authorization Server, part of Spring Security), on the curator's computer only. The curator signs in with a passkey: Touch ID, nothing to remember, nothing to leak. It issues access tokens to two clients, registered from its code on every start:
+`auth` is an OAuth 2.1 and OpenID Connect authorization server on `localhost:9000` (Spring Authorization Server, part of Spring Security), on the curator's computer or on the server. The curator signs in with a passkey: Touch ID, nothing to remember, nothing to leak. It issues access tokens to two clients, registered from its code on every start:
 
 - **curate**, for the curators: authorization code with PKCE, after a passkey, then refresh tokens, each used once. Scopes `curation:read`, `curation:write`, `publish` and `admin`, of which each token carries those the account's role allows. The session lasts 8 hours from the sign-in.
 - **wb**, on its own: client credentials, scopes `curation:read` and `runs`. `wb` asks for a token on each command, and again every 5 minutes while it follows a run.
@@ -116,7 +116,7 @@ Anything a careful reader could dispute is a claim in the workbench's schema `cu
 
 ### Reviewing claims: `curate`
 
-`curate/` is the curator's review app, a Next.js app on the curator's computer only, never in an image. With the workbench running:
+`curate/` is the curators' review app, a Next.js app on the curator's computer or on the server. With the workbench running:
 
 ```bash
 cd curate && npm ci && npm run dev   # http://localhost:3100

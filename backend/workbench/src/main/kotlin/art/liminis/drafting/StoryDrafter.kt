@@ -7,6 +7,7 @@ import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
 import com.anthropic.models.messages.StructuredOutputConfig
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Lazy
@@ -47,11 +48,13 @@ class AnthropicConfiguration {
 
     /**
      * One client for every draft, with its connection pool, closed on shutdown. Built on the first draft, from
-     * `ANTHROPIC_API_KEY`: the workbench starts without one, and only drafting needs it.
+     * `ANTHROPIC_API_KEY`, or on the server from the key's file (`anthropic-api-key`): the workbench starts without one,
+     * and only drafting needs it.
      */
     @Bean
     @Lazy
-    fun anthropicClient(): AnthropicClient = AnthropicOkHttpClient.fromEnv()
+    fun anthropicClient(@Value("\${anthropic-api-key:}") apiKey: String): AnthropicClient =
+        AnthropicOkHttpClient.builder().fromEnv().apply { if (apiKey.isNotBlank()) apiKey(apiKey.trim()) }.build()
 }
 
 /** Drafts a moment's story with Claude, as structured output checked against a schema. */

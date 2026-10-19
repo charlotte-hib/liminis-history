@@ -1,6 +1,6 @@
-// auth: the curators' sign-in, on the curator's computer only, never in an image. An OAuth 2.1 and OpenID Connect
-// authorization server on localhost:9000: accounts and passkeys, JWTs for the workbench API, a client for curate and
-// one for wb, and the accounts API curate's Team page calls.
+// auth: the curators' sign-in, on the curator's computer or in an image for the server (backend/Dockerfile, target
+// auth). An OAuth 2.1 and OpenID Connect authorization server on localhost:9000: accounts and passkeys, JWTs for the
+// workbench API, a client for curate and one for wb, and the accounts API curate's Team page calls.
 plugins {
 	kotlin("jvm")
 	kotlin("plugin.spring")
@@ -29,6 +29,9 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
 	runtimeOnly("org.flywaydb:flyway-database-postgresql")
 	runtimeOnly("org.postgresql:postgresql")
+	// A request limit per visitor, its buckets forgotten once idle (RateLimit).
+	implementation("com.bucket4j:bucket4j_jdk17-core:8.21.0")
+	implementation("com.github.ben-manes.caffeine:caffeine")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")
 	// Postgres on ./gradlew :auth:bootRun: the db service of compose.workbench.yaml, shared with the workbench.

@@ -2,3 +2,5 @@
 .kotlin
 **/build
 .DS_Store
+dataset-export
+natural-earth

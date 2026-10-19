@@ -25,3 +25,6 @@ e2e/playwright-report/
 /backend/dataset-export/
 # Design notes, kept on one machine.
 /docs/design/
+# The review's keys and database password on the server, as files (compose.review.yaml).
+/review-secrets/
+review-db.env
