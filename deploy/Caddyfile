@@ -1,10 +1,17 @@
-# This app's site on the server's Caddy, which serves every site on the server and gets the HTTPS
-# certificates. The server's /etc/caddy/Caddyfile owns the site addresses and imports this snippet:
+# This app's sites on the server's Caddy, which serves every site on the server and gets the HTTPS
+# certificates. The server's /etc/caddy/Caddyfile owns the site addresses and imports these snippets:
 #   import /opt/liminis/deploy/Caddyfile
 #   <site addresses> {
 #   	import liminis
 #   }
-# After changing this file: sudo systemctl reload caddy
+#   <curate's address> {
+#   	import liminis-curate
+#   }
+#   <auth's address> {
+#   	import liminis-auth
+#   }
+# After changing this file: sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile && sudo systemctl
+# reload caddy
 
 (liminis) {
 	encode zstd gzip
@@ -14,5 +21,44 @@
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 		-Server
+	}
+}
+
+# The curators' review (compose.review.yaml): public, but for invited curators only, never framed, never indexed.
+(liminis-review) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		X-Frame-Options DENY
+		Content-Security-Policy "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+	handle /robots.txt {
+		respond "User-agent: *
+Disallow: /
+"
+	}
+}
+
+(liminis-curate) {
+	import liminis-review
+	reverse_proxy 127.0.0.1:3100
+}
+
+# Only what a browser needs: auth's pages (/, /login, /login/ott, /webauthn/register, /auth.css), Spring Security's
+# passkey script and endpoints (/login/webauthn.js, /login/webauthn, /webauthn/...), and the authorization server's
+# authorize and OpenID logout endpoints. Discovery, tokens, keys and the accounts API are for curate, the workbench and
+# wb, which call auth on the server itself. Check the list again after a Spring Security upgrade.
+(liminis-auth) {
+	import liminis-review
+	@browser path / /auth.css /login /login/* /webauthn/* /oauth2/authorize /connect/logout
+	handle @browser {
+		reverse_proxy 127.0.0.1:9000
+	}
+	handle {
+		respond 404
 	}
 }

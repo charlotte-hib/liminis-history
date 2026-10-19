@@ -8,7 +8,8 @@
 #   echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > review-db.env
 #   docker compose -f compose.review.yaml up --build, then the one-time link in auth's log, then http://localhost:3100.
 # The keys' files are mounted as they are (Compose secrets without swarm): uid 10001, the images' user, must be able
-# to read them.
+# to read them. On the server, deploy/deploy.sh runs it with review.env (AUTH_URL, CURATE_URL) and the images it
+# deploys (review-images.env).
 name: liminis-review
 
 services:

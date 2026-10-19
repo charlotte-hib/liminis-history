@@ -1,6 +1,6 @@
 # Pull requests: test, build each image once, then run the API and end-to-end tests and the vulnerability scan against
-# those images. Main: also publish the same images to GHCR, signed, and deploy the site's to the VPS once every check
-# has passed. The review's images (workbench, auth, curate) are built, scanned and published the same way.
+# those images. Main: also publish the same images to GHCR, signed, and deploy them to the VPS once every check has
+# passed: the site's, then the review's (workbench, auth, curate).
 # No long-lived secrets: GHCR uses the job token, Tailscale and SSH use GitHub's OIDC identity.
 name: CI/CD
 
@@ -308,7 +308,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          for service in backend frontend; do
+          for service in backend frontend workbench auth curate; do
             image="$IMAGE_PREFIX-$service"
             digest=$(docker buildx imagetools inspect "$image:sha-$GITHUB_SHA" --format '{{json .Manifest}}' | jq -r .digest)
             gh attestation verify "oci://$image@$digest" \
@@ -325,13 +325,33 @@ jobs:
           tags: tag:ci
           ping: ${{ vars.VPS_HOST }}
       - name: Roll out on the VPS
+        id: rollout
         # Tailscale SSH: the tailnet authenticates both ends, so there is no SSH key and no host key to pin.
-        # The release bundle goes on stdin; deploy.sh unpacks it unless the server has it already.
+        # The release bundle goes on stdin; deploy.sh unpacks it unless the server has it already. The review's three
+        # images follow the site's two. Exit 3: the site is released, the review rolled back; the site's deployment
+        # stands (the smoke test runs, the daily scan finds it) and the review job below fails instead.
         run: |
+          set +e
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "deploy@${{ vars.VPS_HOST }}" \
             "cd /opt/liminis && git fetch --quiet origin && git checkout --quiet --detach $GITHUB_SHA && \
-             deploy/deploy.sh $GITHUB_SHA ${{ steps.images.outputs.backend }} ${{ steps.images.outputs.frontend }}" \
+             deploy/deploy.sh $GITHUB_SHA ${{ steps.images.outputs.backend }} ${{ steps.images.outputs.frontend }} \
+               ${{ steps.images.outputs.workbench }} ${{ steps.images.outputs.auth }} ${{ steps.images.outputs.curate }}" \
             < "$RUNNER_TEMP/release/release.tar.gz"
+          status=$?
+          if [ "$status" = 3 ]; then echo "review=failed" >> "$GITHUB_OUTPUT"; exit 0; fi
+          exit "$status"
+    outputs:
+      review: ${{ steps.rollout.outputs.review }}
+
+  review:
+    name: Review on the server
+    needs: deploy
+    if: needs.deploy.outputs.review == 'failed'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::error::The review stack was unhealthy after the deploy and went back to its previous images; the site is released. See the deploy job's log."
+          exit 1
 
   smoke:
     name: Smoke test

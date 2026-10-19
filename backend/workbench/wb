@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # wb: the workbench's command line. Starts runs on the workbench (./gradlew :workbench:bootRun, in backend/) and follows
 # them, or shows what waits for review. Signs in to auth (./gradlew :auth:bootRun, in backend/) as the wb client, with
-# the secret auth wrote on its first start.
+# the secret auth wrote on its first start. With WB_SERVER (user@host), the commands run on the server instead, over
+# SSH, against the review stack there (deploy/wb); export runs there too, then pushes its files from here.
 set -euo pipefail
 
 url="${WB_URL:-http://localhost:8090}"
@@ -15,6 +16,7 @@ data_repo="${WB_DATA_REPO:-$(dirname "$repo")/liminis-history-data}"
 dataset_package=ghcr.io/charlotte-hib/liminis-history-dataset
 # The data repository's CI pushes its release bundles with the same version.
 oras_image=ghcr.io/oras-project/oras:v1.3.4@sha256:f7bc056d54d97baa399414ed5048ecc67c3371b750d4bbce1d871827a5758179
+server="${WB_SERVER:-}"
 
 usage() {
   cat <<'EOF'
@@ -24,6 +26,7 @@ Usage: wb <command>
   map             map the last finished import to the dataset's rows
   export          export the dataset's rows to files, push them to a private package, and pin it in the data
                   repository's data/fetched.lock (needs Docker, and gh with write:packages)
+  export-run      only export the dataset's rows to files, where the workbench runs
   sample          write the public sample/'s slice of the last export into sample/dataset/: its people, and the
                   people most written about of its moments' places (no workbench needed)
   claims          propose the facts of the people of the release's moments for review
@@ -101,7 +104,18 @@ start() {
 # The same rows make the same files and the same digest: pushing them again adds nothing.
 export_dataset() {
   [[ -d "$data_repo/data" ]] || { echo "wb: no data repository at $data_repo (WB_DATA_REPO)" >&2; exit 1; }
-  start '{"kind": "DATASET_EXPORT"}'
+  if [[ -n "$server" ]]; then
+    remote export-run
+    # Into a folder of its own first, so a cut copy never mixes with the last export: then only the export's files.
+    local copy
+    copy="$(mktemp -d)"
+    remote export-files | tar -x -C "$copy"
+    mkdir -p "$export_dir"
+    mv "$copy"/manifest.json "$copy"/{people,articles,places,occupations}.jsonl.gz "$export_dir"/
+    rm -r "$copy"
+  else
+    start '{"kind": "DATASET_EXPORT"}'
+  fi
   local manifest tag digest
   manifest="$(<"$export_dir/manifest.json")"
   tag="$(json "$manifest" "f\"import-{d['import']['run']}-{d['import']['finishedAt'][:10].replace('-', '')}\"")"
@@ -132,10 +146,26 @@ export_dataset() {
   echo "Pinned $dataset_package@$digest in $data_repo/data/fetched.lock: commit it on a branch there and open a pull request."
 }
 
+# On the server, as the deploy user, with a terminal when there is one: Ctrl-C then stops following, as here.
+remote() {
+  local tty=()
+  [[ -t 0 && -t 1 ]] && tty=(-t)
+  # The arguments quoted, as the server's shell reads them again.
+  ssh ${tty[@]+"${tty[@]}"} "$server" /opt/liminis/deploy/wb "$(printf '%q ' "$@")"
+}
+
+if [[ -n "$server" ]]; then
+  case "${1:-}" in
+    export|sample|""|-h|--help|help) ;;
+    *) remote "$@"; exit ;;
+  esac
+fi
+
 case "${1:-}" in
   import) start '{"kind": "WIKIDATA_IMPORT"}' ;;
   map) start '{"kind": "DATASET_MAPPING"}' ;;
   export) export_dataset ;;
+  export-run) start '{"kind": "DATASET_EXPORT"}' ;;
   sample) python3 -I "$repo/backend/workbench/sample_dataset.py" "$export_dir" "$repo/sample" ;;
   claims) start '{"kind": "PERSON_FACTS_CLAIMS"}' ;;
   occupations) start '{"kind": "OCCUPATION_CLAIMS"}' ;;
