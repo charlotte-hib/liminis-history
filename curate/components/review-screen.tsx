@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { decide, undo } from "@/app/actions";
 import { History, PayloadView, Sources } from "@/components/claim-parts";
-import { AnecdoteForm, FactsForm } from "@/components/edit-forms";
-import { FactsTable } from "@/components/facts";
+import { AnecdoteForm } from "@/components/edit-forms";
 import { HolderBar } from "@/components/holder-bar";
 import { Intros } from "@/components/intros";
 import { CHOICES, OccupationView } from "@/components/occupation";
+import { KeyButton, ProblemBanner, UndoBar, VERDICTS } from "@/components/decision-parts";
 import type { components } from "@/lib/api-schema";
 import { lockedFor, type Viewer } from "@/lib/holders";
 import { describe, FLAG_STYLE, FLAGS, flagsOf, type QUEUES } from "@/lib/labels";
@@ -24,8 +24,6 @@ type Queue = (typeof QUEUES)[number];
 
 /** The last decision taken here, with the claim's version after it, so that U can undo it. */
 type Decided = { id: string; title: string; version: string; verdict: string };
-
-const VERDICTS: Record<Action, string> = { APPROVE: "Approved", REJECT: "Rejected", NEEDS_WORK: "Kept for later" };
 
 type Props = { queue: Queue; later: boolean; moment?: string; claims: ClaimSummary[]; current: Review | null; viewer: Viewer };
 
@@ -175,7 +173,7 @@ function ClaimPanel({ review, viewer, pending: busy, problem, last, onDecide, on
   const pending = busy || locked;
   const [mode, setMode] = useState<"view" | "edit" | "REJECT" | "NEEDS_WORK">("view");
   const [note, setNote] = useState("");
-  const editable = payload.type === "PERSON_FACTS" || payload.type === "ANECDOTE";
+  const editable = payload.type === "ANECDOTE";
 
   useEffect(() => {
     if (mode !== "view") return;
@@ -218,7 +216,6 @@ function ClaimPanel({ review, viewer, pending: busy, problem, last, onDecide, on
           <h2 className="page-title">
             {payload.type === "ANECDOTE" ? (person?.label ?? qid) : title}
           </h2>
-          {payload.type === "PERSON_FACTS" && payload.labelFr && <span className="text-muted">{payload.labelFr}</span>}
           <span className="ml-auto font-mono text-[12.5px] text-muted">{claim.id}</span>
           {qid && (
             <a href={`https://www.wikidata.org/wiki/${qid}`} target="_blank" rel="noreferrer" className="font-mono text-lamp">
@@ -236,12 +233,8 @@ function ClaimPanel({ review, viewer, pending: busy, problem, last, onDecide, on
           </div>
         ))}
 
-        {mode === "edit" && payload.type === "PERSON_FACTS" ? (
-          <FactsForm payload={payload} pending={pending} onApprove={(p, n) => onDecide("APPROVE", p, n)} onCancel={() => setMode("view")} />
-        ) : mode === "edit" && payload.type === "ANECDOTE" ? (
+        {mode === "edit" && payload.type === "ANECDOTE" ? (
           <AnecdoteForm payload={payload} pending={pending} onApprove={(p, n) => onDecide("APPROVE", p, n)} onCancel={() => setMode("view")} />
-        ) : payload.type === "PERSON_FACTS" ? (
-          <FactsTable facts={payload} evidence={evidence} flags={claim.flags} />
         ) : payload.type === "OCCUPATION_DOMAIN" ? (
           <OccupationView payload={payload} evidence={occupation} />
         ) : (
@@ -249,7 +242,7 @@ function ClaimPanel({ review, viewer, pending: busy, problem, last, onDecide, on
         )}
 
         {mode !== "edit" && evidence && <Intros articles={evidence.articles} />}
-        {payload.type !== "PERSON_FACTS" && <Sources sources={claim.sources} />}
+        <Sources sources={claim.sources} />
         <History decisions={claim.decisions} />
       </main>
 
@@ -305,46 +298,5 @@ function ClaimPanel({ review, viewer, pending: busy, problem, last, onDecide, on
         ) : null}
       </footer>
     </>
-  );
-}
-
-function KeyButton(props: { keyName: string; label: string; primary?: boolean; disabled: boolean; onClick: () => void }) {
-  const { keyName, label, primary, disabled, onClick } = props;
-  return (
-    <button type="button" disabled={disabled} onClick={onClick} title={`Key: ${keyName}`} className={primary ? "button-primary" : "button"}>
-      {label}
-      <kbd className="border-current/40 text-[11px] opacity-70">{keyName}</kbd>
-    </button>
-  );
-}
-
-function UndoBar({ last, pending, onUndo }: { last: Decided; pending: boolean; onUndo: () => void }) {
-  return (
-    <div role="status" className="flex items-center gap-3 rounded-full bg-ink py-1 pr-1 pl-4 text-paper">
-      <span className="max-w-72 truncate">
-        {last.verdict}: {last.title}
-      </span>
-      <button type="button" disabled={pending} onClick={onUndo} className="min-h-9 rounded-full border border-paper/60 px-3">
-        Undo
-      </button>
-    </div>
-  );
-}
-
-/** A decision the workbench refused: a claim changed meanwhile (412) can be read again. */
-function ProblemBanner({ problem, onReload }: { problem: { status: number; detail: string }; onReload: () => void }) {
-  const stale = problem.status === 412;
-  return (
-    <div role="alert" className="flex items-center gap-4 rounded bg-lamp-soft px-4 py-3">
-      <div className="flex flex-col gap-0.5">
-        <strong>{stale ? "This claim changed since you opened it" : "The workbench refused"}</strong>
-        <span>{stale ? "Your decision was not saved. Read it again, then decide." : problem.detail}</span>
-      </div>
-      {stale && (
-        <button type="button" onClick={onReload} className="button-primary ml-auto">
-          Show the current claim
-        </button>
-      )}
-    </div>
   );
 }

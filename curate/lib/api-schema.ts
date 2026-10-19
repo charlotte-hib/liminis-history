@@ -225,6 +225,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/people/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * People to review
+         * @description Everyone with a facts claim, or with `moment` everyone alive in it (as `/api/moments/{id}/people` lists them),
+         *     those without a claim too: the best known first, a page at a time, those `filter` keeps, with how many each
+         *     filter keeps. A person with a claim is shown as the claim has them, edits included.
+         */
+        get: operations["listPeopleToReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/people/{qid}/neighbours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who comes before and after a person
+         * @description Where the person stands among the people to review that the same `moment`, `filter` and `q` keep, in the same
+         *     order: the people just before and after them, and their place if the filter keeps them. One the filter no longer
+         *     keeps (just decided) still has neighbours, by where they would stand.
+         */
+        get: operations["getReviewNeighbours"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/people/{qid}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A person as the site would show them
+         * @description What the site's person panel shows of the person beyond their name and dates: their portrait, the intro of
+         *     their English Wikipedia article, their domain, and their life in their time, from the release's eras and events
+         *     of the moment's region (without `moment`, of the country their birthplace lies in today) and the anecdotes told
+         *     about them. `born`, `died` and `occupation` stand for the facts being edited; without them, the claim's, else
+         *     the dataset's.
+         */
+        get: operations["getPersonPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/moments": {
         parameters: {
             query?: never;
@@ -973,6 +1041,91 @@ export interface components {
             sitelinks: number;
             claim?: components["schemas"]["ClaimStatus"];
         };
+        /**
+         * @description Which people to review: their facts `WAITING`, those of them with a conflict (`CONFLICTS`) or poorly documented
+         *     (`POORLY_DOCUMENTED`), `KEPT_FOR_LATER`, `DECIDED` (approved or rejected), or, in a moment, `NOT_PROPOSED`:
+         *     nobody proposed their facts yet.
+         * @default WAITING
+         * @enum {string}
+         */
+        ReviewFilter: "WAITING" | "CONFLICTS" | "POORLY_DOCUMENTED" | "KEPT_FOR_LATER" | "DECIDED" | "NOT_PROPOSED";
+        PeopleToReview: {
+            /** @description How many people the filter keeps. */
+            total: number;
+            counts: components["schemas"]["ReviewCounts"];
+            people: components["schemas"]["PersonToReview"][];
+        };
+        /** @description How many people each filter keeps, in the same moment and search. */
+        ReviewCounts: {
+            waiting: number;
+            conflicts: number;
+            poorlyDocumented: number;
+            keptForLater: number;
+            decided: number;
+            /** @description Always 0 without a moment. */
+            notProposed: number;
+        };
+        PersonToReview: {
+            person: components["schemas"]["Qid"];
+            label: string;
+            labelFr?: string;
+            born: components["schemas"]["Year"];
+            died: components["schemas"]["Year"];
+            sitelinks: number;
+            /** @description The first occupation's label, the one the site shows. */
+            occupation?: string;
+            birthplace?: string;
+            deathplace?: string;
+            claim?: components["schemas"]["ClaimStatus"];
+            /** @description The username of who holds the claim. */
+            heldBy?: string;
+            /** @description The claim's flags; none for a person without a claim. */
+            flags: components["schemas"]["FlagReason"][];
+        };
+        ReviewNeighbours: {
+            /** @description How many people the filter keeps. */
+            total: number;
+            /** @description The person's place among them, from 1; none when the filter does not keep them. */
+            position?: number;
+            previous?: components["schemas"]["Qid"];
+            next?: components["schemas"]["Qid"];
+        };
+        PersonPreview: {
+            person: components["schemas"]["Qid"];
+            /** @description The thumbnail of their English Wikipedia article, else the French one. */
+            portrait?: string;
+            /** @description The first paragraph of their English Wikipedia article's intro. */
+            about?: string;
+            wikipediaUrl?: string;
+            /**
+             * @description What the site files them under, from their first occupation with a domain; everyday life by default.
+             * @enum {string}
+             */
+            domain: "POWER" | "ARTS" | "EVERYDAY";
+            /** @description The name of the region their life is told in, as the release names it. */
+            region?: string;
+            year: components["schemas"]["Year"];
+            lifeline: components["schemas"]["PreviewLifeLine"][];
+        };
+        /**
+         * @description One line of "their life in their time", as the site would show it: their birth under its regime, each change of
+         *     regime during their life, the events around them (four at most besides their own), each anecdote told about
+         *     them, and their death.
+         */
+        PreviewLifeLine: {
+            year: components["schemas"]["Year"];
+            /** @description None outside their life, as for an anecdote told of a year after it. */
+            age?: number;
+            /** @enum {string} */
+            kind: "BIRTH" | "ERA" | "EVENT" | "OWN_EVENT" | "ANECDOTE" | "DEATH";
+            text: string;
+            /** @description Their role in an `OWN_EVENT`. */
+            role?: string;
+            /** @description Where an `ANECDOTE` was read or heard, as publishing would write it. */
+            source?: components["schemas"]["Source"];
+            /** @description An anecdote not approved yet. */
+            waiting: boolean;
+        };
         OccupationEvidence: {
             occupation: components["schemas"]["Qid"];
             label: string;
@@ -1385,6 +1538,11 @@ export interface components {
         IfMatch: string;
         /** @description The claim's id, URL-encoded, e.g. `person-facts:Q535`. */
         ClaimId: string;
+        /** @description Everyone alive in the moment, those without a claim too, instead of everyone with a claim. */
+        ReviewMoment: components["schemas"]["MomentId"];
+        ReviewFilter: components["schemas"]["ReviewFilter"];
+        /** @description Only those whose English or French label contains it, ignoring case and accents, or whom it names by Q-id. */
+        ReviewSearch: string;
     };
     requestBodies: never;
     headers: {
@@ -1738,6 +1896,103 @@ export interface operations {
                     "application/json": components["schemas"]["ClaimDetail"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listPeopleToReview: {
+        parameters: {
+            query?: {
+                /** @description Everyone alive in the moment, those without a claim too, instead of everyone with a claim. */
+                moment?: components["parameters"]["ReviewMoment"];
+                filter?: components["parameters"]["ReviewFilter"];
+                /** @description Only those whose English or French label contains it, ignoring case and accents, or whom it names by Q-id. */
+                q?: components["parameters"]["ReviewSearch"];
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the people. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeopleToReview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getReviewNeighbours: {
+        parameters: {
+            query?: {
+                /** @description Everyone alive in the moment, those without a claim too, instead of everyone with a claim. */
+                moment?: components["parameters"]["ReviewMoment"];
+                filter?: components["parameters"]["ReviewFilter"];
+                /** @description Only those whose English or French label contains it, ignoring case and accents, or whom it names by Q-id. */
+                q?: components["parameters"]["ReviewSearch"];
+            };
+            header?: never;
+            path: {
+                qid: components["schemas"]["Qid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The neighbours. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewNeighbours"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPersonPreview: {
+        parameters: {
+            query?: {
+                /** @description The moment the person is looked at from, for its region and its year. */
+                moment?: components["schemas"]["MomentId"];
+                born?: components["schemas"]["Year"];
+                died?: components["schemas"]["Year"];
+                /** @description Their first occupations, the site's domain is taken from, in order. */
+                occupation?: components["schemas"]["Qid"][];
+            };
+            header?: never;
+            path: {
+                qid: components["schemas"]["Qid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The preview. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

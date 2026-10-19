@@ -11,6 +11,7 @@ import {
   type NewClaim,
   type NewDecision,
   type Outcome,
+  type PersonPreview,
   type PersonSummary,
   type MomentPageText,
   type PaintingSearch,
@@ -62,6 +63,15 @@ export async function writeMomentPage(moment: string, text: MomentPageText): Pro
 export async function draftStory(moment: string): Promise<Outcome<{ id: number }>> {
   const result = await outcome(workbench.POST("/api/moments/{id}/story", { params: { path: { id: moment } } }));
   return result.ok ? { ok: true, data: { id: result.data.id } } : result;
+}
+
+/**
+ * The person as the site would show them, looked at from [moment] if given, with the years and first occupations being
+ * edited.
+ */
+export async function previewPerson(qid: string, moment: string | undefined, facts: { born?: number; died?: number; occupation: string[] }): Promise<Outcome<PersonPreview>> {
+  const query = { moment, born: facts.born, died: facts.died, occupation: facts.occupation.slice(0, 3) };
+  return outcome(workbench.GET("/api/people/{qid}/preview", { params: { path: { qid }, query } }));
 }
 
 export async function findPeople(q: string): Promise<PersonSummary[]> {

@@ -18,9 +18,13 @@ export type OccupationEvidence = components["schemas"]["OccupationEvidence"];
 export type Painting = components["schemas"]["Painting"];
 export type PaintingSearch = components["schemas"]["PaintingSearch"];
 export type Payload = components["schemas"]["Payload"];
+export type PeopleToReview = components["schemas"]["PeopleToReview"];
+export type PersonFacts = components["schemas"]["PersonFacts"];
+export type PersonPreview = components["schemas"]["PersonPreview"];
 export type PersonSummary = components["schemas"]["PersonSummary"];
 export type Problem = components["schemas"]["Problem"];
 export type Publication = components["schemas"]["Publication"];
+export type ReviewNeighbours = components["schemas"]["ReviewNeighbours"];
 export type StoryPreview = components["schemas"]["StoryPreview"];
 export type SubjectType = components["schemas"]["SubjectType"];
 
