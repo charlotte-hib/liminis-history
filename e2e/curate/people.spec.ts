@@ -33,6 +33,12 @@ test("the people to review are listed, filtered, and found as their name is type
   // No Enter needed: the search starts a moment after the last key.
   await page.getByLabel("Find a person").fill("victor hugo");
   await expect(page).toHaveURL(/q=victor\+hugo/);
+
+  // A link without the search empties the box, and the box doesn't bring it back.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "People" }).click();
+  await expect(page.getByLabel("Find a person")).toHaveValue("");
+  await page.waitForTimeout(1000);
+  await expect(page).toHaveURL(/\/people$/);
 });
 
 // A person's facts sit beside what Wikidata states; approving moves on to the next person, who can undo it.
