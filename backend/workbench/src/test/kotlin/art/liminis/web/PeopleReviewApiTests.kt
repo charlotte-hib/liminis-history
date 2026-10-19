@@ -15,9 +15,15 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import art.liminis.curation.Claims
 import art.liminis.curation.CurationFixtures
+import art.liminis.curation.OccupationDomain
+import art.liminis.curation.Origin
+import art.liminis.curation.Proposal
 import art.liminis.curation.OccupationProposals
 import art.liminis.dataset.DatasetStore
+import art.liminis.dataset.OccupationRow
+import art.liminis.dataset.PersonOccupation
 import art.liminis.testing.PostgresTestConfiguration
 
 /**
@@ -32,6 +38,7 @@ class PeopleReviewApiTests(
     @Autowired private val mockMvc: MockMvc,
     @Autowired private val dataset: DatasetStore,
     @Autowired private val occupations: OccupationProposals,
+    @Autowired private val claims: Claims,
     @Autowired private val jdbc: JdbcTemplate,
 ) {
 
@@ -196,5 +203,61 @@ class PeopleReviewApiTests(
             jsonPath("$.domain") { value("EVERYDAY") }
         }
         mockMvc.get("/api/people/{qid}/preview", "Q404") { signedIn() }.andExpect { status { isNotFound() } }
+    }
+
+    @Test
+    fun `a claim whose person a mapping run dropped stays in review`() {
+        propose("Q504", "Q535")
+        CurationFixtures.map(dataset, CurationFixtures.PEOPLE - CurationFixtures.HUGO)
+        mockMvc.get("/api/people/review") { signedIn() }.andExpect {
+            // As the claim has them, with the least known.
+            jsonPath("$.people[*].person") { value(contains("Q504", "Q535")) }
+            jsonPath("$.people[1].label") { value("Victor Hugo") }
+            jsonPath("$.people[1].sitelinks") { value(0) }
+        }
+        mockMvc.get("/api/people/{qid}/neighbours", "Q535") { signedIn() }.andExpect {
+            jsonPath("$.position") { value(2) }
+            jsonPath("$.previous") { value("Q504") }
+        }
+    }
+
+    @Test
+    fun `a preview takes the domain approved for a class above the occupation, as the release does`() {
+        val novelist = OccupationRow("Q6625963", "novelist", "romancier", null, listOf("Q36180"))
+        CurationFixtures.map(dataset, listOf(CurationFixtures.HUGO.copy(occupations = listOf(PersonOccupation(novelist.qid, true)))))
+        dataset.saveOccupations(listOf(novelist))
+        // Saved apart from the fixtures' writer, the novelist's class is linked by hand.
+        jdbc.update("insert into dataset.occupation_parent (occupation, position, parent) values ('Q6625963', 0, 'Q36180')")
+        // Only the class has a domain: the novelist's comes from it.
+        claims.propose(listOf(Proposal(OccupationDomain("Q36180", "writer"), Origin.WIKIDATA, emptyList(), emptyList())))
+        mockMvc.get("/api/people/{qid}/preview", "Q535") { signedIn() }.andExpect { jsonPath("$.domain") { value("EVERYDAY") } }
+        approve("occupation:Q36180", """{"type": "OCCUPATION_DOMAIN", "occupation": "Q36180", "label": "writer", "domain": "ARTS"}""")
+        mockMvc.get("/api/people/{qid}/preview", "Q535") { signedIn() }.andExpect { jsonPath("$.domain") { value("ARTS") } }
+    }
+
+    @Test
+    fun `refuses a preview born after the death, and an unknown moment`() {
+        mockMvc.get("/api/people/{qid}/preview", "Q535") { signedIn(); param("born", "1890"); param("died", "1885") }.andExpect {
+            status { isBadRequest() }
+        }
+        mockMvc.get("/api/people/{qid}/preview", "Q535") { signedIn(); param("moment", "atlantis-0") }.andExpect { status { isNotFound() } }
+        mockMvc.get("/api/people/{qid}/neighbours", "Q535") { signedIn(); param("moment", "atlantis-0") }.andExpect { status { isNotFound() } }
+    }
+
+    @Test
+    fun `filters the waiting with a conflict, and finds neighbours within a search`() {
+        propose("Q504", "Q535", "Q3008")
+        jdbc.update("update curation.claim set flags = '[{\"flag\": \"CONFLICT\", \"reason\": \"BIRTH_DISAGREES\"}]' where id = 'person-facts:Q3008'")
+        mockMvc.get("/api/people/review") { signedIn(); param("filter", "CONFLICTS") }.andExpect {
+            jsonPath("$.people[*].person") { value(contains("Q3008")) }
+            jsonPath("$.counts.conflicts") { value(1) }
+        }
+        mockMvc.get("/api/people/{qid}/neighbours", "Q535") { signedIn(); param("q", "o") }.andExpect { status { isBadRequest() } }
+        mockMvc.get("/api/people/{qid}/neighbours", "Q535") { signedIn(); param("q", "known") }.andExpect {
+            // Only Lesser Known is named so: Hugo, outside the search, still has him after.
+            jsonPath("$.total") { value(1) }
+            jsonPath("$.position") { doesNotExist() }
+            jsonPath("$.next") { value("Q3008") }
+        }
     }
 }

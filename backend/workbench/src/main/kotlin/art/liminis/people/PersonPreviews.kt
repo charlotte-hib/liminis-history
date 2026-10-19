@@ -7,8 +7,6 @@ import art.liminis.curation.ClaimRepository
 import art.liminis.curation.ClaimRules
 import art.liminis.curation.ClaimSources
 import art.liminis.curation.ClaimStatus
-import art.liminis.curation.OccupationChoice
-import art.liminis.curation.OccupationDomain
 import art.liminis.curation.PersonFacts
 import art.liminis.curation.PersonFactsMapper
 import art.liminis.curation.PlaceRole
@@ -19,10 +17,13 @@ import art.liminis.domain.Domain
 import art.liminis.domain.Era
 import art.liminis.domain.Event
 import art.liminis.domain.LONG_TEXT
+import art.liminis.release.OccupationDomains
+import art.liminis.release.OccupationRecord
 import art.liminis.repository.EraRepository
 import art.liminis.repository.EventRepository
 import art.liminis.repository.MomentRepository
 import art.liminis.repository.RegionRepository
+import art.liminis.support.InvalidRequestException
 import art.liminis.support.NotFoundException
 import art.liminis.support.dropHatnote
 import art.liminis.support.leadSentences
@@ -81,6 +82,7 @@ class PersonPreviews(
         val moment = momentId?.let { id -> moments.findById(id).orElseThrow { NotFoundException("No moment $id") } }
         val born = edited.born ?: facts.born
         val died = edited.died ?: facts.died
+        if (born > died) throw InvalidRequestException("Born in $born, after the death in $died")
         val region = moment?.region?.code ?: facts.places.firstOrNull { it.role == PlaceRole.BIRTH }?.country
         val articles = dataset.articles(qid)
         val english = articles.firstOrNull { it.language == "en" }
@@ -107,19 +109,14 @@ class PersonPreviews(
         )
     }
 
-    /** The domain of their first occupation the curator chose one for, as publishing writes it; everyday life by default. */
+    /**
+     * Their domain as the release gives it: from their first occupation with a domain approved, for it or for a class
+     * above it, as publishing writes them; everyday life by default.
+     */
     private fun domainOf(occupations: List<String>): Domain {
-        val chosen = claims.findAllById(occupations.map(ClaimRules::occupationId))
-            .filter { it.status != ClaimStatus.REJECTED }
-            .associate { (it.payload as OccupationDomain).let { claim -> claim.occupation to claim.domain } }
-        return occupations.firstNotNullOfOrNull {
-            when (chosen[it]) {
-                OccupationChoice.POWER -> Domain.POWER
-                OccupationChoice.ARTS -> Domain.ARTS
-                OccupationChoice.EVERYDAY -> Domain.EVERYDAY
-                OccupationChoice.NONE, null -> null
-            }
-        } ?: Domain.EVERYDAY
+        val records = claims.approvedDomains().map { OccupationRecord(it.occupation, it.domain?.let(Domain::valueOf)) }
+        val domains = OccupationDomains(records, dataset.occupations().associateBy { it.qid })
+        return occupations.firstNotNullOfOrNull(domains::of) ?: Domain.EVERYDAY
     }
 
     private data class ToldAnecdote(val anecdote: Anecdote, val source: SourceRef?, val waiting: Boolean)

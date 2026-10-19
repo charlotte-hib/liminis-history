@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional
 import art.liminis.curation.ClaimRepository
 import art.liminis.curation.ClaimRules
 import art.liminis.curation.ClaimStatus
+import art.liminis.curation.ClaimType
 import art.liminis.curation.Flag
 import art.liminis.curation.FlagReason
 import art.liminis.curation.PersonFacts
@@ -85,7 +86,9 @@ class PeopleReview(
      */
     @Transactional(readOnly = true)
     fun neighbours(qid: String, scope: ReviewScope): ReviewNeighbours {
+        // Someone whose dataset row a mapping run dropped stands with the least known, as the list has them.
         val sitelinks = jdbc.query("select sitelinks from dataset.person where qid = ?", { rs, _ -> rs.getInt(1) }, qid).singleOrNull()
+            ?: 0.takeIf { claims.existsById(ClaimRules.factsId(qid)) }
             ?: throw NotFoundException("Unknown person: $qid")
         val (base, args) = base(scope)
         // Best known first, then by Q-id: before [qid] are those with more sitelinks, or as many and a lower Q-id.
@@ -105,7 +108,10 @@ class PeopleReview(
         )!!
     }
 
-    /** The people [scope] reviews, before its filter, each with their claim's status and flags: SQL and its parameters. */
+    /**
+     * The people [scope] reviews, before its filter, each with their claim's status and flags: SQL and its parameters.
+     * Without a moment, from the claims, so a claim whose person a mapping run dropped stays in review.
+     */
     private fun base(scope: ReviewScope): Pair<String, List<Any>> {
         val where = mutableListOf<String>()
         val args = mutableListOf<Any>()
@@ -114,18 +120,27 @@ class PeopleReview(
             where += ALIVE_IN
             args.addAll(listOf(moment.endYear, moment.startYear, moment.region.code))
         } else {
-            where += "c.id is not null"
+            where += "c.type = '${ClaimType.PERSON_FACTS}'"
         }
         scope.query?.trim()?.let { query ->
             where += "($NAMED)"
             args.addAll(listOf(query.uppercase(), query, query))
         }
-        val sql = """
+        val sql = if (scope.moment != null) {
+            """
             select p.qid, p.sitelinks, c.status, c.flags
             from dataset.person p
             left join curation.claim c on c.id = '${ClaimRules.factsId("")}' || p.qid
             where ${where.joinToString(" and ")}
-        """.trimIndent()
+            """.trimIndent()
+        } else {
+            """
+            select c.payload ->> 'person' as qid, coalesce(p.sitelinks, 0) as sitelinks, c.status, c.flags
+            from curation.claim c
+            left join dataset.person p on p.qid = c.payload ->> 'person'
+            where ${where.joinToString(" and ")}
+            """.trimIndent()
+        }
         return sql to args
     }
 

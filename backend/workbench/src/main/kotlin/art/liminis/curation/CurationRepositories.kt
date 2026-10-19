@@ -11,6 +11,12 @@ interface QueueCount {
     val needsWork: Long
 }
 
+/** An occupation's domain as the curator approved it: none when it says nothing of a life's work. */
+interface ChosenDomain {
+    val occupation: String
+    val domain: String?
+}
+
 /** How many waiting claims of a type carry a flag. */
 interface FlagCount {
     val type: String
@@ -41,6 +47,16 @@ interface ClaimRepository : JpaRepository<Claim, String> {
     /** The anecdotes told about [person], in the order they were proposed. */
     @Query(nativeQuery = true, value = "select * from curation.claim where type = 'ANECDOTE' and payload ->> 'person' = :person order by seq")
     fun anecdotesAbout(person: String): List<Claim>
+
+    /** The occupations' approved domains, as publishing writes them into `occupations.jsonl`. */
+    @Query(
+        nativeQuery = true,
+        value = """
+            select payload ->> 'occupation' as occupation, nullif(payload ->> 'domain', 'NONE') as domain
+            from curation.claim where type = 'OCCUPATION_DOMAIN' and status = 'APPROVED'
+            """,
+    )
+    fun approvedDomains(): List<ChosenDomain>
 
     /** Every claim of [type] in [status], by id. */
     fun findByTypeAndStatusOrderById(type: ClaimType, status: ClaimStatus): List<Claim>

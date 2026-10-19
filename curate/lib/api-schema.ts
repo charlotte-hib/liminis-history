@@ -282,7 +282,7 @@ export interface paths {
          *     their English Wikipedia article, their domain, and their life in their time, from the release's eras and events
          *     of the moment's region (without `moment`, of the country their birthplace lies in today) and the anecdotes told
          *     about them. `born`, `died` and `occupation` stand for the facts being edited; without them, the claim's, else
-         *     the dataset's.
+         *     the dataset's. Born after the death is a 400.
          */
         get: operations["getPersonPreview"];
         put?: never;
@@ -1972,7 +1972,7 @@ export interface operations {
                 moment?: components["schemas"]["MomentId"];
                 born?: components["schemas"]["Year"];
                 died?: components["schemas"]["Year"];
-                /** @description Their first occupations, the site's domain is taken from, in order. */
+                /** @description Their occupations, in order. The site takes their domain from the first with one. */
                 occupation?: components["schemas"]["Qid"][];
             };
             header?: never;

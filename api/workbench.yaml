@@ -546,7 +546,7 @@ paths:
         their English Wikipedia article, their domain, and their life in their time, from the release's eras and events
         of the moment's region (without `moment`, of the country their birthplace lies in today) and the anecdotes told
         about them. `born`, `died` and `occupation` stand for the facts being edited; without them, the claim's, else
-        the dataset's.
+        the dataset's. Born after the death is a 400.
       parameters:
         - name: qid
           in: path
@@ -568,10 +568,10 @@ paths:
             $ref: "#/components/schemas/Year"
         - name: occupation
           in: query
-          description: Their first occupations, the site's domain is taken from, in order.
+          description: Their occupations, in order. The site takes their domain from the first with one.
           schema:
             type: array
-            maxItems: 3
+            maxItems: 50
             items:
               $ref: "#/components/schemas/Qid"
       responses:
