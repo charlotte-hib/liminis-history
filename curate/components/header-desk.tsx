@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { decide, undo, writeMomentPage } from "@/app/actions";
 import { History } from "@/components/claim-parts";
+import { HolderBar } from "@/components/holder-bar";
 import { MomentHeader } from "@/components/moment-header";
 import { PaintingBox } from "@/components/painting-picker";
 import { Quotes } from "@/components/story-desk";
 import type { components } from "@/lib/api-schema";
+import { lockedFor, type Viewer } from "@/lib/holders";
 import { describe, STATUS } from "@/lib/labels";
 
 type MomentPage = components["schemas"]["MomentPage"];
@@ -75,7 +77,7 @@ const VERDICTS: Record<Action, string> = { APPROVE: "Approved", REJECT: "Rejecte
 /** How many of the story's cards have a painting of their own, of how many: the others show the moment's. */
 type Painted = { own: number; cards: number };
 
-type Props = { moment: MomentDetail; claim: ClaimDetail | null; version: string | null; painted: Painted };
+type Props = { moment: MomentDetail; claim: ClaimDetail | null; version: string | null; painted: Painted; viewer: Viewer };
 
 /**
  * The top of a moment's page, its header, edited under itself: the header as visitors see it follows the form beneath
@@ -83,7 +85,7 @@ type Props = { moment: MomentDetail; claim: ClaimDetail | null; version: string 
  * beside each line, and the usual verdicts apply. With none, or a rejected one, it starts from the release's text and
  * painting, and approving the changes writes the claim and approves it at once.
  */
-export function HeaderDesk({ moment, claim, version, painted }: Props) {
+export function HeaderDesk({ moment, claim, version, painted, viewer }: Props) {
   const router = useRouter();
   const current = claim && claim.status !== "REJECTED" ? (claim.payload as MomentPage) : null;
   const start = current ?? releasedOf(moment);
@@ -100,7 +102,9 @@ export function HeaderDesk({ moment, claim, version, painted }: Props) {
   const [note, setNote] = useState("");
   const [last, setLast] = useState<Decided | null>(null);
   const [failure, setFailure] = useState<{ status: number; detail: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [working, startTransition] = useTransition();
+  // Held by someone else: read only.
+  const pending = working || lockedFor(claim?.heldBy, viewer);
 
   const page = pageOf(draft, base);
   const edited = JSON.stringify(page) !== JSON.stringify(pageOf(draftOf(start), start));
@@ -177,6 +181,7 @@ export function HeaderDesk({ moment, claim, version, painted }: Props) {
 
   return (
     <div className="flex flex-col gap-5">
+      {claim && <HolderBar claim={claim} viewer={viewer} />}
       <MomentHeader
         title={`${moment.place}, ${moment.period}`}
         region={moment.region}

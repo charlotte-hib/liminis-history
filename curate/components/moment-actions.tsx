@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { draftStory, proposeFacts } from "@/app/actions";
+import { draftStory, proposeFacts, releaseMoment, takeMoment } from "@/app/actions";
 import type { components } from "@/lib/api-schema";
 
 type Run = components["schemas"]["Run"];
@@ -135,5 +135,36 @@ export function ReviewButton({ qid, moment, status }: { qid: string; moment: str
     <button type="button" disabled={pending} onClick={review} title="Copies their facts from Wikidata for you to check" className="button-small">
       Review
     </button>
+  );
+}
+
+/**
+ * Takes the moment's open claims (its people's facts, its story, its header) to work on, or gives back those one
+ * holds. Claims someone else holds stay theirs: the outcome names them.
+ */
+export function HoldMoment({ moment }: { moment: string }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [said, setSaid] = useState<string>();
+
+  const run = (call: typeof takeMoment, verb: string) =>
+    startTransition(async () => {
+      const result = await call(moment);
+      if (!result.ok) return setSaid(result.detail);
+      const others = result.data.heldByOthers.map(({ username, claims }) => `${claims} held by ${username}`).join(", ");
+      setSaid(`${result.data.changed} ${result.data.changed === 1 ? "claim" : "claims"} ${verb}${others ? `; ${others}` : ""}.`);
+      router.refresh();
+    });
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <button type="button" className="button" disabled={pending} onClick={() => run(takeMoment, "taken")}>
+        Take this moment
+      </button>
+      <button type="button" className="button-small" disabled={pending} onClick={() => run(releaseMoment, "released")}>
+        Release mine
+      </button>
+      {said && <span role="status" className="text-muted">{said}</span>}
+    </div>
   );
 }

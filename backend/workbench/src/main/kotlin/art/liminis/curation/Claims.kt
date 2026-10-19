@@ -7,10 +7,12 @@ import tools.jackson.databind.json.JsonMapper
 import art.liminis.support.ConflictException
 import art.liminis.support.NotFoundException
 import art.liminis.support.StaleException
+import java.time.OffsetDateTime
 
 /**
- * Claims and the curator's decisions on them. Every change of status or payload is logged with who made it: the
- * curator (through the API), or the workbench's rules when it proposes or refreshes a claim.
+ * Claims and the curators' decisions on them. Every change of status or payload is logged with who made it: a curator
+ * (through the API), or the workbench's rules when it proposes or refreshes a claim. A curator works on the claims they
+ * hold: writing one nobody holds takes it ([ClaimRules.mayWrite]).
  */
 @Service
 class Claims(
@@ -44,7 +46,7 @@ class Claims(
     fun add(claim: NewClaim, by: String): ClaimDetail {
         val candidate = Claim.candidate(claim.payload, Origin.MANUAL, ClaimRules.flagsOfNew(claim))
         if (claims.existsById(candidate.id)) throw ConflictException("${candidate.id} exists already")
-        val added = claims.save(candidate)
+        val added = claims.save(candidate.also { hold(it, by) })
         sources.attach(added, claim.sources)
         decisions.save(Decision(added.id, by, null, added.status, null, added.payload, claim.note))
         return detail(added)
@@ -60,17 +62,19 @@ class Claims(
         if (claims.existsById(id)) throw ConflictException("$id exists already: decide on it")
         // Approved by the same rules as a decision on the proposal, edited.
         val approved = ClaimRules.decide(ClaimState(ClaimStatus.CANDIDATE, proposal, proposal, emptyList()), NewDecision(Verdict.APPROVE, payload, note))
-        val added = claims.save(Claim(id, ClaimRules.typeOf(payload), approved.status, Origin.MANUAL, approved.payload, proposal, approved.flags))
+        val claim = Claim(id, ClaimRules.typeOf(payload), approved.status, Origin.MANUAL, approved.payload, proposal, approved.flags)
+        val added = claims.save(claim.also { hold(it, by) })
         decisions.save(Decision(id, by, null, added.status, proposal, added.payload, note))
         return detail(added)
     }
 
     /** Approves (the edited payload, if given), rejects or keeps the claim for later, if it is still at [version]. */
     @Transactional
-    fun decide(id: String, version: Long, decision: NewDecision, by: String): ClaimDetail {
+    fun decide(id: String, version: Long, decision: NewDecision, by: Actor): ClaimDetail {
         val claim = find(id, version)
+        write(claim, by)
         val decided = ClaimRules.decide(claim.state, decision)
-        decisions.save(Decision(id, by, claim.status, decided.status, claim.payload, decided.payload, decision.note))
+        decisions.save(Decision(id, by.name, claim.status, decided.status, claim.payload, decided.payload, decision.note))
         claim.state = decided
         return detail(claim)
     }
@@ -80,15 +84,16 @@ class Claims(
      * claim is still at [version].
      */
     @Transactional
-    fun undo(id: String, version: Long, by: String): ClaimDetail {
+    fun undo(id: String, version: Long, by: Actor): ClaimDetail {
         val claim = find(id, version)
+        write(claim, by)
         val last = decisions.findByClaimOrderById(id).last()
         val from = last.from
-        if (last.by != by || from == null || last.undoes != null) {
+        if (last.by != by.name || from == null || last.undoes != null) {
             throw ConflictException("The claim's last decision is not one to undo")
         }
         val before = last.payloadBefore!!
-        decisions.save(Decision(id, by, claim.status, from, claim.payload, before, "Undone", undoes = last.id))
+        decisions.save(Decision(id, by.name, claim.status, from, claim.payload, before, "Undone", undoes = last.id))
         claim.status = from
         claim.payload = before
         return detail(claim)
@@ -124,6 +129,67 @@ class Claims(
         }
         return ProposalCounts(added, refreshed, proposals.size - added - refreshed)
     }
+
+    /**
+     * Makes [holder] the claim's holder, [by] asking: themselves, or, the admin asking, anyone. A claim someone else
+     * holds is the admin's alone to hand on.
+     */
+    @Transactional
+    fun take(id: String, by: Actor, holder: String = by.name): ClaimDetail {
+        val claim = find(id)
+        if (!ClaimRules.mayWrite(claim.heldBy, by)) throw held(claim)
+        hold(claim, holder)
+        return detail(claim)
+    }
+
+    /** Gives the claim back to the queue: its holder's call, or the admin's. */
+    @Transactional
+    fun release(id: String, by: Actor): ClaimDetail {
+        val claim = find(id)
+        if (!ClaimRules.mayWrite(claim.heldBy, by)) throw held(claim)
+        hold(claim, null)
+        return detail(claim)
+    }
+
+    /** Takes the open claims among [ids] for [by], leaving those someone else holds to them. */
+    @Transactional
+    fun takeAll(ids: List<String>, by: Actor): Holds {
+        val (free, others) = claims.findAllById(ids).filter { ClaimRules.isOpen(it.status) }
+            .partition { it.heldBy == null || it.heldBy == by.name }
+        val taken = free.filter { it.heldBy == null }
+        taken.forEach { hold(it, by.name) }
+        return Holds(taken.size, others.groupingBy { it.heldBy!! }.eachCount())
+    }
+
+    /** Releases the claims among [ids] that [by] holds, or, the admin asking, everyone's. */
+    @Transactional
+    fun releaseAll(ids: List<String>, by: Actor): Holds {
+        val held = claims.findAllById(ids).filter { it.heldBy != null && (it.heldBy == by.name || by.admin) }
+        held.forEach { hold(it, null) }
+        return Holds(held.size)
+    }
+
+    /** Releases every claim [username] holds: when the admin revokes them. */
+    @Transactional
+    fun releaseAllHeldBy(username: String): Holds = Holds(claims.releaseAllHeldBy(username))
+
+    /** Refuses unless [by] may write every claim among [ids] that exists: before a run rewrites them. */
+    fun requireWritable(ids: List<String>, by: Actor) {
+        claims.findAllById(ids).firstOrNull { !ClaimRules.mayWrite(it.heldBy, by) }?.let { throw held(it) }
+    }
+
+    /** Refuses unless [by] may write the claim; one nobody holds becomes theirs. */
+    private fun write(claim: Claim, by: Actor) {
+        if (!ClaimRules.mayWrite(claim.heldBy, by)) throw held(claim)
+        if (claim.heldBy == null) hold(claim, by.name)
+    }
+
+    private fun hold(claim: Claim, holder: String?) {
+        claim.heldBy = holder
+        claim.heldSince = holder?.let { OffsetDateTime.now() }
+    }
+
+    private fun held(claim: Claim) = ConflictException("${claim.id} is held by ${claim.heldBy}: only they, or the admin, can change it")
 
     private fun find(id: String): Claim =
         claims.findById(id).orElseThrow { NotFoundException("No claim $id") }

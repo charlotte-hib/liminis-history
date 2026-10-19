@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { HeaderDesk } from "@/components/header-desk";
 import type { components } from "@/lib/api-schema";
 import { STATUS } from "@/lib/labels";
+import { viewer } from "@/lib/viewer";
 import { etag, workbench } from "@/lib/workbench";
 
 type Story = components["schemas"]["Story"];
@@ -40,6 +41,7 @@ export default async function HeaderPage({ params }: PageProps<"/moments/[id]/he
         claim={header.data ?? null}
         version={header.data ? etag(header.response) : null}
         painted={{ own: cards.filter((card) => card.art).length, cards: cards.length }}
+        viewer={await viewer()}
       />
     </main>
   );

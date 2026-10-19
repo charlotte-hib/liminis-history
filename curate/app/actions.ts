@@ -7,6 +7,7 @@ import {
   outcome,
   workbench,
   type CardSubject,
+  type Holds,
   type NewClaim,
   type NewDecision,
   type Outcome,
@@ -106,7 +107,30 @@ export async function inviteAgain(username: string): Promise<Outcome<Invitation>
   return outcome(accounts.POST("/api/accounts/{username}/invitation", { params: { path: { username } } }));
 }
 
-/** Stops a curator at once: no more sign-in, passkey, link or session. */
+/** Stops a curator at once: no more sign-in, passkey, link or session; the claims they held go back to the queue. */
 export async function revoke(username: string): Promise<Outcome<Account>> {
-  return outcome(accounts.POST("/api/accounts/{username}/revocation", { params: { path: { username } } }));
+  const revoked = await outcome(accounts.POST("/api/accounts/{username}/revocation", { params: { path: { username } } }));
+  if (!revoked.ok) return revoked;
+  const released = await outcome(workbench.DELETE("/api/holders/{username}", { params: { path: { username } } }));
+  return released.ok ? revoked : { ...released, detail: `Revoked, but their claims are still held: ${released.detail}` };
+}
+
+/** Makes the caller the claim's holder, or, the admin asking, [username]. */
+export async function takeClaim(id: string, username?: string): Promise<Outcome<{ heldBy?: string }>> {
+  const result = await outcome(workbench.PUT("/api/claims/{id}/holder", { params: { path: { id } }, body: username ? { username } : {} }));
+  return result.ok ? { ok: true, data: { heldBy: result.data.heldBy } } : result;
+}
+
+export async function releaseClaim(id: string): Promise<Outcome<{ heldBy?: string }>> {
+  const result = await outcome(workbench.DELETE("/api/claims/{id}/holder", { params: { path: { id } } }));
+  return result.ok ? { ok: true, data: { heldBy: result.data.heldBy } } : result;
+}
+
+/** Takes the moment's open claims, leaving those someone else holds to them. */
+export async function takeMoment(id: string): Promise<Outcome<Holds>> {
+  return outcome(workbench.PUT("/api/moments/{id}/holder", { params: { path: { id } } }));
+}
+
+export async function releaseMoment(id: string): Promise<Outcome<Holds>> {
+  return outcome(workbench.DELETE("/api/moments/{id}/holder", { params: { path: { id } } }));
 }

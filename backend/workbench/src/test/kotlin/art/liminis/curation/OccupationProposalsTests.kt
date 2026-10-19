@@ -59,9 +59,9 @@ class OccupationProposalsTests(
         val id = "occupation:Q483501"
         val claim = claims.detail(id).claim
 
-        assertFailsWith<InvalidRequestException> { claims.decide(id, claim.version!!, NewDecision(Verdict.APPROVE), "curator") }
+        assertFailsWith<InvalidRequestException> { claims.decide(id, claim.version!!, NewDecision(Verdict.APPROVE), CurationFixtures.CURATOR) }
         val chosen = OccupationDomain("Q483501", "artist", "artiste", OccupationChoice.ARTS)
-        claims.decide(id, claim.version!!, NewDecision(Verdict.APPROVE, payload = chosen), "curator")
+        claims.decide(id, claim.version!!, NewDecision(Verdict.APPROVE, payload = chosen), CurationFixtures.CURATOR)
 
         assertEquals(ProposalCounts(added = 0, refreshed = 0, unchanged = 4), proposals.propose())
         assertEquals(ClaimStatus.APPROVED, claims.detail(id).claim.status)

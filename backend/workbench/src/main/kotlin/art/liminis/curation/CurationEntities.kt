@@ -49,6 +49,10 @@ class Claim(
     @Version
     val version: Long? = null
 
+    /** Who works on the claim, by username, and since when: only they, or the admin, edit or decide on it. */
+    var heldBy: String? = null
+    var heldSince: OffsetDateTime? = null
+
     /** Its status, payloads and flags together, as [ClaimRules] reads and changes them. */
     var state: ClaimState
         get() = ClaimState(status, payload, proposal, flags)

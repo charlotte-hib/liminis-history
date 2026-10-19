@@ -5,6 +5,7 @@ import org.mapstruct.Mapping
 import org.mapstruct.ReportingPolicy
 import org.springframework.web.bind.annotation.RestController
 import art.liminis.curation.ClaimStatus
+import art.liminis.curation.Claims
 import art.liminis.curation.StoryCard
 import art.liminis.domain.WorldAround
 import art.liminis.moments.CardSubject
@@ -18,7 +19,9 @@ import art.liminis.moments.StoryPreview
 import art.liminis.moments.SubjectType
 import art.liminis.runs.Runs
 import art.liminis.workbench.api.MomentsApi
+import art.liminis.web.WorkbenchSecurity.Companion.currentActor
 import art.liminis.workbench.api.model.CardSubjectDto
+import art.liminis.workbench.api.model.HoldsDto
 import art.liminis.workbench.api.model.ClaimStatusDto
 import art.liminis.workbench.api.model.MomentDetailDto
 import art.liminis.workbench.api.model.MomentPeopleDto
@@ -34,6 +37,8 @@ import art.liminis.workbench.api.model.WorldDto
 @RestController
 class MomentController(
     private val moments: Moments,
+    private val claims: Claims,
+    private val claimMapper: ClaimApiMapper,
     private val subjects: CardSubjects,
     private val runs: Runs,
     private val mapper: MomentApiMapper,
@@ -44,9 +49,14 @@ class MomentController(
     override fun getMoment(id: String): MomentDetailDto = mapper.toDto(moments.story(id)).copy(draft = runs.lastDraft(id))
 
     override fun draftStory(id: String): RunDto {
-        moments.requireExists(id)
+        // A draft rewrites the story and the header: not under someone else's hands.
+        claims.requireWritable(moments.draftClaimIds(id), currentActor())
         return runs.start(RunKindDto.STORY_DRAFT, id)
     }
+
+    override fun takeMoment(id: String): HoldsDto = claimMapper.toDto(claims.takeAll(moments.claimIds(id), currentActor()))
+
+    override fun releaseMoment(id: String): HoldsDto = claimMapper.toDto(claims.releaseAll(moments.claimIds(id), currentActor()))
 
     override fun listMomentPeople(id: String, offset: Int, limit: Int): MomentPeopleDto = mapper.toDto(moments.people(id, offset, limit))
 

@@ -82,7 +82,9 @@ export interface paths {
          * Decide on a claim
          * @description Approve (with an edited payload, if given), reject, or keep for later. A rejection and keeping for later need a
          *     note saying why. The decision is logged with the payload before and after. Needs the claim's version in
-         *     `If-Match`, so a decision is never taken on a claim that changed since it was read.
+         *     `If-Match`, so a decision is never taken on a claim that changed since it was read. Only the claim's holder, or
+         *     the admin, decides on it: a claim nobody holds goes to whoever decides first; one held by someone else is a
+         *     409.
          */
         post: operations["decide"];
         delete?: never;
@@ -103,10 +105,57 @@ export interface paths {
         /**
          * Undo the last decision
          * @description Puts back the status and payload from before the curator's last decision on this claim, and logs it. Needs the
-         *     claim's version in `If-Match`, as deciding does.
+         *     claim's version in `If-Match`, as deciding does, and the claim held by whoever undoes, or by nobody.
          */
         post: operations["undo"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/claims/{id}/holder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Take a claim
+         * @description Makes the caller the claim's holder: from then on only they, or the admin, edit or decide on it, and everyone
+         *     else sees who holds it. With a `username`, the admin hands it to that person instead (`admin` scope); taking a
+         *     claim someone else holds is the admin's alone too. A hold is never released by time, only by the holder or the
+         *     admin.
+         */
+        put: operations["takeClaim"];
+        post?: never;
+        /**
+         * Release a claim
+         * @description Gives the claim back to the queue, for anyone to take. Its holder's, or the admin's.
+         */
+        delete: operations["releaseClaim"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/holders/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Release everything someone holds
+         * @description Gives back to the queue every claim the person holds, as when the admin revokes them.
+         */
+        delete: operations["releaseHolder"];
         options?: never;
         head?: never;
         patch?: never;
@@ -229,9 +278,35 @@ export interface paths {
          * Draft the moment's story
          * @description Starts the run that drafts the moment's story with Claude and proposes its cards as the moment's `STORY` claim
          *     and its hook and world around as its `MOMENT_PAGE` claim, as `wb draft` does. The moment's `draft` follows it.
+         *     Refused (409) while someone else holds the story or the header, unless the admin asks.
          */
         post: operations["draftStory"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/moments/{id}/holder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Take a moment's claims
+         * @description Makes the caller the holder of the moment's open claims (waiting or kept for later): its people's facts, its
+         *     story and its header. Claims someone else holds stay theirs, and are counted.
+         */
+        put: operations["takeMoment"];
+        post?: never;
+        /**
+         * Release a moment's claims
+         * @description Gives back to the queue the moment's claims the caller holds; the admin's call releases them all.
+         */
+        delete: operations["releaseMoment"];
         options?: never;
         head?: never;
         patch?: never;
@@ -498,6 +573,16 @@ export interface components {
             origin: components["schemas"]["Origin"];
             flags: components["schemas"]["FlagReason"][];
             payload: components["schemas"]["Payload"];
+            /**
+             * @description The username of who holds the claim, if anyone. Only they, or the admin, edit or decide on it.
+             * @example marie.dupont
+             */
+            heldBy?: string;
+            /**
+             * Format: date-time
+             * @description Since when they hold it.
+             */
+            heldSince?: string;
         };
         ClaimDetail: components["schemas"]["Claim"] & {
             /** @description The payload as last proposed, before any edit by the curator. */
@@ -505,6 +590,23 @@ export interface components {
             sources: components["schemas"]["Source"][];
             /** @description Oldest first. */
             decisions: components["schemas"]["Decision"][];
+        };
+        NewHolder: {
+            /**
+             * @description Who is to hold the claim, if not the caller. The admin's alone.
+             * @example marie.dupont
+             */
+            username?: string;
+        };
+        Holds: {
+            /** @description How many claims were taken or released. */
+            changed: number;
+            /** @description Who holds the claims left as they were, and how many each. */
+            heldByOthers: components["schemas"]["HolderCount"][];
+        };
+        HolderCount: {
+            username: string;
+            claims: number;
         };
         NewClaim: {
             payload: components["schemas"]["Payload"];
@@ -1238,7 +1340,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description The claim already exists, there is nothing to undo, or a run is already running. */
+        /** @description The claim already exists, there is nothing to undo, someone else holds the claim, or a run is already running. */
         Conflict: {
             headers: {
                 [name: string]: unknown;
@@ -1480,6 +1582,90 @@ export interface operations {
             428: components["responses"]["PreconditionRequired"];
         };
     };
+    takeClaim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The claim's id, URL-encoded, e.g. `person-facts:Q535`. */
+                id: components["parameters"]["ClaimId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NewHolder"];
+            };
+        };
+        responses: {
+            /** @description The claim, held. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    releaseClaim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The claim's id, URL-encoded, e.g. `person-facts:Q535`. */
+                id: components["parameters"]["ClaimId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The claim, held by nobody. */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    releaseHolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many claims were released. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Holds"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     findPeople: {
         parameters: {
             query: {
@@ -1628,6 +1814,56 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    takeMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many claims were taken, and who holds the others. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Holds"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    releaseMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many claims were released. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Holds"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     writeMomentPage: {
