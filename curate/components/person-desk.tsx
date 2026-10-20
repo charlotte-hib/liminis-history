@@ -33,6 +33,9 @@ const PLACES = [
   { role: "RESIDENCE", field: "RESIDENCE", name: "Residence" },
 ] as const;
 
+/** How many occupations the site's person panel shows (the release's MAX_OCCUPATIONS). */
+const SHOWN_OCCUPATIONS = 3;
+
 /** How long the preview waits after the last key before asking the workbench again. */
 const PREVIEW_DELAY_MS = 300;
 
@@ -59,6 +62,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
   const [born, setBorn] = useState(String(proposed.born));
   const [died, setDied] = useState(String(proposed.died));
   const [note, setNote] = useState("");
+  const [editingOccupations, setEditingOccupations] = useState(false);
   const [asking, setAsking] = useState<"REJECT" | "NEEDS_WORK" | null>(null);
   const [reason, setReason] = useState("");
   const [problem, setProblem] = useState<{ status: number; detail: string } | null>(null);
@@ -260,31 +264,47 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
               )}
             </Section>
 
-            <Section title="Occupations, the first one shows on the site">
-              <div className="flex flex-col border-t border-line">
-                {facts.occupations.map((occupation, i) => (
-                  <div key={occupation.occupation} className="flex items-center gap-3 border-b border-line py-2">
-                    <span className="w-5 font-mono text-xs text-quiet">{i + 1}</span>
-                    <span className="flex-1">
-                      <span className="font-serif text-[17px]">{occupation.label}</span>{" "}
-                      {occupation.labelFr && <span className="text-quiet">· {occupation.labelFr}</span>}
-                    </span>
-                    <button type="button" aria-label={`Move ${occupation.label} up`} disabled={i === 0} onClick={() => move(i, i - 1)} className="size-9 rounded-full border border-edge disabled:opacity-40">
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${occupation.label}`}
-                      onClick={() => setFacts({ ...facts, occupations: facts.occupations.filter((_, j) => j !== i) })}
-                      className="size-9 rounded-full border border-edge"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-                {!facts.occupations.length && <span className="py-2 text-muted">None</span>}
-              </div>
-              <FieldNotes name="Occupation" said={said("OCCUPATION")} flags={flagsOf(claim.flags, "occupation")} />
+            <Section title="Occupations">
+              {/* The site shows the first few, and the first alone on story cards: a line, edited on demand. */}
+              {!editingOccupations ? (
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="font-serif text-[17px]">
+                    {facts.occupations.slice(0, SHOWN_OCCUPATIONS).map((o) => o.label).join(", ") || "None"}
+                  </span>
+                  {facts.occupations.length > SHOWN_OCCUPATIONS && <span className="text-muted">(+{facts.occupations.length - SHOWN_OCCUPATIONS})</span>}
+                  <button type="button" onClick={() => setEditingOccupations(true)} className="text-lamp underline-offset-4 hover:underline">
+                    Edit
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col border-t border-line">
+                  {facts.occupations.map((occupation, i) => (
+                    <div key={occupation.occupation} className="flex items-center gap-3 border-b border-line py-2">
+                      <span className="w-5 font-mono text-xs text-quiet">{i + 1}</span>
+                      <span className="flex-1">
+                        <span className="font-serif text-[17px]">{occupation.label}</span>{" "}
+                        {occupation.labelFr && <span className="text-quiet">· {occupation.labelFr}</span>}
+                      </span>
+                      <button type="button" aria-label={`Move ${occupation.label} up`} disabled={i === 0} onClick={() => move(i, i - 1)} className="size-9 rounded-full border border-edge disabled:opacity-40">
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${occupation.label}`}
+                        onClick={() => setFacts({ ...facts, occupations: facts.occupations.filter((_, j) => j !== i) })}
+                        className="size-9 rounded-full border border-edge"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {!facts.occupations.length && <span className="py-2 text-muted">None</span>}
+                  <button type="button" onClick={() => setEditingOccupations(false)} className="button-small mt-2 self-start">
+                    Done
+                  </button>
+                </div>
+              )}
+              <FieldNotes name="Occupation" said={editingOccupations ? said("OCCUPATION") : []} flags={flagsOf(claim.flags, "occupation")} />
             </Section>
           </fieldset>
 
@@ -315,16 +335,19 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
             </dl>
           </Section>
 
-          <NewAnecdote qid={qid} onAdded={() => setAnecdotes((n) => n + 1)} />
-
-          <Labelled name="Why, for the log (optional)">
-            <input className={input} value={note} maxLength={2000} disabled={locked} onChange={(e) => setNote(e.target.value)} />
-          </Labelled>
-          {evidence && <Intros articles={evidence.articles} />}
+          <div className="flex flex-col gap-6 border-t border-edge pt-5">
+            <NewAnecdote qid={qid} onAdded={() => setAnecdotes((n) => n + 1)} />
+            <Labelled name="Why, for the log (optional)">
+              <input className={input} value={note} maxLength={2000} disabled={locked} onChange={(e) => setNote(e.target.value)} />
+            </Labelled>
+          </div>
+          {/* The preview shows what the site keeps of it; the whole intro is there to check against. */}
+          {evidence && <Intros articles={evidence.articles} folded />}
           <History decisions={claim.decisions} />
         </main>
 
-        <aside aria-labelledby="preview" className="sticky top-4 flex min-w-0 flex-[0_1_460px] flex-col gap-2">
+        {/* Never taller than the room above the sticky footer: a longer preview scrolls on its own. */}
+        <aside aria-labelledby="preview" className="sticky top-4 flex max-h-[calc(100dvh-7rem)] min-w-0 flex-[0_1_460px] flex-col gap-2 overflow-y-auto">
           <h2 id="preview" className="label">
             As visitors will see it · follows your edits
           </h2>
@@ -387,8 +410,9 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
+  // A rule above each, so the page reads as its parts.
   return (
-    <section aria-label={title} className="flex flex-col gap-3.5">
+    <section aria-label={title} className="flex flex-col gap-3.5 border-t border-edge pt-5">
       <h2 className="label">{title}</h2>
       {children}
     </section>
@@ -430,6 +454,7 @@ function statement(s: Statement): string {
 /** An anecdote about the person, added while reviewing them: it waits in the Anecdotes queue, and shows in the preview. */
 function NewAnecdote({ qid, onAdded }: { qid: string; onAdded: () => void }) {
   const draft = useAnecdoteDraft();
+  const [open, setOpen] = useState(false);
   const [added, setAdded] = useState<string>();
   const [problem, setProblem] = useState<string>();
   const [pending, startTransition] = useTransition();
@@ -443,14 +468,34 @@ function NewAnecdote({ qid, onAdded }: { qid: string; onAdded: () => void }) {
       if (!result.ok) return setProblem(result.detail);
       setAdded(result.data.id);
       draft.clear();
+      setOpen(false);
       onAdded();
     });
   };
 
+  const addedNote = added && (
+    <span role="status" className="text-muted">
+      Added.{" "}
+      <Link href={`/review/anecdotes?claim=${encodeURIComponent(added)}`} className="text-lamp underline-offset-4 hover:underline">
+        Open it in the Anecdotes queue
+      </Link>
+    </span>
+  );
+
+  if (!open) {
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" onClick={() => setOpen(true)} className="button-small">
+          + Add an anecdote
+        </button>
+        {addedNote}
+      </div>
+    );
+  }
   return (
     <form data-anecdote aria-label="Add an anecdote" onSubmit={submit} className="flex flex-col gap-3.5 rounded border border-line bg-note p-5">
       <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
-        <h2 className="label">Anecdotes</h2>
+        <h2 className="label">An anecdote</h2>
         <span className="text-[12.5px] text-muted">Yours waits in the Anecdotes queue, and shows in the preview.</span>
       </div>
       <fieldset disabled={pending} className="flex flex-col gap-3.5">
@@ -464,14 +509,9 @@ function NewAnecdote({ qid, onAdded }: { qid: string; onAdded: () => void }) {
         <button type="submit" disabled={pending || !draft.complete} className="button">
           Add the anecdote
         </button>
-        {added && (
-          <span role="status" className="text-muted">
-            Added.{" "}
-            <Link href={`/review/anecdotes?claim=${encodeURIComponent(added)}`} className="text-lamp underline-offset-4 hover:underline">
-              Open it in the Anecdotes queue
-            </Link>
-          </span>
-        )}
+        <button type="button" disabled={pending} onClick={() => setOpen(false)} className="button">
+          Cancel
+        </button>
         {problem && (
           <span role="alert" className="text-conflict">
             {problem}
