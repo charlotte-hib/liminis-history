@@ -2,15 +2,16 @@
 
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { LoaderCircle, Search, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { PersonAvatar } from "@/components/person-avatar";
+import { useRouter } from "@/i18n/navigation";
 import { openingFromSearch, track } from "@/lib/analytics";
 import { fetchSearch } from "@/lib/api-browser";
 import { momentHref, titleOf } from "@/lib/moments";
 import type { SearchResults } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { formatLifespan } from "@/lib/years";
+import { useYears } from "@/lib/years";
 
 const DEBOUNCE_MS = 150;
 /** The backend answers from 2 characters, and takes at most 100. */
@@ -28,6 +29,9 @@ const EMPTY: SearchResults = { people: [], moments: [] };
  */
 export function SearchBox({ className }: { className?: string }) {
   const router = useRouter();
+  const t = useTranslations("search");
+  const common = useTranslations("common");
+  const years = useYears();
   const hintId = useId();
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -82,7 +86,7 @@ export function SearchBox({ className }: { className?: string }) {
       kind: "moment" as const,
       href: momentHref(moment),
       title: titleOf(moment),
-      detail: `${moment.storyCards > 0 ? "Story" : "Moment"} · ${moment.region}`,
+      detail: `${moment.storyCards > 0 ? common("story") : common("moment")} · ${moment.region}`,
       thumbnail: (
         <span aria-hidden className="size-7 shrink-0 rounded-md bg-muted bg-cover bg-center" style={{ backgroundImage: moment.art ? `url("${moment.art.url}")` : undefined }} />
       ),
@@ -92,7 +96,7 @@ export function SearchBox({ className }: { className?: string }) {
       kind: "person" as const,
       href: `/person/${person.slug}`,
       title: person.name,
-      detail: `${formatLifespan(person.birthYear, person.deathYear)} · ${person.region}`,
+      detail: `${years.lifespan(person.birthYear, person.deathYear)} · ${person.region}`,
       thumbnail: <PersonAvatar person={person} className="size-7 shrink-0" />,
     })),
   ];
@@ -139,8 +143,8 @@ export function SearchBox({ className }: { className?: string }) {
           ref={input}
           type="search"
           maxLength={MAX_LENGTH}
-          placeholder="Search a name you know…"
-          aria-label="Search people and moments"
+          placeholder={t("placeholder")}
+          aria-label={t("label")}
           aria-describedby={hintId}
           // 16px on touch screens: below that, Safari on iPhone zooms the page in when the box gets focus. A search
           // field keeps the phone keyboard's search key, without the browser's own clear button: ours follows the theme.
@@ -148,7 +152,7 @@ export function SearchBox({ className }: { className?: string }) {
         />
         {/* Shown while there is text. It keeps focus in the box, and leaves the keyboard to Escape. */}
         <Autocomplete.Clear
-          aria-label="Clear search"
+          aria-label={t("clear")}
           className="absolute top-1/2 right-1.5 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
         >
           <X aria-hidden className="size-4" />
@@ -161,7 +165,7 @@ export function SearchBox({ className }: { className?: string }) {
           className={cn("pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground opacity-0 transition-opacity", loading && "opacity-100 delay-300")}
         />
         <span id={hintId} className="sr-only">
-          Type a name, a place or a decade. Results appear as you type, from 2 letters.
+          {t("hint")}
         </span>
       </div>
       <Autocomplete.Portal>
@@ -193,10 +197,10 @@ export function SearchBox({ className }: { className?: string }) {
               // Keys to use, for keyboards only: a screen reader already announces a listbox and its options.
               <div aria-hidden className="flex gap-4 border-t px-3 py-2 text-xs text-muted-foreground pointer-coarse:hidden">
                 <span>
-                  <Key>↑</Key> <Key>↓</Key> to choose
+                  <Key>↑</Key> <Key>↓</Key> {t("keysChoose")}
                 </span>
                 <span>
-                  <Key>Enter</Key> to open
+                  <Key>Enter</Key> {t("keysOpen")}
                 </span>
               </div>
             )}
@@ -212,19 +216,20 @@ export function SearchBox({ className }: { className?: string }) {
  * search is on its way, that nothing matched or that it failed. With results, only a count, for screen readers.
  */
 function Status({ query, loading, failed, count }: { query: string; loading: boolean; failed: boolean; count: number }) {
-  if (!query) return <Message title="Type a name, a place or a decade">Like Zola, Kyoto or 1870s. Results appear as you type, from 2 letters.</Message>;
-  if (query.length < MIN_LENGTH) return <Message title="Type at least 2 letters">Like Zola, Kyoto or 1870s. Results appear as you type.</Message>;
+  const t = useTranslations("search");
+  if (!query) return <Message title={t("emptyTitle")}>{t("emptyHint")}</Message>;
+  if (query.length < MIN_LENGTH) return <Message title={t("shortTitle")}>{t("shortHint")}</Message>;
   if (failed) {
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
     return (
-      <Message title={offline ? "You’re offline" : "Search isn’t available right now"}>
-        {offline ? "Results will appear once you’re back online." : "Please try again in a moment."}
+      <Message title={offline ? t("offlineTitle") : t("failedTitle")}>
+        {offline ? t("offlineHint") : t("failedHint")}
       </Message>
     );
   }
-  if (count > 0) return <span className="sr-only">{loading ? "Searching…" : `${count} result${count === 1 ? "" : "s"}`}</span>;
-  if (loading) return <p className="px-3 py-2.5 text-sm text-muted-foreground">Searching…</p>;
-  return <Message title={`No people or moments match “${query}”`}>Try a name, a place or a decade, like Zola, Kyoto or 1870s.</Message>;
+  if (count > 0) return <span className="sr-only">{loading ? t("searching") : t("count", { count })}</span>;
+  if (loading) return <p className="px-3 py-2.5 text-sm text-muted-foreground">{t("searching")}</p>;
+  return <Message title={t("noneTitle", { query })}>{t("noneHint")}</Message>;
 }
 
 function Message({ title, children }: { title: string; children: ReactNode }) {

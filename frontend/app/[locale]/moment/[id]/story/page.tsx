@@ -6,14 +6,15 @@ import { getMoment, getStory } from "@/lib/api";
 import { titleOf } from "@/lib/moments";
 import { preview } from "@/lib/site";
 
-export async function generateMetadata({ params }: PageProps<"/moment/[id]/story">): Promise<Metadata> {
-  const detail = await getMoment((await params).id);
+export async function generateMetadata({ params }: PageProps<"/[locale]/moment/[id]/story">): Promise<Metadata> {
+  const { id, locale } = await params;
+  const detail = await getMoment(id);
   if (!detail) return {};
   const title = titleOf(detail.moment);
-  return { title, description: detail.moment.hook, ...preview(title, detail.moment.hook) };
+  return { title, description: detail.moment.hook, ...preview(title, detail.moment.hook, locale) };
 }
 
-export default async function StoryPage({ params }: PageProps<"/moment/[id]/story">) {
+export default async function StoryPage({ params }: PageProps<"/[locale]/moment/[id]/story">) {
   const { id } = await params;
   const story = await getStory(id);
   if (!story) notFound();

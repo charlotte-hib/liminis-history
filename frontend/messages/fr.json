@@ -1,0 +1,152 @@
+{
+  "site": {
+    "description": "Entrez dans un moment de l’histoire et rencontrez ceux qui l’ont vécu, des rois aux lavandières.",
+    "tagline": "entrez dans un moment",
+    "otherLanguage": "English",
+    "otherLanguageLabel": "Read Liminis in English",
+    "previewAlt": "Liminis : entrez dans un moment de l’histoire"
+  },
+  "years": {
+    "bce": "{year} av. n. è.",
+    "ce": "{year} de n. è.",
+    "today": "Aujourd’hui",
+    "chipAge": "{age} ans",
+    "chipAgeApprox": "env. {age} ans",
+    "chipBorn": "naît",
+    "age": "{age, plural, one {# an} other {# ans}}",
+    "ageApprox": "environ {age, plural, one {# an} other {# ans}}",
+    "newborn": "moins d’un an",
+    "ageInYear": "{age} en {year}"
+  },
+  "common": {
+    "story": "Récit",
+    "moment": "Moment",
+    "source": "Source",
+    "sourceOf": "Source : {source}",
+    "close": "Fermer",
+    "documentedEvent": "Événement attesté",
+    "everydayLife": "Vie quotidienne",
+    "someoneWhoLivedIt": "Quelqu’un qui l’a vécu",
+    "whoWasThere": "Qui était là",
+    "whereNext": "Et ensuite ?",
+    "cards": "{count, plural, one {# carte} other {# cartes}}",
+    "yourPath": "Votre parcours"
+  },
+  "domains": {
+    "POWER": "Politique et pouvoir",
+    "ARTS": "Arts et idées",
+    "EVERYDAY": "Vie quotidienne"
+  },
+  "world": {
+    "governs": "Qui gouverne",
+    "everyday": "Vie quotidienne",
+    "arts": "Arts et idées",
+    "meanwhile": "Pendant ce temps"
+  },
+  "home": {
+    "trail": "Accueil",
+    "mapTitle": "Où sont les récits",
+    "mapHint": "Les points dorés sont des récits. Touchez un point pour y entrer.",
+    "stories": "Récits",
+    "more": "D’autres moments à explorer",
+    "credits": "Les biographies et les portraits viennent de Wikipédia, et chaque lien entre deux personnes est un événement daté et sourcé. Les tableaux sont dans le domaine public, via Wikimedia Commons."
+  },
+  "storyMap": {
+    "storyLabel": "{title}, récit",
+    "storyTip": "{title} · récit",
+    "exploreTip": "{title} · à explorer",
+    "range": "Des moments de {start} à aujourd’hui."
+  },
+  "tile": {
+    "story": "▶ Récit · {count, plural, one {# carte} other {# cartes}}",
+    "explore": "Explorer"
+  },
+  "featured": {
+    "kicker": "Récit à la une",
+    "play": "Lire le récit",
+    "explore": "Explorer le moment",
+    "previous": "Récit précédent",
+    "next": "Récit suivant"
+  },
+  "search": {
+    "placeholder": "Cherchez un nom connu…",
+    "label": "Chercher des personnes et des moments",
+    "hint": "Tapez un nom, un lieu ou une décennie. Les résultats s’affichent dès 2 lettres.",
+    "clear": "Effacer la recherche",
+    "keysChoose": "pour choisir",
+    "keysOpen": "pour ouvrir",
+    "emptyTitle": "Tapez un nom, un lieu ou une décennie",
+    "emptyHint": "Comme Zola, Kyoto ou 1870. Les résultats s’affichent dès 2 lettres.",
+    "shortTitle": "Tapez au moins 2 lettres",
+    "shortHint": "Comme Zola, Kyoto ou 1870. Les résultats s’affichent à mesure que vous tapez.",
+    "offlineTitle": "Vous êtes hors ligne",
+    "offlineHint": "Les résultats s’afficheront dès que vous serez de nouveau en ligne.",
+    "failedTitle": "La recherche n’est pas disponible pour le moment",
+    "failedHint": "Réessayez dans un instant.",
+    "searching": "Recherche…",
+    "count": "{count, plural, one {# résultat} other {# résultats}}",
+    "noneTitle": "Aucune personne ni aucun moment ne correspond à « {query} »",
+    "noneHint": "Essayez un nom, un lieu ou une décennie, comme Zola, Kyoto ou 1870."
+  },
+  "moment": {
+    "year": "Année",
+    "whoGoverns": "Qui gouverne :",
+    "drag": "Faites glisser pour parcourir le moment",
+    "ages": "En {year}, {oldest} a {oldestAge} et {youngest} a {youngestAge}.",
+    "worldTitle": "Le monde autour · {title}",
+    "people": "Personnes",
+    "others": "D’autres vivants en {year}",
+    "shown": "{count, plural, one {# affiché} other {# affichés}} en {year}",
+    "nobody": "Personne dans ce groupe pour l’instant.",
+    "documented": "Attesté dans ce moment",
+    "theStory": "Le récit",
+    "play": "Lire {title}"
+  },
+  "person": {
+    "worldAround": "Le monde autour",
+    "lifeInTime": "Sa vie en son temps",
+    "connected": "Lié à",
+    "around": "Autour en {region}, {year}",
+    "elsewhere": "Pendant ce temps, ailleurs en {year}",
+    "stepInto": "Entrer dans son époque",
+    "openFullPage": "Ouvrir la page entière",
+    "readMore": "Lire la suite sur Wikipédia"
+  },
+  "lifeInTime": {
+    "year": "Année",
+    "age": "Âge",
+    "yearsOld": "{age, plural, one {an} other {ans}}",
+    "birth": "Naissance",
+    "birthUnder": "Naissance · <era>{label}</era>",
+    "era": "Début : <era>{label}</era>",
+    "death": "Mort",
+    "anecdote": "Anecdote",
+    "page": "p. {page}",
+    "episode": "épisode {episode}",
+    "minute": "à {minute}"
+  },
+  "life": {
+    "typical": "vie type",
+    "notReal": "Une vie type de l’époque, illustrée plutôt que documentée : ce n’est pas une personne réelle.",
+    "aliveThen": "Vivants à la même époque, {year}",
+    "illustrated": "Illustrée · typique de l’époque"
+  },
+  "era": {
+    "moments": "Moments de cette époque",
+    "youAreHere": "Vous êtes ici"
+  },
+  "story": {
+    "cards": "Cartes du récit",
+    "card": "Carte {index} sur {total}",
+    "close": "Fermer le récit",
+    "previous": "Carte précédente",
+    "next": "Carte suivante",
+    "meetEveryone": "Rencontrer tout le monde à {title}",
+    "moreAbout": "En savoir plus sur {name}",
+    "readMore": "En savoir plus",
+    "tapHint": "Touchez ou balayez pour tourner la page",
+    "trail": "Le récit de {title}",
+    "eventKicker": "Événement attesté · {year}",
+    "anotherDoor": "Passez une autre porte"
+  }
+}

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 import { BACKEND_URL } from "./lib/backend-url";
 
 /** The backend paths the browser calls (`lib/api-browser.ts` and `lib/analytics.ts`). */
@@ -16,8 +17,16 @@ const nextConfig: NextConfig = {
   // so the app works behind any single public address (a tunnel, a reverse proxy) without CORS. Only those:
   // the rest of the API is fetched by this server while rendering, so it is not a public download of the data.
   async rewrites() {
-    return BROWSER_API.map((path) => ({ source: path, destination: `${BACKEND_URL}${path}` }));
+    return {
+      // English pages live under app/[locale] as /en, at addresses without it. proxy.ts sends them there, but
+      // prefetches skip it (see its matcher), so they are sent there here too.
+      beforeFiles: [
+        { source: "/", destination: "/en" },
+        { source: "/:path((?!en(?:/|$)|fr(?:/|$)|api/|_next/)[^.]+)", destination: "/en/:path" },
+      ],
+      afterFiles: BROWSER_API.map((path) => ({ source: path, destination: `${BACKEND_URL}${path}` })),
+    };
   },
 };
 
-export default nextConfig;
+export default createNextIntlPlugin("./i18n/request.ts")(nextConfig);

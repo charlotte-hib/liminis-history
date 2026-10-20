@@ -1,8 +1,11 @@
+import { useLocale, useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 import { EraButton } from "@/components/era-panel";
 import { sourceLabel } from "@/components/event-details";
+import { CONTENT_LANG } from "@/lib/content";
 import type { AnecdoteSource, LifeLine } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { formatYear } from "@/lib/years";
+import { useYears } from "@/lib/years";
 
 const TEXT_STYLE: Record<LifeLine["kind"], string> = {
   BIRTH: "text-foreground",
@@ -13,30 +16,50 @@ const TEXT_STYLE: Record<LifeLine["kind"], string> = {
   DEATH: "text-foreground",
 };
 
+type Messages = ReturnType<typeof useTranslations<"lifeInTime">>;
+
 /** Where an anecdote comes from, in a few words: "A book, p. 112", "A podcast, episode 12, at 14:20", or its page. */
-function sourceText({ title, page, episode, minute, url }: AnecdoteSource) {
-  return [title ?? (url ? sourceLabel(url) : null), page && `p. ${page}`, episode && `episode ${episode}`, minute && `at ${minute}`]
+function sourceText(t: Messages, { title, page, episode, minute, url }: AnecdoteSource) {
+  return [title ?? (url ? sourceLabel(url) : null), page && t("page", { page }), episode && t("episode", { episode }), minute && t("minute", { minute })]
     .filter(Boolean)
     .join(", ");
 }
 
 /** A story told about them: marked as one, with its source under it, linked when it has an address. */
 function Anecdote({ line }: { line: LifeLine }) {
-  const source = line.source;
+  const t = useTranslations("lifeInTime");
+  const common = useTranslations("common");
+  const source = line.source && common("sourceOf", { source: sourceText(t, line.source) });
   return (
     <span className="grid gap-1">
-      <span className="text-[11px] font-semibold tracking-wider text-lamp uppercase">Anecdote</span>
-      <span className={TEXT_STYLE.ANECDOTE}>{line.text}</span>
+      <span className="text-[11px] font-semibold tracking-wider text-lamp uppercase">{t("anecdote")}</span>
+      <span lang={CONTENT_LANG} className={TEXT_STYLE.ANECDOTE}>{line.text}</span>
       {source &&
-        (source.url ? (
-          <a href={source.url} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:underline">
-            Source: {sourceText(source)}
+        (line.source?.url ? (
+          <a href={line.source.url} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:underline">
+            {source}
           </a>
         ) : (
-          <span className="text-xs text-muted-foreground">Source: {sourceText(source)}</span>
+          <span className="text-xs text-muted-foreground">{source}</span>
         ))}
     </span>
   );
+}
+
+/**
+ * What a line says. The API words births, new regimes and deaths in English; other languages word them here, around
+ * the regime's name. Events' lines are the release's own text.
+ */
+function LineText({ line }: { line: LifeLine }) {
+  const locale = useLocale();
+  const t = useTranslations("lifeInTime");
+  if (locale === CONTENT_LANG || (line.kind !== "BIRTH" && line.kind !== "ERA" && line.kind !== "DEATH")) {
+    return <span lang={CONTENT_LANG}>{line.text}</span>;
+  }
+  if (line.kind === "DEATH") return t("death");
+  if (!line.era) return line.kind === "BIRTH" ? t("birth") : <span lang={CONTENT_LANG}>{line.text}</span>;
+  const values = { label: line.era.label, era: (label: ReactNode) => <span lang={CONTENT_LANG}>{label}</span> };
+  return line.kind === "BIRTH" ? t.rich("birthUnder", values) : t.rich("era", values);
 }
 
 /**
@@ -44,11 +67,13 @@ function Anecdote({ line }: { line: LifeLine }) {
  * API from dated records. The regime they were born under and each new one open in a panel.
  */
 export function LifeInTime({ lines }: { lines: LifeLine[] }) {
+  const t = useTranslations("lifeInTime");
+  const years = useYears();
   return (
     <div>
       <div aria-hidden className="grid grid-cols-[4rem_2.5rem_1fr] gap-2 pb-1 font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
-        <span>Year</span>
-        <span>Age</span>
+        <span>{t("year")}</span>
+        <span>{t("age")}</span>
       </div>
       <ol className="divide-y divide-border/60">
         {lines.map((line, index) => (
@@ -56,17 +81,17 @@ export function LifeInTime({ lines }: { lines: LifeLine[] }) {
             key={index}
             className={cn("grid grid-cols-[4rem_2.5rem_1fr] gap-2 py-2 text-sm", line.kind === "ANECDOTE" && "bg-lamp/[0.07] py-3 pr-2.5")}
           >
-            <span className="pt-px font-mono text-xs text-muted-foreground tabular-nums">{formatYear(line.year)}</span>
+            <span className="pt-px font-mono text-xs text-muted-foreground tabular-nums">{years.year(line.year)}</span>
             <span className="pt-px font-mono text-xs text-lamp tabular-nums">
               {line.age ?? ""}
-              {line.age !== null && <span className="sr-only"> years old</span>}
+              {line.age !== null && <span className="sr-only"> {t("yearsOld", { age: line.age })}</span>}
             </span>
             {line.kind === "ANECDOTE" ? (
               <Anecdote line={line} />
             ) : (
               <span className={cn(TEXT_STYLE[line.kind])}>
-                {line.era ? <EraButton era={line.era} className="text-left text-inherit">{line.text}</EraButton> : line.text}
-                {line.role && <span className="block text-xs font-normal text-arts">{line.role}</span>}
+                {line.era ? <EraButton era={line.era} className="text-left text-inherit"><LineText line={line} /></EraButton> : <LineText line={line} />}
+                {line.role && <span lang={CONTENT_LANG} className="block text-xs font-normal text-arts">{line.role}</span>}
               </span>
             )}
           </li>

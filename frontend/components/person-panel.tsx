@@ -3,10 +3,12 @@
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { DetailPanel } from "@/components/detail-panel";
 import { openingFullPageFromPanel, personSource, track } from "@/lib/analytics";
 
+/** `href` already holds the language (`/fr/person/x`), so the links and router here are Next.js's own. */
 type Step = { slug: string; name: string; href: string };
 /** Carried from the panel to the full page, in that page's history entry. `origin` names the page the panel was opened over. */
 type Trail = { origin: string | null; steps: Step[] };
@@ -39,6 +41,7 @@ export function PersonPanel({ kicker, children }: { kicker: string; children: Re
   const [open, setOpen] = useState(true);
   const [trail, setTrail] = useState<Step[]>([]);
   const [origin] = useState(() => currentOrigin);
+  const t = useTranslations("common");
 
   // The first person is counted as opened from the page underneath (or the search box), the next ones from the panel.
   const opened = useRef(false);
@@ -69,7 +72,7 @@ export function PersonPanel({ kicker, children }: { kicker: string; children: Re
   return (
     <DetailPanel open={open} onOpenChange={setOpen} onOpenChangeComplete={(isOpen) => !isOpen && router.back()} kicker={kicker}>
       {trail.length > 1 && (
-        <nav aria-label="Your path" className="-mt-1 mb-5 flex flex-wrap items-center gap-x-1 gap-y-1 text-sm">
+        <nav aria-label={t("yourPath")} className="-mt-1 mb-5 flex flex-wrap items-center gap-x-1 gap-y-1 text-sm">
           {trail.map((step, index) => (
             <span key={step.slug} className="inline-flex items-center gap-1">
               {index > 0 && <ChevronRight aria-hidden className="size-3.5 text-muted-foreground" />}
@@ -142,13 +145,14 @@ const trailInHistory = (): Trail | null => window.history.state?.[TRAIL_KEY] ?? 
 export function FullPageTrail({ slug }: { slug: string }) {
   const stored = useSyncExternalStore(adoptTrail, trailInHistory, () => null);
   const trail = stored?.steps.at(-1)?.slug === slug ? stored : null;
+  const t = useTranslations("common");
 
   if (!trail || (!trail.origin && trail.steps.length < 2)) return null;
   const earlier = trail.steps.slice(0, -1);
   const current = trail.steps.at(-1)!;
 
   return (
-    <nav aria-label="Your path" className="flex flex-wrap items-center gap-x-1 gap-y-1 text-sm">
+    <nav aria-label={t("yourPath")} className="flex flex-wrap items-center gap-x-1 gap-y-1 text-sm">
       {trail.origin && (
         <button
           type="button"

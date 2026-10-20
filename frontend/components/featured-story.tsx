@@ -2,14 +2,16 @@
 
 import { ArrowLeft, ArrowRight, Play } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { ArtworkCredit, ArtworkImage } from "@/components/artwork-image";
 import { PersonAvatar } from "@/components/person-avatar";
 import { buttonVariants } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
+import { CONTENT_LANG } from "@/lib/content";
 import type { MomentSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ageText, formatYear } from "@/lib/years";
+import { useYears } from "@/lib/years";
 
 type Props = { stories: MomentSummary[]; initialIndex: number };
 
@@ -17,6 +19,8 @@ type Props = { stories: MomentSummary[]; initialIndex: number };
 export function FeaturedStory({ stories, initialIndex }: Props) {
   const [index, setIndex] = useState(initialIndex);
   const story = stories[index];
+  const t = useTranslations("featured");
+  const years = useYears();
   const step = (by: number) => setIndex((current) => (current + by + stories.length) % stories.length);
 
   return (
@@ -37,11 +41,11 @@ export function FeaturedStory({ stories, initialIndex }: Props) {
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/30 light:from-background/70 light:via-background/40 light:to-background/10" />
 
       <div className="relative mx-auto w-full max-w-6xl px-4 pt-32 pb-12">
-        <p className="text-xs font-medium tracking-widest text-lamp uppercase">Featured story</p>
-        <h1 id="featured-title" className="mt-2 font-story text-6xl leading-none font-medium sm:text-8xl">
+        <p className="text-xs font-medium tracking-widest text-lamp uppercase">{t("kicker")}</p>
+        <h1 id="featured-title" lang={CONTENT_LANG} className="mt-2 font-story text-6xl leading-none font-medium sm:text-8xl">
           {story.place}, <span className="text-muted-foreground italic">{story.period}</span>
         </h1>
-        <p className="mt-4 max-w-xl font-story text-xl text-foreground/90 sm:text-2xl">{story.hook}</p>
+        <p lang={CONTENT_LANG} className="mt-4 max-w-xl font-story text-xl text-foreground/90 sm:text-2xl">{story.hook}</p>
 
         <ul className="mt-6 flex flex-wrap gap-4">
           {story.cast.map((person) => (
@@ -54,7 +58,7 @@ export function FeaturedStory({ stories, initialIndex }: Props) {
                 <span>
                   <span className="group-hover:underline">{person.name}</span>
                   <span className="block text-xs text-muted-foreground tabular-nums">
-                    {ageText(person, story.focusYear)} in {formatYear(story.focusYear)}
+                    {years.ageInYear(person, story.focusYear)}
                   </span>
                 </span>
               </Link>
@@ -64,19 +68,19 @@ export function FeaturedStory({ stories, initialIndex }: Props) {
 
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <Link href={`/moment/${story.id}/story`} className={cn(buttonVariants({ size: "lg" }), "rounded-full px-5")}>
-            <Play /> Play the story
+            <Play /> {t("play")}
           </Link>
           <Link href={`/moment/${story.id}`} className={cn(buttonVariants({ variant: "outline", size: "lg" }), "rounded-full px-5")}>
-            Explore the moment
+            {t("explore")}
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <span className="mr-1 font-mono text-xs text-muted-foreground">
               {index + 1} / {stories.length}
             </span>
-            <button type="button" onClick={() => step(-1)} aria-label="Previous story" className={cn(buttonVariants({ variant: "outline", size: "icon" }), "rounded-full")}>
+            <button type="button" onClick={() => step(-1)} aria-label={t("previous")} className={cn(buttonVariants({ variant: "outline", size: "icon" }), "rounded-full")}>
               <ArrowLeft />
             </button>
-            <button type="button" onClick={() => step(1)} aria-label="Next story" className={cn(buttonVariants({ variant: "outline", size: "icon" }), "rounded-full")}>
+            <button type="button" onClick={() => step(1)} aria-label={t("next")} className={cn(buttonVariants({ variant: "outline", size: "icon" }), "rounded-full")}>
               <ArrowRight />
             </button>
           </div>

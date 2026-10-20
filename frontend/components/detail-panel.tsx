@@ -2,6 +2,7 @@
 
 import { Drawer } from "@base-ui/react/drawer";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -25,6 +26,7 @@ const EASE = "ease-[cubic-bezier(0.32,0.72,0,1)]";
  */
 export function DetailPanel({ open, onOpenChange, onOpenChangeComplete, kicker, children }: Props) {
   const wide = useMediaQuery("(min-width: 40rem)");
+  const t = useTranslations("common");
 
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange} onOpenChangeComplete={onOpenChangeComplete} swipeDirection={wide ? "right" : "down"}>
@@ -51,7 +53,7 @@ export function DetailPanel({ open, onOpenChange, onOpenChangeComplete, kicker, 
             <div aria-hidden className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/40 sm:hidden" />
             <header className="flex shrink-0 items-center justify-between gap-4 px-5 pt-3 sm:pt-5">
               <Drawer.Title className="text-xs font-medium tracking-[0.12em] text-lamp uppercase">{kicker}</Drawer.Title>
-              <Drawer.Close aria-label="Close" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "rounded-full")}>
+              <Drawer.Close aria-label={t("close")} className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "rounded-full")}>
                 <X />
               </Drawer.Close>
             </header>

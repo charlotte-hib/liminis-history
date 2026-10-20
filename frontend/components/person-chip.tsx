@@ -1,14 +1,8 @@
-import Link from "next/link";
 import { PersonAvatar } from "@/components/person-avatar";
+import { Link } from "@/i18n/navigation";
 import type { Person } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ageLabel, formatLifespan } from "@/lib/years";
-
-/** Short enough for a chip, but still reads as an age: "aged 34", "aged c. 34", "born". */
-const chipAge = (person: Person, year: number) => {
-  const age = ageLabel(person, year);
-  return age === "born" ? age : `aged ${age}`;
-};
+import { useYears } from "@/lib/years";
 
 /** A chip stays one line and never outgrows its column: on a narrow phone a long name ends in an ellipsis. */
 export const chipClass = "inline-flex max-w-full items-center gap-2 rounded-full border py-1 pr-3 pl-1 text-sm whitespace-nowrap";
@@ -24,12 +18,13 @@ type PersonChipProps = {
 };
 
 export function PersonChip({ person, year, showPlace, replace }: PersonChipProps) {
+  const years = useYears();
   return (
     <Link href={year === undefined ? `/person/${person.slug}` : `/person/${person.slug}?year=${year}`} replace={replace} title={person.occupations.join(", ")} className={cn(chipClass, "hover:border-lamp")}>
       <PersonAvatar person={person} className="size-7" />
       <span className="truncate">{person.name}</span>
       <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
-        {year === undefined ? formatLifespan(person.birthYear, person.deathYear) : chipAge(person, year)}
+        {year === undefined ? years.lifespan(person.birthYear, person.deathYear) : years.chipAge(person, year)}
         {showPlace && ` · ${person.region}`}
       </span>
     </Link>

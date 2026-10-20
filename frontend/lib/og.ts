@@ -3,7 +3,7 @@ import { SITE_NAME } from "@/lib/site";
 
 /**
  * Link previews: the 1200×630 picture WhatsApp, iMessage and others show for a shared link, beside the page's title
- * and description, so the picture carries no words (but the home page's, app/opengraph-image.jpg: the mark and the
+ * and description, so the picture carries no words (but the home page's, public/opengraph-image.jpg: the mark and the
  * name, drawn once). WhatsApp crops it to its centre square in small previews.
  */
 export const OG_SIZE = { width: 1200, height: 630 };
@@ -60,7 +60,7 @@ async function centred(picture: Buffer, height: number) {
   );
 }
 
-/** Every card's fallback, when its picture is missing or slow: the mark, alone. The home page's card is app/opengraph-image.jpg. */
+/** Every card's fallback, when its picture is missing or slow: the mark, alone. The home page's card is public/opengraph-image.jpg. */
 export async function markCard() {
   return centred(await sharp(Buffer.from(MARK), { density: 1200 }).png().toBuffer(), 300);
 }
