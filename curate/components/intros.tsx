@@ -5,16 +5,16 @@ import type { components } from "@/lib/api-schema";
 
 type Article = components["schemas"]["Article"];
 
-/** The person's Wikipedia intros, English or French. */
-export function Intros({ articles }: { articles: Article[] }) {
+/** The person's Wikipedia intros, English or French; [folded] under one line until opened. */
+export function Intros({ articles, folded = false }: { articles: Article[]; folded?: boolean }) {
   const [language, setLanguage] = useState(articles[0]?.language);
   const article = articles.find((a) => a.language === language);
   if (!article) return <p className="text-muted">No English or French Wikipedia article.</p>;
 
-  return (
-    <section aria-label="Wikipedia intro" className="flex flex-col gap-2.5 rounded border border-line bg-surface p-4">
+  const intro = (
+    <>
       <div className="flex items-baseline gap-3">
-        <h2 className="section-title">Wikipedia intro</h2>
+        {!folded && <h2 className="section-title">Wikipedia intro</h2>}
         <div className="flex gap-1">
           {articles.map((a) => (
             <button
@@ -35,6 +35,20 @@ export function Intros({ articles }: { articles: Article[] }) {
       <p lang={article.language} className="max-w-[75ch] leading-relaxed whitespace-pre-line">
         {article.extract || "The article has no intro."}
       </p>
+    </>
+  );
+
+  if (folded) {
+    return (
+      <details aria-label="Wikipedia intro" className="rounded border border-line bg-surface px-4 py-3">
+        <summary className="cursor-pointer font-medium">Wikipedia intro</summary>
+        <div className="mt-3 flex flex-col gap-2.5">{intro}</div>
+      </details>
+    );
+  }
+  return (
+    <section aria-label="Wikipedia intro" className="flex flex-col gap-2.5 rounded border border-line bg-surface p-4">
+      {intro}
     </section>
   );
 }

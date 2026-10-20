@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 // A moment's page lists everyone alive there, the best known first; reviewing one not looked at yet copies their facts
-// from Wikidata into a claim first.
+// from Wikidata into a claim first, on their own page.
 test("a moment's people are listed, and one not looked at yet opened for review", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Moments" }).click();
@@ -12,11 +12,11 @@ test("a moment's people are listed, and one not looked at yet opened for review"
   await expect(people.getByRole("row")).toHaveCount(51);
   const unclaimed = people.getByRole("row").filter({ hasText: "Not looked at yet" }).first();
   const qid = (await unclaimed.getByRole("link").first().textContent())!;
-  await unclaimed.getByRole("button", { name: "Review" }).click();
+  await unclaimed.getByRole("link", { name: "Review" }).click();
 
-  await expect(page).toHaveURL(new RegExp(`/review/person-facts\\?moment=paris-1870s&claim=person-facts%3A${qid}$`));
+  await expect(page).toHaveURL(new RegExp(`/people/${qid}\\?moment=paris-1870s&filter=NOT_PROPOSED$`));
   await expect(page.getByRole("link", { name: qid, exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Fetched facts of paris-1870s");
+  await expect(page.getByText("Their facts: waiting")).toBeVisible();
 
   // Back on the moment, the person's facts wait for review.
   await page.goto("/moments/paris-1870s");

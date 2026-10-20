@@ -39,8 +39,8 @@ export default async function Inbox() {
               return (
                 <tr key={type} className="border-b border-faint last:border-0">
                   <td className="px-4 py-3.5">
-                    {queue?.candidates ? (
-                      <Link href={`/review/${slug}`} className="font-semibold underline-offset-4 hover:underline">
+                    {queue?.candidates || type === "PERSON_FACTS" ? (
+                      <Link href={type === "PERSON_FACTS" ? "/people?filter=WAITING" : `/review/${slug}`} className="font-semibold underline-offset-4 hover:underline">
                         {name}
                       </Link>
                     ) : (

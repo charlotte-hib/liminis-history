@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { ReviewScreen } from "@/components/review-screen";
 import { QUEUES } from "@/lib/labels";
 import { queue, review } from "@/lib/queue";
+import { listHref, personHref, type ReviewScope } from "@/lib/review-scope";
 import { summaryOf } from "@/lib/summary";
 import { viewer } from "@/lib/viewer";
 
@@ -13,6 +14,13 @@ export default async function ReviewPage({ params, searchParams }: PageProps<"/r
   const query = await searchParams;
   const later = query.later === "1";
   const moment = typeof query.moment === "string" ? query.moment : undefined;
+  // A person's facts are reviewed on the person's own page, which moves through the people to review.
+  if (found.type === "PERSON_FACTS") {
+    const scope: ReviewScope = { moment, filter: later ? "KEPT_FOR_LATER" : "WAITING" };
+    const claim = typeof query.claim === "string" ? query.claim : "";
+    const qid = claim.match(/^person-facts:(Q[1-9][0-9]*)$/)?.[1];
+    redirect(qid ? personHref(qid, scope) : listHref(scope));
+  }
   const claims = await queue(found.type, later ? "NEEDS_WORK" : "CANDIDATE", moment);
   const id = typeof query.claim === "string" ? query.claim : claims[0]?.id;
   // A story is reviewed on its own page beside its preview, a moment's header on its own page under itself.

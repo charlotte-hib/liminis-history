@@ -107,7 +107,7 @@ export default async function MomentPage({ params, searchParams }: PageProps<"/m
             {people.total} people tied to {moment.region} by a place of theirs, the best known first
           </span>
           {waitingFacts > 0 && (
-            <Link href={`/review/person-facts?moment=${moment.id}`} className="ml-auto text-lamp underline-offset-4 hover:underline">
+            <Link href={`/people?moment=${moment.id}&filter=WAITING`} className="ml-auto text-lamp underline-offset-4 hover:underline">
               Review this moment&apos;s waiting facts
             </Link>
           )}

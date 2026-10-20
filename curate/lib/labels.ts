@@ -65,6 +65,25 @@ export type Field = "born" | "died" | "occupation" | "BIRTH" | "DEATH" | "WORK" 
 
 const PLACE_FIELDS: Record<string, Field> = { P19: "BIRTH", P20: "DEATH", P937: "WORK", P551: "RESIDENCE" };
 
+/** Each field of a person's facts, as a reviewer names it. */
+const FIELD_NAMES: Record<Field, string> = {
+  born: "Born",
+  died: "Died",
+  occupation: "Occupation",
+  BIRTH: "Birthplace",
+  DEATH: "Death place",
+  WORK: "Work place",
+  RESIDENCE: "Residence",
+  articles: "Articles",
+  claim: "",
+};
+
+/** A person's flag in words, with the field it is about: "Occupation: the first one has no reference". */
+export function describeOnField(reason: string): string {
+  const field = FIELD_NAMES[fieldOf(reason)];
+  return field ? `${field}: ${describe(reason)}` : describe(reason);
+}
+
 export function fieldOf(reason: string): Field {
   if (reason.startsWith("BIRTH_")) return "born";
   if (reason.startsWith("DEATH_")) return "died";

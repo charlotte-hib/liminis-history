@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { draftStory, proposeFacts, releaseMoment, takeMoment } from "@/app/actions";
+import { draftStory, releaseMoment, takeMoment } from "@/app/actions";
+import { personHref } from "@/lib/review-scope";
 import type { components } from "@/lib/api-schema";
 
 type Run = components["schemas"]["Run"];
@@ -104,37 +105,12 @@ export function FactsStatus({ status }: { status?: ClaimStatus }) {
   return <span className={status === "CANDIDATE" ? "text-lamp" : "text-muted"}>{status ? STANDING[status] : "Not looked at yet"}</span>;
 }
 
-/**
- * Opens the review of a person's facts as Wikidata states them. Someone not looked at yet gets their claim first: a
- * copy of Wikidata's statements, no AI.
- */
+/** Opens the person's page, moving through the moment's people: someone not looked at yet gets their claim there. */
 export function ReviewButton({ qid, moment, status }: { qid: string; moment: string; status?: ClaimStatus }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [problem, setProblem] = useState<string>();
-  const href = `/review/person-facts?moment=${moment}&claim=${encodeURIComponent(`person-facts:${qid}`)}`;
-
-  if (status) {
-    return (
-      <Link href={href} className="button-small">
-        {status === "CANDIDATE" ? "Review" : "Open"}
-      </Link>
-    );
-  }
-  const review = () =>
-    startTransition(async () => {
-      const result = await proposeFacts(qid);
-      if (!result.ok) return setProblem(result.detail);
-      router.push(href);
-    });
-  return problem ? (
-    <span role="alert" className="text-conflict">
-      {problem}
-    </span>
-  ) : (
-    <button type="button" disabled={pending} onClick={review} title="Copies their facts from Wikidata for you to check" className="button-small">
-      Review
-    </button>
+  return (
+    <Link href={personHref(qid, { moment, filter: status ? "WAITING" : "NOT_PROPOSED" })} className="button-small">
+      {!status || status === "CANDIDATE" ? "Review" : "Open"}
+    </Link>
   );
 }
 

@@ -212,9 +212,9 @@ internal class PeopleCompiler(private val release: Release) {
 /**
  * The domain of each occupation: from `occupations.jsonl`, else from the first of its classes there, up to three
  * levels up. An occupation (or class) mapped to no domain says nothing of a life's work: it gives none, and its classes
- * are not looked at.
+ * are not looked at. The workbench's preview of a person reads them the same way.
  */
-internal class OccupationDomains(records: List<OccupationRecord>, private val occupations: Map<String, OccupationRow>) {
+class OccupationDomains(records: List<OccupationRecord>, private val occupations: Map<String, OccupationRow>) {
 
     private val mapped = records.associate { it.id to it.domain }
 

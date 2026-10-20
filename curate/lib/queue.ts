@@ -32,8 +32,10 @@ export type Review = {
 };
 
 export async function review(id: string): Promise<Review | null> {
-  const { data: claim, response } = await workbench.GET("/api/claims/{id}", { params: { path: { id } } });
-  if (!claim) return null;
+  const { data: claim, error, response } = await workbench.GET("/api/claims/{id}", { params: { path: { id } } });
+  // Only a claim that isn't there is none: a failure is not a reason to propose it again.
+  if (response.status === 404) return null;
+  if (!claim) throw new Error(`The workbench did not give the claim ${id}: ${JSON.stringify(error)}`);
   const qid = "person" in claim.payload ? claim.payload.person : null;
   const [evidence, person] = qid ? await Promise.all([evidenceOf(qid), personOf(qid)]) : [null, null];
   const occupation = claim.payload.type === "OCCUPATION_DOMAIN" ? await occupationOf(claim.payload.occupation) : null;
