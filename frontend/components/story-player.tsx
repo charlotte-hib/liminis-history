@@ -189,7 +189,7 @@ export function StoryPlayer({ story }: { story: Story }) {
           href={`/moment/${moment.id}`}
           className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-white/30 bg-black/30 py-1 pr-2 pl-3 text-xs font-medium tracking-[0.12em] uppercase hover:bg-black/50"
         >
-          {titleOf(moment)} <ChevronRight className="size-3.5" />
+          <span lang={CONTENT_LANG}>{titleOf(moment)}</span> <ChevronRight className="size-3.5" />
         </Link>
         {art && (
           <a href={art.sourceUrl} target="_blank" rel="noreferrer" className="max-w-xs min-w-0 text-right text-[11px] text-white/60 hover:underline">

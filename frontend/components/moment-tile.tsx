@@ -29,7 +29,7 @@ export function MomentTile({ moment, size = "large" }: { moment: MomentSummary; 
           {moment.region}
           {moment.governedBy && ` · ${moment.governedBy}`}
         </span>
-        <h3 className={cn("font-story leading-none font-medium", size === "large" ? "text-3xl" : "text-2xl")}>{titleOf(moment)}</h3>
+        <h3 lang={CONTENT_LANG} className={cn("font-story leading-none font-medium", size === "large" ? "text-3xl" : "text-2xl")}>{titleOf(moment)}</h3>
         <p lang={CONTENT_LANG} className="text-sm text-muted-foreground">{moment.hook}</p>
         {size === "large" && moment.cast.length > 0 && (
           <span className="mt-1 flex -space-x-1.5">

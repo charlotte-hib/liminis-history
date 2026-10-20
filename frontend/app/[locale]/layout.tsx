@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { hasLocale, NextIntlClientProvider } from "next-intl";
+import { NextIntlClientProvider } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Geist, Geist_Mono, Newsreader, Sofia_Sans_Extra_Condensed } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { routing } from "@/i18n/routing";
+import { pageLocale } from "@/i18n/page-locale";
 import { preview, SITE_NAME, siteOrigin } from "@/lib/site";
 import "../globals.css";
 
@@ -33,7 +32,7 @@ const display = Sofia_Sans_Extra_Condensed({
 });
 
 export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Promise<Metadata> {
-  const { locale } = await params;
+  const locale = await pageLocale(params);
   const t = await getTranslations("site");
   const description = t("description");
   const { openGraph, twitter } = preview(SITE_NAME, description, locale);
@@ -50,8 +49,7 @@ export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Pr
 }
 
 export default async function RootLayout({ children, panel, params }: LayoutProps<"/[locale]">) {
-  const { locale } = await params;
-  if (!hasLocale(routing.locales, locale)) notFound();
+  const locale = await pageLocale(params);
   return (
     <html
       lang={locale}

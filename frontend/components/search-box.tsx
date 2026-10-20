@@ -200,7 +200,7 @@ export function SearchBox({ className }: { className?: string }) {
                   <Key>↑</Key> <Key>↓</Key> {t("keysChoose")}
                 </span>
                 <span>
-                  <Key>Enter</Key> {t("keysOpen")}
+                  <Key>{t("keysEnter")}</Key> {t("keysOpen")}
                 </span>
               </div>
             )}

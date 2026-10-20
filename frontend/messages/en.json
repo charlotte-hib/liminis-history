@@ -86,7 +86,8 @@
     "searching": "Searching…",
     "count": "{count, plural, one {# result} other {# results}}",
     "noneTitle": "No people or moments match “{query}”",
-    "noneHint": "Try a name, a place or a decade, like Zola, Kyoto or 1870s."
+    "noneHint": "Try a name, a place or a decade, like Zola, Kyoto or 1870s.",
+    "keysEnter": "Enter"
   },
   "moment": {
     "year": "Year",
@@ -148,5 +149,10 @@
     "trail": "The story of {title}",
     "eventKicker": "Documented event · {year}",
     "anotherDoor": "Step through another door"
+  },
+  "notFound": {
+    "title": "Nothing here",
+    "text": "This page doesn’t exist, or the moment or person it showed is no longer on the site.",
+    "home": "Back to the home page"
   }
 }

@@ -28,7 +28,7 @@ export function DoorCard({ door, kindLang = CONTENT_LANG, className }: Props) {
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/10" />
       <div className="relative grid gap-1 p-4">
         <span lang={kindLang ?? undefined} className="text-[11px] font-medium tracking-widest text-lamp uppercase">{door.kind}</span>
-        <b className="font-story text-xl leading-tight font-medium">{titleOf(target)}</b>
+        <b lang={CONTENT_LANG} className="font-story text-xl leading-tight font-medium">{titleOf(target)}</b>
         <span lang={CONTENT_LANG} className="text-sm text-muted-foreground">{door.text}</span>
         {door.faces.length > 0 && (
           <span className="mt-1 flex -space-x-1.5">

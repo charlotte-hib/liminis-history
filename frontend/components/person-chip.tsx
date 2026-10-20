@@ -1,5 +1,6 @@
 import { PersonAvatar } from "@/components/person-avatar";
 import { Link } from "@/i18n/navigation";
+import { CONTENT_LANG } from "@/lib/content";
 import type { Person } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useYears } from "@/lib/years";
@@ -25,7 +26,7 @@ export function PersonChip({ person, year, showPlace, replace }: PersonChipProps
       <span className="truncate">{person.name}</span>
       <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
         {year === undefined ? years.lifespan(person.birthYear, person.deathYear) : years.chipAge(person, year)}
-        {showPlace && ` · ${person.region}`}
+        {showPlace && <span lang={CONTENT_LANG}> · {person.region}</span>}
       </span>
     </Link>
   );

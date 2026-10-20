@@ -35,9 +35,11 @@ export function proxy(request: NextRequest) {
     request = new NextRequest(request, { headers });
   }
   // The few API paths the browser calls are forwarded to the backend as they are (next.config.ts), and files (the
-  // icons, the home page's preview) are the same in every language.
+  // icons, the home page's preview) are the same in every language. Link previews of English pages are addressed
+  // under /en (Next.js fills in the route's [locale]): served there, not redirected, as some apps follow no redirect.
   const { pathname } = request.nextUrl;
-  return pathname.startsWith("/api/") || pathname.includes(".") ? NextResponse.next() : intl(request);
+  const passThrough = pathname.startsWith("/api/") || pathname.includes(".") || pathname.endsWith("/opengraph-image");
+  return passThrough ? NextResponse.next() : intl(request);
 }
 
 // Pages, navigations and API calls, but not static files, nor Next.js prefetches: a page prefetches every link in

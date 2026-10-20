@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { Connections } from "@/components/connections";
 import { LifeChip } from "@/components/life";
 import { LifeInTime } from "@/components/life-in-time";
@@ -9,6 +9,7 @@ import { FullPageButton, TrailStep } from "@/components/person-panel";
 import { Section } from "@/components/section";
 import { buttonVariants } from "@/components/ui/button";
 import { getPathname } from "@/i18n/navigation";
+import { pageLocale } from "@/i18n/page-locale";
 import { getPerson } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { parseYear, yearWords } from "@/lib/years";
@@ -19,6 +20,7 @@ import { parseYear, yearWords } from "@/lib/years";
  */
 export default async function PersonPanelPage({ params, searchParams }: PageProps<"/[locale]/person/[slug]">) {
   const { slug } = await params;
+  const locale = await pageLocale(params);
   const detail = await getPerson(slug, parseYear((await searchParams).year));
   if (!detail) notFound();
 
@@ -26,7 +28,7 @@ export default async function PersonPanelPage({ params, searchParams }: PageProp
   const t = await getTranslations("person");
   const years = yearWords(await getTranslations("years"));
   // A plain address with the language in it: the full page is loaded, not navigated to (see FullPageButton).
-  const href = getPathname({ href: { pathname: `/person/${person.slug}`, query: { year } }, locale: await getLocale() });
+  const href = getPathname({ href: { pathname: `/person/${person.slug}`, query: { year } }, locale });
 
   return (
     <div className="grid gap-8">

@@ -86,7 +86,8 @@
     "searching": "Recherche…",
     "count": "{count, plural, one {# résultat} other {# résultats}}",
     "noneTitle": "Aucune personne ni aucun moment ne correspond à « {query} »",
-    "noneHint": "Essayez un nom, un lieu ou une décennie, comme Zola, Kyoto ou 1870."
+    "noneHint": "Essayez un nom, un lieu ou une décennie, comme Zola, Kyoto ou 1870.",
+    "keysEnter": "Entrée"
   },
   "moment": {
     "year": "Année",
@@ -95,7 +96,7 @@
     "ages": "En {year}, {oldest} a {oldestAge} et {youngest} a {youngestAge}.",
     "worldTitle": "Le monde autour · {title}",
     "people": "Personnes",
-    "others": "D’autres vivants en {year}",
+    "others": "D’autres personnes en vie en {year}",
     "shown": "{count, plural, one {# affiché} other {# affichés}} en {year}",
     "nobody": "Personne dans ce groupe pour l’instant.",
     "documented": "Attesté dans ce moment",
@@ -106,7 +107,7 @@
     "worldAround": "Le monde autour",
     "lifeInTime": "Sa vie en son temps",
     "connected": "Lié à",
-    "around": "Autour en {region}, {year}",
+    "around": "Autour · {region}, {year}",
     "elsewhere": "Pendant ce temps, ailleurs en {year}",
     "stepInto": "Entrer dans son époque",
     "openFullPage": "Ouvrir la page entière",
@@ -119,7 +120,7 @@
     "birth": "Naissance",
     "birthUnder": "Naissance · <era>{label}</era>",
     "era": "Début : <era>{label}</era>",
-    "death": "Mort",
+    "death": "Décès",
     "anecdote": "Anecdote",
     "page": "p. {page}",
     "episode": "épisode {episode}",
@@ -148,5 +149,10 @@
     "trail": "Le récit de {title}",
     "eventKicker": "Événement attesté · {year}",
     "anotherDoor": "Passez une autre porte"
+  },
+  "notFound": {
+    "title": "Rien ici",
+    "text": "Cette page n’existe pas, ou le moment ou la personne qu’elle montrait n’est plus sur le site.",
+    "home": "Retour à l’accueil"
   }
 }

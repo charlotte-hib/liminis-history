@@ -31,6 +31,39 @@ test.describe("a browser that prefers French", () => {
     await expect(page).toHaveURL(/\/fr$/);
     await expect(page.locator("html")).toHaveAttribute("lang", "fr");
   });
+
+  test("stays in English once English is chosen", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("link", { name: "Read Liminis in English" }).click();
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await page.goto("/moment/paris-1870s");
+    await expect(page).toHaveURL(/\/moment\/paris-1870s$/);
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  });
+});
+
+test("an English address with /en goes to the one without", async ({ page }) => {
+  await page.goto("/en/moment/paris-1870s");
+  await expect(page).toHaveURL(/\/moment\/paris-1870s$/);
+  await expect(page).not.toHaveURL(/\/en\//);
+});
+
+test("link previews of English and French pages answer without a redirect", async ({ page, request }) => {
+  for (const path of ["/moment/paris-1870s", "/fr/person/voltaire", "/"]) {
+    await page.goto(path);
+    const image = await page.locator('meta[property="og:image"]').getAttribute("content");
+    const response = await request.get(image!, { maxRedirects: 0 });
+    expect(response.status(), image!).toBe(200);
+    expect(response.headers()["content-type"]).toMatch(/^image\//);
+  }
+});
+
+test("an unknown address says so in its language", async ({ page }) => {
+  const response = await page.goto("/fr/person/nobody-at-all");
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole("heading", { name: "Rien ici" })).toBeVisible();
+  await page.goto("/fr/no/such/page");
+  await expect(page.getByRole("heading", { name: "Rien ici" })).toBeVisible();
 });
 
 test("a person opens in a French panel over a French moment", async ({ page }) => {
@@ -41,6 +74,7 @@ test("a person opens in a French panel over a French moment", async ({ page }) =
   await expect(panel.getByText("Quelqu’un qui l’a vécu")).toBeVisible();
   await expect(panel.getByRole("heading", { name: "Émile Zola" })).toBeVisible();
   await expect(page).toHaveURL(/\/fr\/person\/emile-zola\?year=\d+$/);
+  await expect(panel.getByRole("link", { name: "Ouvrir la page entière" })).toHaveAttribute("href", /^\/fr\/person\/emile-zola\?year=\d+$/);
 });
 
 test("years before the common era read in French", async ({ page }) => {

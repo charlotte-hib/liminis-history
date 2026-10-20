@@ -5,10 +5,12 @@ import { TrailOrigin } from "@/components/person-panel";
 import { SiteHeader } from "@/components/site-header";
 import { StoryMap } from "@/components/story-map";
 import { getTranslations } from "next-intl/server";
+import { pageLocale } from "@/i18n/page-locale";
 import { getMoments } from "@/lib/api";
 import { hasStory } from "@/lib/moments";
 
-export default async function Home() {
+export default async function Home({ params }: PageProps<"/[locale]">) {
+  await pageLocale(params);
   const t = await getTranslations("home");
   const moments = await getMoments();
   const stories = moments.filter(hasStory);

@@ -90,7 +90,9 @@ function arrivalSource(): PersonSource | null {
   if (!document.referrer) return "direct";
   const from = new URL(document.referrer);
   if (from.origin !== window.location.origin) return "external";
-  if (from.pathname.startsWith("/person/")) return "panel";
-  if (from.pathname.startsWith("/moment/")) return from.pathname.endsWith("/story") ? "story" : "moment";
-  return from.pathname === "/" ? "home" : "direct";
+  // The same page in either language: /fr/moment/x is /moment/x.
+  const path = from.pathname.replace(/^\/(?:en|fr)(?=\/|$)/, "") || "/";
+  if (path.startsWith("/person/")) return "panel";
+  if (path.startsWith("/moment/")) return path.endsWith("/story") ? "story" : "moment";
+  return path === "/" ? "home" : "direct";
 }

@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { pageLocale } from "@/i18n/page-locale";
 import { getTranslations } from "next-intl/server";
 import { Connections } from "@/components/connections";
 import { DoorCard } from "@/components/door-card";
@@ -21,7 +22,8 @@ import { preview } from "@/lib/site";
 import { parseYear, yearWords } from "@/lib/years";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/person/[slug]">): Promise<Metadata> {
-  const { slug, locale } = await params;
+  const { slug } = await params;
+  const locale = await pageLocale(params);
   const detail = await getPerson(slug);
   if (!detail) return {};
   const { person } = detail;
@@ -32,6 +34,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/person/[
 /** A person in the world around them: who they were, what was happening, and who else was alive. */
 export default async function PersonPage({ params, searchParams }: PageProps<"/[locale]/person/[slug]">) {
   const { slug } = await params;
+  await pageLocale(params);
   const detail = await getPerson(slug, parseYear((await searchParams).year));
   if (!detail) notFound();
 
