@@ -59,7 +59,7 @@ test("the admin invites a curator, who joins with a passkey and takes a claim, t
   await expect(them.getByText("Only the admin manages the team.")).toBeVisible();
 
   // They take a claim (the admin frees it first, should an earlier run have left it held): the admin sees who holds it.
-  await page.goto("/people");
+  await page.goto("/people?filter=WAITING");
   const atClaim = (await page.getByRole("row").nth(1).getByRole("link", { name: "Review" }).getAttribute("href"))!;
   await page.goto(atClaim);
   const held = page.getByRole("region", { name: "Who works on this" });

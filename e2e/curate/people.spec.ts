@@ -4,7 +4,7 @@ const preview = (page: Page) => page.getByRole("complementary", { name: /As visi
 const lifeline = (page: Page) => preview(page).getByRole("region", { name: "Their life in their time" });
 
 /** Opens the first person waiting in the list, and gives their name. */
-async function openFirstWaiting(page: Page, list = "/people"): Promise<string> {
+async function openFirstWaiting(page: Page, list = "/people?filter=WAITING"): Promise<string> {
   await page.goto(list);
   const row = page.getByRole("row").nth(1);
   const name = (await row.getByRole("cell").first().textContent())!.replace(/\s*Q\d+.*$/, "").trim();
@@ -13,12 +13,14 @@ async function openFirstWaiting(page: Page, list = "/people"): Promise<string> {
   return name;
 }
 
-// The list holds everyone whose facts wait, the best known first, filtered and found by name as it is typed.
+// The list holds everyone, the best known first, filtered by where their facts stand and found by name as it is typed.
 test("the people to review are listed, filtered, and found as their name is typed", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "People" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "People to review" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /^Waiting \d+$/ })).toHaveAttribute("aria-current", "true");
+  await expect(page.getByRole("link", { name: /^Everyone \d+$/ })).toHaveAttribute("aria-current", "true");
+  await page.getByRole("link", { name: /^Not looked at yet \d+$/ }).click();
+  await expect(page.getByRole("row").nth(1)).toContainText("Not looked at yet");
 
   await page.getByRole("link", { name: /^Poorly documented \d+$/ }).click();
   await expect(page).toHaveURL(/filter=POORLY_DOCUMENTED/);
@@ -83,6 +85,8 @@ test("a person's facts are edited beside their preview, then approved as edited"
 // An anecdote written while reviewing someone waits in its queue, and their preview tells it among their life's lines.
 test("an anecdote is added on a person's page, and shows in their preview", async ({ page }) => {
   await openFirstWaiting(page);
+  // Folded until asked for.
+  await page.getByRole("button", { name: "+ Add an anecdote" }).click();
   const box = page.getByRole("form", { name: "Add an anecdote" });
   // A new text every run, so the claim is new too.
   const text = `A story told by the test at ${Date.now()}.`;
@@ -93,7 +97,7 @@ test("an anecdote is added on a person's page, and shows in their preview", asyn
   await box.getByLabel("Page").fill("12");
   await box.getByRole("button", { name: "Add the anecdote" }).click();
 
-  await expect(box.getByRole("status")).toContainText("Added");
+  await expect(page.getByRole("status").filter({ hasText: "Added" })).toBeVisible();
   const told = lifeline(page).getByRole("listitem").filter({ hasText: text });
   await expect(told).toContainText("waiting for approval");
   await expect(told).toContainText("Source: A biography, p. 12");
