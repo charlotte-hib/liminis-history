@@ -18,8 +18,9 @@ import art.liminis.dataset.DatasetStore.Companion.NAMED
 import art.liminis.repository.MomentRepository
 import art.liminis.support.NotFoundException
 
-/** Which people to review: by where their facts claim stands, or, in a moment, those nobody proposed yet. */
+/** Which people to review: everyone, or by where their facts claim stands, those nobody proposed yet included. */
 enum class ReviewFilter(val sql: String) {
+    EVERYONE("true"),
     WAITING("status = 'CANDIDATE'"),
     CONFLICTS("status = 'CANDIDATE' and flags @> '[{\"flag\": \"${Flag.CONFLICT}\"}]'"),
     POORLY_DOCUMENTED("status = 'CANDIDATE' and flags @> '[{\"flag\": \"${Flag.POORLY_DOCUMENTED}\"}]'"),
@@ -28,7 +29,7 @@ enum class ReviewFilter(val sql: String) {
     NOT_PROPOSED("status is null"),
 }
 
-/** Everyone with a facts claim, or everyone alive in [moment]; those [query] names, if given; those [filter] keeps. */
+/** Everyone, or everyone alive in [moment]; those [query] names, if given; those [filter] keeps. */
 data class ReviewScope(val moment: String?, val filter: ReviewFilter, val query: String?)
 
 /** A person to review, as their claim has them, else as the dataset does. */
@@ -53,8 +54,8 @@ data class PeopleToReview(val total: Int, val counts: Map<ReviewFilter, Int>, va
 data class ReviewNeighbours(val total: Int, val position: Int?, val previous: String?, val next: String?)
 
 /**
- * The people to review, the best known first: everyone whose facts were proposed, or, in a moment, everyone alive there
- * (as [art.liminis.moments.Moments.people] lists them), those nobody proposed yet too.
+ * The people to review, the best known first: everyone the dataset holds, or, in a moment, everyone alive there (as
+ * [art.liminis.moments.Moments.people] lists them), each with their facts claim if one was proposed.
  */
 @Service
 class PeopleReview(
@@ -110,7 +111,7 @@ class PeopleReview(
 
     /**
      * The people [scope] reviews, before its filter, each with their claim's status and flags: SQL and its parameters.
-     * Without a moment, from the claims, so a claim whose person a mapping run dropped stays in review.
+     * Without a moment, the claims too, so a claim whose person a mapping run dropped stays in review.
      */
     private fun base(scope: ReviewScope): Pair<String, List<Any>> {
         val where = mutableListOf<String>()
@@ -119,26 +120,26 @@ class PeopleReview(
             val moment = moments.findById(scope.moment).orElseThrow { NotFoundException("No moment ${scope.moment}") }
             where += ALIVE_IN
             args.addAll(listOf(moment.endYear, moment.startYear, moment.region.code))
-        } else {
-            where += "c.type = '${ClaimType.PERSON_FACTS}'"
         }
         scope.query?.trim()?.let { query ->
             where += "($NAMED)"
             args.addAll(listOf(query.uppercase(), query, query))
         }
+        val clause = if (where.isEmpty()) "" else where.joinToString(" and ", prefix = "where ")
         val sql = if (scope.moment != null) {
             """
             select p.qid, p.sitelinks, c.status, c.flags
             from dataset.person p
             left join curation.claim c on c.id = '${ClaimRules.factsId("")}' || p.qid
-            where ${where.joinToString(" and ")}
+            $clause
             """.trimIndent()
         } else {
             """
-            select c.payload ->> 'person' as qid, coalesce(p.sitelinks, 0) as sitelinks, c.status, c.flags
-            from curation.claim c
-            left join dataset.person p on p.qid = c.payload ->> 'person'
-            where ${where.joinToString(" and ")}
+            select coalesce(p.qid, c.payload ->> 'person') as qid, coalesce(p.sitelinks, 0) as sitelinks, c.status, c.flags
+            from dataset.person p
+            full join (select * from curation.claim where type = '${ClaimType.PERSON_FACTS}') c
+                on c.id = '${ClaimRules.factsId("")}' || p.qid
+            $clause
             """.trimIndent()
         }
         return sql to args

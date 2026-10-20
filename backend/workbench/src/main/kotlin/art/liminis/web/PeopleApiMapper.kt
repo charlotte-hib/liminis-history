@@ -53,6 +53,7 @@ abstract class PeopleApiMapper {
         total = people.total,
         counts = people.counts.let {
             ReviewCountsDto(
+                everyone = it.getValue(ReviewFilter.EVERYONE),
                 waiting = it.getValue(ReviewFilter.WAITING),
                 conflicts = it.getValue(ReviewFilter.CONFLICTS),
                 poorlyDocumented = it.getValue(ReviewFilter.POORLY_DOCUMENTED),

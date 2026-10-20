@@ -61,25 +61,33 @@ class PeopleReviewApiTests(
     }
 
     @Test
-    fun `without a moment, lists everyone with a facts claim, the best known first, with how many each filter keeps`() {
+    fun `without a moment, lists everyone, the best known first, with how many each filter keeps`() {
         propose("Q504", "Q535", "Q5598")
         approve("person-facts:Q5598")
         mockMvc.get("/api/people/review") { signedIn() }.andExpect {
             status { isOk() }
-            jsonPath("$.total") { value(2) }
-            jsonPath("$.people[*].person") { value(contains("Q535", "Q504")) }
-            jsonPath("$.people[0].label") { value("Victor Hugo") }
-            jsonPath("$.people[0].sitelinks") { value(200) }
-            jsonPath("$.people[0].occupation") { value("writer") }
-            jsonPath("$.people[0].birthplace") { value("Besançon") }
-            jsonPath("$.people[0].deathplace") { value("Paris") }
-            jsonPath("$.people[0].claim") { value("CANDIDATE") }
-            jsonPath("$.people[1].flags[0].flag") { value("POORLY_DOCUMENTED") }
+            jsonPath("$.total") { value(6) }
+            jsonPath("$.people[*].person") { value(contains("Q517", "Q535", "Q5598", "Q504", "Q1001", "Q3008")) }
+            jsonPath("$.people[0].claim") { doesNotExist() }
+            jsonPath("$.people[1].label") { value("Victor Hugo") }
+            jsonPath("$.people[1].sitelinks") { value(200) }
+            jsonPath("$.people[1].occupation") { value("writer") }
+            jsonPath("$.people[1].birthplace") { value("Besançon") }
+            jsonPath("$.people[1].deathplace") { value("Paris") }
+            jsonPath("$.people[1].claim") { value("CANDIDATE") }
+            jsonPath("$.people[3].flags[0].flag") { value("POORLY_DOCUMENTED") }
+            jsonPath("$.counts.everyone") { value(6) }
             jsonPath("$.counts.waiting") { value(2) }
             jsonPath("$.counts.poorlyDocumented") { value(1) }
             jsonPath("$.counts.conflicts") { value(0) }
             jsonPath("$.counts.decided") { value(1) }
-            jsonPath("$.counts.notProposed") { value(0) }
+            jsonPath("$.counts.notProposed") { value(3) }
+        }
+        mockMvc.get("/api/people/review") { signedIn(); param("filter", "WAITING") }.andExpect {
+            jsonPath("$.people[*].person") { value(contains("Q535", "Q504")) }
+        }
+        mockMvc.get("/api/people/review") { signedIn(); param("filter", "NOT_PROPOSED") }.andExpect {
+            jsonPath("$.people[*].person") { value(contains("Q517", "Q1001", "Q3008")) }
         }
         mockMvc.get("/api/people/review") { signedIn(); param("filter", "DECIDED") }.andExpect {
             jsonPath("$.people[*].person") { value(contains("Q5598")) }
@@ -209,13 +217,13 @@ class PeopleReviewApiTests(
     fun `a claim whose person a mapping run dropped stays in review`() {
         propose("Q504", "Q535")
         CurationFixtures.map(dataset, CurationFixtures.PEOPLE - CurationFixtures.HUGO)
-        mockMvc.get("/api/people/review") { signedIn() }.andExpect {
+        mockMvc.get("/api/people/review") { signedIn(); param("filter", "WAITING") }.andExpect {
             // As the claim has them, with the least known.
             jsonPath("$.people[*].person") { value(contains("Q504", "Q535")) }
             jsonPath("$.people[1].label") { value("Victor Hugo") }
             jsonPath("$.people[1].sitelinks") { value(0) }
         }
-        mockMvc.get("/api/people/{qid}/neighbours", "Q535") { signedIn() }.andExpect {
+        mockMvc.get("/api/people/{qid}/neighbours", "Q535") { signedIn(); param("filter", "WAITING") }.andExpect {
             jsonPath("$.position") { value(2) }
             jsonPath("$.previous") { value("Q504") }
         }

@@ -462,9 +462,10 @@ paths:
         - auth: ["curation:read"]
       summary: People to review
       description: |
-        Everyone with a facts claim, or with `moment` everyone alive in it (as `/api/moments/{id}/people` lists them),
-        those without a claim too: the best known first, a page at a time, those `filter` keeps, with how many each
-        filter keeps. A person with a claim is shown as the claim has them, edits included.
+        Everyone the dataset holds, and anyone with a facts claim whom it no longer holds, or with `moment` everyone
+        alive in it (as `/api/moments/{id}/people` lists them), those without a claim too: the best known first, a page
+        at a time, those `filter` keeps, with how many each filter keeps. A person with a claim is shown as the claim has
+        them, edits included.
       parameters:
         - $ref: "#/components/parameters/ReviewMoment"
         - $ref: "#/components/parameters/ReviewFilter"
@@ -2103,11 +2104,11 @@ components:
     ReviewFilter:
       type: string
       description: |
-        Which people to review: their facts `WAITING`, those of them with a conflict (`CONFLICTS`) or poorly documented
-        (`POORLY_DOCUMENTED`), `KEPT_FOR_LATER`, `DECIDED` (approved or rejected), or, in a moment, `NOT_PROPOSED`:
+        Which people to review: `EVERYONE`, their facts `WAITING`, those of them with a conflict (`CONFLICTS`) or
+        poorly documented (`POORLY_DOCUMENTED`), `KEPT_FOR_LATER`, `DECIDED` (approved or rejected), or `NOT_PROPOSED`:
         nobody proposed their facts yet.
-      enum: [WAITING, CONFLICTS, POORLY_DOCUMENTED, KEPT_FOR_LATER, DECIDED, NOT_PROPOSED]
-      default: WAITING
+      enum: [EVERYONE, WAITING, CONFLICTS, POORLY_DOCUMENTED, KEPT_FOR_LATER, DECIDED, NOT_PROPOSED]
+      default: EVERYONE
 
     PeopleToReview:
       type: object
@@ -2126,8 +2127,10 @@ components:
     ReviewCounts:
       type: object
       description: How many people each filter keeps, in the same moment and search.
-      required: [waiting, conflicts, poorlyDocumented, keptForLater, decided, notProposed]
+      required: [everyone, waiting, conflicts, poorlyDocumented, keptForLater, decided, notProposed]
       properties:
+        everyone:
+          type: integer
         waiting:
           type: integer
         conflicts:
@@ -2140,7 +2143,6 @@ components:
           type: integer
         notProposed:
           type: integer
-          description: Always 0 without a moment.
 
     PersonToReview:
       type: object
