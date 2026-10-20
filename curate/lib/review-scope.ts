@@ -8,6 +8,7 @@ export type ReviewScope = { moment?: string; filter: ReviewFilter; q?: string };
 
 /** Each filter, as its chip names it, and its count among the workbench's. */
 export const REVIEW_FILTERS: { filter: ReviewFilter; name: string; count: keyof ReviewCounts; alone: string }[] = [
+  { filter: "EVERYONE", name: "Everyone", count: "everyone", alone: "" },
   { filter: "WAITING", name: "Waiting", count: "waiting", alone: "waiting" },
   { filter: "CONFLICTS", name: "Conflicts", count: "conflicts", alone: "waiting with a conflict" },
   { filter: "POORLY_DOCUMENTED", name: "Poorly documented", count: "poorlyDocumented", alone: "waiting, poorly documented" },
@@ -20,10 +21,10 @@ export const filterOf = (filter: ReviewFilter) => REVIEW_FILTERS.find((f) => f.f
 
 type Params = Record<string, string | string[] | undefined>;
 
-/** The scope a page's search parameters name: waiting by default; a search of fewer than 2 letters is none. */
+/** The scope a page's search parameters name: everyone by default; a search of fewer than 2 letters is none. */
 export function scopeOf(params: Params): ReviewScope {
   const one = (name: string) => (typeof params[name] === "string" ? (params[name] as string).trim() : undefined);
-  const filter = REVIEW_FILTERS.find((f) => f.filter === one("filter"))?.filter ?? "WAITING";
+  const filter = REVIEW_FILTERS.find((f) => f.filter === one("filter"))?.filter ?? "EVERYONE";
   const q = one("q");
   return { moment: one("moment") || undefined, filter, q: q && q.length >= 2 ? q.slice(0, 100) : undefined };
 }
@@ -32,7 +33,7 @@ export function scopeOf(params: Params): ReviewScope {
 export function queryOf(scope: ReviewScope, extra: Record<string, string> = {}): string {
   const query = new URLSearchParams();
   if (scope.moment) query.set("moment", scope.moment);
-  if (scope.filter !== "WAITING") query.set("filter", scope.filter);
+  if (scope.filter !== "EVERYONE") query.set("filter", scope.filter);
   if (scope.q) query.set("q", scope.q);
   for (const [name, value] of Object.entries(extra)) query.set(name, value);
   const search = query.toString();

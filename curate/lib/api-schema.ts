@@ -234,9 +234,10 @@ export interface paths {
         };
         /**
          * People to review
-         * @description Everyone with a facts claim, or with `moment` everyone alive in it (as `/api/moments/{id}/people` lists them),
-         *     those without a claim too: the best known first, a page at a time, those `filter` keeps, with how many each
-         *     filter keeps. A person with a claim is shown as the claim has them, edits included.
+         * @description Everyone the dataset holds, and anyone with a facts claim whom it no longer holds, or with `moment` everyone
+         *     alive in it (as `/api/moments/{id}/people` lists them), those without a claim too: the best known first, a page
+         *     at a time, those `filter` keeps, with how many each filter keeps. A person with a claim is shown as the claim has
+         *     them, edits included.
          */
         get: operations["listPeopleToReview"];
         put?: never;
@@ -1042,13 +1043,13 @@ export interface components {
             claim?: components["schemas"]["ClaimStatus"];
         };
         /**
-         * @description Which people to review: their facts `WAITING`, those of them with a conflict (`CONFLICTS`) or poorly documented
-         *     (`POORLY_DOCUMENTED`), `KEPT_FOR_LATER`, `DECIDED` (approved or rejected), or, in a moment, `NOT_PROPOSED`:
+         * @description Which people to review: `EVERYONE`, their facts `WAITING`, those of them with a conflict (`CONFLICTS`) or
+         *     poorly documented (`POORLY_DOCUMENTED`), `KEPT_FOR_LATER`, `DECIDED` (approved or rejected), or `NOT_PROPOSED`:
          *     nobody proposed their facts yet.
-         * @default WAITING
+         * @default EVERYONE
          * @enum {string}
          */
-        ReviewFilter: "WAITING" | "CONFLICTS" | "POORLY_DOCUMENTED" | "KEPT_FOR_LATER" | "DECIDED" | "NOT_PROPOSED";
+        ReviewFilter: "EVERYONE" | "WAITING" | "CONFLICTS" | "POORLY_DOCUMENTED" | "KEPT_FOR_LATER" | "DECIDED" | "NOT_PROPOSED";
         PeopleToReview: {
             /** @description How many people the filter keeps. */
             total: number;
@@ -1057,12 +1058,12 @@ export interface components {
         };
         /** @description How many people each filter keeps, in the same moment and search. */
         ReviewCounts: {
+            everyone: number;
             waiting: number;
             conflicts: number;
             poorlyDocumented: number;
             keptForLater: number;
             decided: number;
-            /** @description Always 0 without a moment. */
             notProposed: number;
         };
         PersonToReview: {

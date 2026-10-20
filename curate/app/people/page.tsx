@@ -9,7 +9,7 @@ import { listHref, personHref, REVIEW_FILTERS, scopeOf } from "@/lib/review-scop
 import { year } from "@/lib/years";
 
 /**
- * Everyone whose facts were proposed, or everyone alive in a moment, the best known first: filtered by where their facts
+ * Everyone, or everyone alive in a moment, the best known first: filtered by where their facts
  * stand, found by name. Opening someone leads to their page, which moves on through the same list.
  */
 export default async function PeopleToReview({ searchParams }: PageProps<"/people">) {
@@ -18,8 +18,8 @@ export default async function PeopleToReview({ searchParams }: PageProps<"/peopl
   const scope = scopeOf(params);
   const page = Math.max(1, Number(params.page) || 1);
   const moments = await momentChoices();
-  // A moment the release no longer has (an old link): everyone proposed instead.
-  if (scope.moment && !moments.some((m) => m.id === scope.moment)) redirect(listHref({ ...scope, moment: undefined, filter: "WAITING" }));
+  // A moment the release no longer has (an old link): everyone instead.
+  if (scope.moment && !moments.some((m) => m.id === scope.moment)) redirect(listHref({ ...scope, moment: undefined }));
   const people = await peopleToReview(scope, page);
   const pages = Math.max(1, Math.ceil(people.total / PAGE));
   const moment = moments.find((m) => m.id === scope.moment);
@@ -31,13 +31,13 @@ export default async function PeopleToReview({ searchParams }: PageProps<"/peopl
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <h1 className="page-title">People to review</h1>
         <span className="text-muted">
-          {moment ? `Everyone alive in ${moment.name}, the best known first.` : "Everyone whose facts were proposed, the best known first."} Open
+          {moment ? `Everyone alive in ${moment.name}, the best known first.` : "Everyone fetched from Wikidata, the best known first."} Open
           someone for their page, with a preview of how the site shows them.
         </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5">
-        {REVIEW_FILTERS.filter((f) => scope.moment || f.filter !== "NOT_PROPOSED").map((f) => (
+        {REVIEW_FILTERS.map((f) => (
           <Link
             key={f.filter}
             href={listHref({ ...scope, filter: f.filter })}

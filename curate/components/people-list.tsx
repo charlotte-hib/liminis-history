@@ -7,7 +7,7 @@ import { UndoBar } from "@/components/decision-parts";
 import { useLastDecision } from "@/components/last-decision";
 import { listHref, type ReviewScope } from "@/lib/review-scope";
 
-/** Everyone with a claim, or everyone alive in a moment: choosing one shows its list at once. */
+/** Everyone, or everyone alive in a moment: choosing one shows its list at once. */
 export function MomentSelect({ moments, scope }: { moments: { id: string; name: string }[]; scope: ReviewScope }) {
   const router = useRouter();
   return (
@@ -17,14 +17,11 @@ export function MomentSelect({ moments, scope }: { moments: { id: string; name: 
         <select
           value={scope.moment ?? ""}
           onChange={(event) => {
-            const moment = event.target.value || undefined;
-            // Nobody is left to look at outside a moment.
-            const filter = !moment && scope.filter === "NOT_PROPOSED" ? "WAITING" : scope.filter;
-            router.push(listHref({ ...scope, moment, filter }));
+            router.push(listHref({ ...scope, moment: event.target.value || undefined }));
           }}
           className="min-w-64 cursor-pointer appearance-none rounded-full border border-edge bg-surface py-2 pr-10 pl-3.5 text-ink hover:border-ink focus:outline-none focus-visible:border-ink focus-visible:ring-2 focus-visible:ring-lamp/40"
         >
-          <option value="">Every moment, those proposed</option>
+          <option value="">Every moment</option>
           {moments.map((moment) => (
             <option key={moment.id} value={moment.id}>
               {moment.name}

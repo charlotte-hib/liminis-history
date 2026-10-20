@@ -21,8 +21,8 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   if (!QID.test(qid)) notFound();
   const scope = scopeOf(await searchParams);
   const moments = await momentChoices();
-  // A moment the release no longer has (an old link): the person among everyone proposed.
-  if (scope.moment && !moments.some((m) => m.id === scope.moment)) redirect(personHref(qid, { ...scope, moment: undefined, filter: "WAITING" }));
+  // A moment the release no longer has (an old link): the person among everyone.
+  if (scope.moment && !moments.some((m) => m.id === scope.moment)) redirect(personHref(qid, { ...scope, moment: undefined }));
   const [current, neighbours, preview, who] = await Promise.all([
     review(`person-facts:${qid}`),
     neighboursOf(qid, scope),
