@@ -1539,7 +1539,7 @@ export interface components {
         IfMatch: string;
         /** @description The claim's id, URL-encoded, e.g. `person-facts:Q535`. */
         ClaimId: string;
-        /** @description Everyone alive in the moment, those without a claim too, instead of everyone with a claim. */
+        /** @description Everyone alive in the moment, those without a claim too, instead of everyone the dataset holds. */
         ReviewMoment: components["schemas"]["MomentId"];
         ReviewFilter: components["schemas"]["ReviewFilter"];
         /** @description Only those whose English or French label contains it, ignoring case and accents, or whom it names by Q-id. */
@@ -1905,7 +1905,7 @@ export interface operations {
     listPeopleToReview: {
         parameters: {
             query?: {
-                /** @description Everyone alive in the moment, those without a claim too, instead of everyone with a claim. */
+                /** @description Everyone alive in the moment, those without a claim too, instead of everyone the dataset holds. */
                 moment?: components["parameters"]["ReviewMoment"];
                 filter?: components["parameters"]["ReviewFilter"];
                 /** @description Only those whose English or French label contains it, ignoring case and accents, or whom it names by Q-id. */
@@ -1937,7 +1937,7 @@ export interface operations {
     getReviewNeighbours: {
         parameters: {
             query?: {
-                /** @description Everyone alive in the moment, those without a claim too, instead of everyone with a claim. */
+                /** @description Everyone alive in the moment, those without a claim too, instead of everyone the dataset holds. */
                 moment?: components["parameters"]["ReviewMoment"];
                 filter?: components["parameters"]["ReviewFilter"];
                 /** @description Only those whose English or French label contains it, ignoring case and accents, or whom it names by Q-id. */

@@ -1206,7 +1206,7 @@ components:
     ReviewMoment:
       name: moment
       in: query
-      description: Everyone alive in the moment, those without a claim too, instead of everyone with a claim.
+      description: Everyone alive in the moment, those without a claim too, instead of everyone the dataset holds.
       schema:
         $ref: "#/components/schemas/MomentId"
     ReviewFilter:

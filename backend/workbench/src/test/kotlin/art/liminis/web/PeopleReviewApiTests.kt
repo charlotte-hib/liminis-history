@@ -227,6 +227,28 @@ class PeopleReviewApiTests(
             jsonPath("$.position") { value(2) }
             jsonPath("$.previous") { value("Q504") }
         }
+        // Everyone counts them too, with the least known.
+        mockMvc.get("/api/people/review") { signedIn() }.andExpect {
+            jsonPath("$.counts.everyone") { value(6) }
+            jsonPath("$.people[5].person") { value("Q535") }
+        }
+    }
+
+    @Test
+    fun `without a moment, places someone nobody proposed among everyone, and among those not looked at yet`() {
+        propose("Q504")
+        mockMvc.get("/api/people/{qid}/neighbours", "Q517") { signedIn(); param("filter", "NOT_PROPOSED") }.andExpect {
+            jsonPath("$.total") { value(5) }
+            jsonPath("$.position") { value(1) }
+            jsonPath("$.previous") { doesNotExist() }
+            jsonPath("$.next") { value("Q535") }
+        }
+        mockMvc.get("/api/people/{qid}/neighbours", "Q504") { signedIn() }.andExpect {
+            jsonPath("$.total") { value(6) }
+            jsonPath("$.position") { value(4) }
+            jsonPath("$.previous") { value("Q5598") }
+            jsonPath("$.next") { value("Q1001") }
+        }
     }
 
     @Test
