@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 // person from elsewhere with their place, widened its column and the whole page with it.
 test.use({ viewport: { width: 390, height: 844 } });
 
-for (const path of ["/moment/paris-1870s", "/moment/kyoto-1590s", "/moment/orleans-1429", "/person/chikamatsu-monzaemon", "/person/voltaire"]) {
+for (const path of ["/moment/paris-1870s", "/moment/kyoto-1590s", "/moment/orleans-1429", "/person/chikamatsu-monzaemon", "/person/voltaire", "/fr", "/fr/moment/paris-1870s", "/fr/person/voltaire"]) {
   test(`${path} fits a 390 px screen`, async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "phone", "the same width on both projects");
     await page.goto(path);
