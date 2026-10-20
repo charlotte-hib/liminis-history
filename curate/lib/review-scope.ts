@@ -8,7 +8,7 @@ export type ReviewScope = { moment?: string; filter: ReviewFilter; q?: string };
 
 /** Each filter, as its chip names it, and its count among the workbench's. */
 export const REVIEW_FILTERS: { filter: ReviewFilter; name: string; count: keyof ReviewCounts; alone: string }[] = [
-  { filter: "EVERYONE", name: "Everyone", count: "everyone", alone: "" },
+  { filter: "EVERYONE", name: "Everyone", count: "everyone", alone: "people" },
   { filter: "WAITING", name: "Waiting", count: "waiting", alone: "waiting" },
   { filter: "CONFLICTS", name: "Conflicts", count: "conflicts", alone: "waiting with a conflict" },
   { filter: "POORLY_DOCUMENTED", name: "Poorly documented", count: "poorlyDocumented", alone: "waiting, poorly documented" },

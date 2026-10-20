@@ -108,6 +108,8 @@ test("a decision on facts that changed meanwhile is refused", async ({ page, con
   const name = await openFirstWaiting(page);
   const other = await context.newPage();
   await other.goto(page.url());
+  // Keys work once the page is hydrated, which a production build finishes after the load event.
+  await other.waitForLoadState("networkidle");
   await other.keyboard.press("a");
   await expect(other.getByRole("status")).toContainText(`Approved: ${name}`);
 

@@ -57,11 +57,11 @@ export function useAnecdoteDraft() {
 
 type Draft = ReturnType<typeof useAnecdoteDraft>;
 
-/** The anecdote as the site would say it. */
-export function AnecdoteText({ draft }: { draft: Draft }) {
+/** The anecdote as the site would say it; [autoFocus] when it opens on demand. */
+export function AnecdoteText({ draft, autoFocus = false }: { draft: Draft; autoFocus?: boolean }) {
   return (
     <Labelled name={`The anecdote, as the site would say it · ${draft.text.length} / 400`}>
-      <textarea className={`${input} h-28 resize-none`} maxLength={400} value={draft.text} onChange={(e) => draft.setText(e.target.value)} />
+      <textarea autoFocus={autoFocus} className={`${input} h-28 resize-none`} maxLength={400} value={draft.text} onChange={(e) => draft.setText(e.target.value)} />
     </Labelled>
   );
 }

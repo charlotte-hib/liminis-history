@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { addClaim, decide, previewPerson, proposeFacts, undo } from "@/app/actions";
 import { AnecdoteSource, AnecdoteText, AnecdoteYear, useAnecdoteDraft } from "@/components/anecdote-fields";
 import { History } from "@/components/claim-parts";
@@ -84,6 +84,10 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
   const list = listHref(scope);
   const next = neighbours.next && personHref(neighbours.next, scope);
   const previous = neighbours.previous && personHref(neighbours.previous, scope);
+
+  // As the release names them: distinct labels, in order.
+  const shownOccupations = [...new Set(facts.occupations.map((o) => o.label))];
+  const occupationFlags = flagsOf(claim.flags, "occupation");
 
   // The preview follows the years and occupations being edited, a little after the last key.
   const occupations = facts.occupations.map((o) => o.occupation).join(" ");
@@ -265,14 +269,15 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
             </Section>
 
             <Section title="Occupations">
-              {/* The site shows the first few, and the first alone on story cards: a line, edited on demand. */}
-              {!editingOccupations ? (
+              {/* The site shows the first few, and the first alone on story cards: a line, edited on demand. Held by
+                  someone else, the whole list is read instead, its buttons disabled with the rest. */}
+              {!editingOccupations && !locked ? (
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span className="font-serif text-[17px]">
-                    {facts.occupations.slice(0, SHOWN_OCCUPATIONS).map((o) => o.label).join(", ") || "None"}
+                    {shownOccupations.slice(0, SHOWN_OCCUPATIONS).join(", ") || "None"}
                   </span>
-                  {facts.occupations.length > SHOWN_OCCUPATIONS && <span className="text-muted">(+{facts.occupations.length - SHOWN_OCCUPATIONS})</span>}
-                  <button type="button" onClick={() => setEditingOccupations(true)} className="text-lamp underline-offset-4 hover:underline">
+                  {shownOccupations.length > SHOWN_OCCUPATIONS && <span className="text-muted">(+{shownOccupations.length - SHOWN_OCCUPATIONS})</span>}
+                  <button type="button" aria-label="Edit the occupations" onClick={() => setEditingOccupations(true)} className="text-lamp underline-offset-4 hover:underline">
                     Edit
                   </button>
                 </div>
@@ -299,12 +304,19 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
                     </div>
                   ))}
                   {!facts.occupations.length && <span className="py-2 text-muted">None</span>}
-                  <button type="button" onClick={() => setEditingOccupations(false)} className="button-small mt-2 self-start">
-                    Done
-                  </button>
+                  {!locked && (
+                    <button type="button" aria-label="Done with the occupations" onClick={() => setEditingOccupations(false)} className="button-small mt-2 self-start">
+                      Done
+                    </button>
+                  )}
                 </div>
               )}
-              <FieldNotes name="Occupation" said={editingOccupations ? said("OCCUPATION") : []} flags={flagsOf(claim.flags, "occupation")} />
+              {/* Wikidata's statements with the full list, or beside a flag they explain. */}
+              <FieldNotes
+                name="Occupation"
+                said={editingOccupations || locked || occupationFlags.length ? said("OCCUPATION") : []}
+                flags={occupationFlags}
+              />
             </Section>
           </fieldset>
 
@@ -346,8 +358,9 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
           <History decisions={claim.decisions} />
         </main>
 
-        {/* Never taller than the room above the sticky footer: a longer preview scrolls on its own. */}
-        <aside aria-labelledby="preview" className="sticky top-4 flex max-h-[calc(100dvh-7rem)] min-w-0 flex-[0_1_460px] flex-col gap-2 overflow-y-auto">
+        {/* Beside the facts (from 1184 px, their 600 and its 460 with the gap and padding), never taller than the room
+            above the sticky footer: a longer preview scrolls on its own. Narrower, it wraps under them, uncapped. */}
+        <aside aria-labelledby="preview" className="sticky top-4 flex min-w-0 flex-[0_1_460px] flex-col gap-2 min-[1184px]:max-h-[calc(100dvh-8rem)] min-[1184px]:overflow-y-auto">
           <h2 id="preview" className="label">
             As visitors will see it · follows your edits
           </h2>
@@ -455,6 +468,16 @@ function statement(s: Statement): string {
 function NewAnecdote({ qid, onAdded }: { qid: string; onAdded: () => void }) {
   const draft = useAnecdoteDraft();
   const [open, setOpen] = useState(false);
+  const toggle = useRef<HTMLButtonElement>(null);
+  // Folding the form gives the focus back to its button, so the page's keys don't catch what is typed next.
+  const fold = () => {
+    setOpen(false);
+    requestAnimationFrame(() => toggle.current?.focus());
+  };
+  const cancel = () => {
+    draft.clear();
+    fold();
+  };
   const [added, setAdded] = useState<string>();
   const [problem, setProblem] = useState<string>();
   const [pending, startTransition] = useTransition();
@@ -468,7 +491,7 @@ function NewAnecdote({ qid, onAdded }: { qid: string; onAdded: () => void }) {
       if (!result.ok) return setProblem(result.detail);
       setAdded(result.data.id);
       draft.clear();
-      setOpen(false);
+      fold();
       onAdded();
     });
   };
@@ -485,7 +508,7 @@ function NewAnecdote({ qid, onAdded }: { qid: string; onAdded: () => void }) {
   if (!open) {
     return (
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => setOpen(true)} className="button-small">
+        <button ref={toggle} type="button" onClick={() => setOpen(true)} className="button-small">
           + Add an anecdote
         </button>
         {addedNote}
@@ -493,14 +516,14 @@ function NewAnecdote({ qid, onAdded }: { qid: string; onAdded: () => void }) {
     );
   }
   return (
-    <form data-anecdote aria-label="Add an anecdote" onSubmit={submit} className="flex flex-col gap-3.5 rounded border border-line bg-note p-5">
+    <form data-anecdote aria-label="Add an anecdote" onSubmit={submit} onKeyDown={(event) => event.key === "Escape" && cancel()} className="flex flex-col gap-3.5 rounded border border-line bg-note p-5">
       <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
         <h2 className="label">An anecdote</h2>
         <span className="text-[12.5px] text-muted">Yours waits in the Anecdotes queue, and shows in the preview.</span>
       </div>
       <fieldset disabled={pending} className="flex flex-col gap-3.5">
         <div className="grid grid-cols-[minmax(0,1fr)_140px] items-start gap-4">
-          <AnecdoteText draft={draft} />
+          <AnecdoteText draft={draft} autoFocus />
           <AnecdoteYear draft={draft} />
         </div>
         <AnecdoteSource draft={draft} />
@@ -509,7 +532,7 @@ function NewAnecdote({ qid, onAdded }: { qid: string; onAdded: () => void }) {
         <button type="submit" disabled={pending || !draft.complete} className="button">
           Add the anecdote
         </button>
-        <button type="button" disabled={pending} onClick={() => setOpen(false)} className="button">
+        <button type="button" disabled={pending} onClick={cancel} className="button">
           Cancel
         </button>
         {problem && (
