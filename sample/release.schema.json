@@ -102,6 +102,10 @@
       "type" : "string",
       "enum" : [ "SCENE", "PERSON", "LIFE", "EVENT" ]
     },
+    "ClearedField" : {
+      "type" : "string",
+      "enum" : [ "NAME_FR", "WIKIPEDIA", "WIKIPEDIA_FR" ]
+    },
     "ConnectionRecord" : {
       "type" : "object",
       "properties" : {
@@ -127,6 +131,25 @@
       "required" : [ "kind", "people", "source", "text", "year" ],
       "additionalProperties" : false
     },
+    "CorrectionPlaceRecord" : {
+      "type" : "object",
+      "properties" : {
+        "end" : {
+          "type" : "integer"
+        },
+        "kind" : {
+          "$ref" : "#/$defs/PlaceKind"
+        },
+        "place" : {
+          "type" : "string"
+        },
+        "start" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [ "kind", "place" ],
+      "additionalProperties" : false
+    },
     "CorrectionRecord" : {
       "type" : "object",
       "properties" : {
@@ -135,6 +158,12 @@
         },
         "born" : {
           "type" : "integer"
+        },
+        "cleared" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/$defs/ClearedField"
+          }
         },
         "died" : {
           "type" : "integer"
@@ -153,6 +182,18 @@
           "items" : {
             "type" : "string"
           }
+        },
+        "places" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/$defs/CorrectionPlaceRecord"
+          }
+        },
+        "wikipedia" : {
+          "type" : "string"
+        },
+        "wikipediaFr" : {
+          "type" : "string"
         }
       },
       "required" : [ "id" ],
@@ -420,6 +461,10 @@
       },
       "required" : [ "born", "domain", "id", "name", "occupation", "region" ],
       "additionalProperties" : false
+    },
+    "PlaceKind" : {
+      "type" : "string",
+      "enum" : [ "BIRTH", "DEATH", "WORK", "RESIDENCE" ]
     },
     "PublicationStatus" : {
       "type" : "string",

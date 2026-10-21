@@ -126,6 +126,47 @@ class PeopleCompilerTests {
     }
 
     @Test
+    fun `corrected places replace them all, and the birthplace gives the region`() {
+        val corrections = listOf(
+            CorrectionRecord("Q762", places = listOf(CorrectionPlaceRecord(PlaceKind.BIRTH, "Q90"), CorrectionPlaceRecord(PlaceKind.RESIDENCE, "Q220", 1500, 1510))),
+        )
+        val person = ReleaseCompiler.compile(release(listOf(zola, leonardo), corrections = corrections)).people.single { it.id == "Q762" }
+
+        assertEquals("FR", person.region.code)
+        assertEquals(
+            listOf(Triple(PlaceKind.BIRTH, "FR", null), Triple(PlaceKind.RESIDENCE, "IT", 1500)),
+            person.places.map { Triple(it.kind, it.regionCode, it.startYear) },
+        )
+    }
+
+    @Test
+    fun `someone with no known birthplace comes in once a correction gives one`() {
+        val nowhere = row("Q4", "Someone of nowhere", 1500, 40, null, "Q36180")
+        val corrections = listOf(CorrectionRecord("Q4", places = listOf(CorrectionPlaceRecord(PlaceKind.BIRTH, "Q220"))))
+        val people = ReleaseCompiler.compile(release(listOf(zola, nowhere), corrections = corrections)).people
+
+        assertEquals("IT", people.single { it.id == "Q4" }.region.code)
+    }
+
+    @Test
+    fun `another English article drops the dataset's intro for its title, and a cleared one leaves none`() {
+        val article = ArticleRow("Q762", "en", "Leonardo da Vinci", "https://en.wikipedia.org/wiki/Leonardo_da_Vinci", "Leonardo was a painter.", "https://upload.example/leo.jpg", "Leo.jpg")
+        fun compiled(correction: CorrectionRecord) =
+            ReleaseCompiler.compile(release(listOf(zola, leonardo), listOf(article), corrections = listOf(correction))).people.single { it.id == "Q762" }
+
+        val retitled = compiled(CorrectionRecord("Q762", wikipedia = "Leonardo da Vinci (painter)"))
+        assertEquals("Leonardo_da_Vinci_(painter)", retitled.wikipediaTitle)
+        assertEquals(listOf(null, null, null, null), listOf(retitled.bioShort, retitled.about, retitled.portraitUrl, retitled.wikipediaUrl))
+
+        val cleared = compiled(CorrectionRecord("Q762", cleared = setOf(ClearedField.WIKIPEDIA)))
+        assertEquals(listOf(null, null), listOf(cleared.wikipediaTitle, cleared.bioShort))
+
+        // The French article is not the English one's business.
+        val french = compiled(CorrectionRecord("Q762", wikipediaFr = "Léonard de Vinci"))
+        assertEquals("Leonardo da Vinci", french.wikipediaTitle)
+    }
+
+    @Test
     fun `a correction changes nothing for someone written by hand, nor for a Q-id the dataset does not hold`() {
         val corrections = listOf(CorrectionRecord("Q504", name = "Zola", born = 1841), CorrectionRecord("Q999", name = "Nobody"))
         val people = ReleaseCompiler.compile(release(listOf(zola), corrections = corrections)).people
