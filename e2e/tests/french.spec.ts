@@ -15,7 +15,7 @@ test("the header switches to the same page in the other language", async ({ page
   await page.goto("/person/voltaire?year=1750");
   await page.getByRole("link", { name: "Lire Liminis en français" }).click();
   await expect(page).toHaveURL(/\/fr\/person\/voltaire\?year=1750$/);
-  await expect(page.getByRole("heading", { name: "Sa vie en son temps" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "La vie en son temps" })).toBeVisible();
 
   await page.getByRole("link", { name: "Read Liminis in English" }).click();
   await expect(page).toHaveURL(/\/person\/voltaire\?year=1750$/);

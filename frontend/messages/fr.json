@@ -1,7 +1,7 @@
 {
   "site": {
     "description": "Entrez dans un moment de l’histoire et rencontrez ceux qui l’ont vécu, des rois aux lavandières.",
-    "tagline": "entrez dans un moment",
+    "tagline": "ouvrez une porte de l’histoire",
     "otherLanguage": "English",
     "otherLanguageLabel": "Read Liminis in English",
     "previewAlt": "Liminis : entrez dans un moment de l’histoire"
@@ -105,7 +105,7 @@
   },
   "person": {
     "worldAround": "Le monde autour",
-    "lifeInTime": "Sa vie en son temps",
+    "lifeInTime": "La vie en son temps",
     "connected": "Lié à",
     "around": "Autour · {region}, {year}",
     "elsewhere": "Pendant ce temps, ailleurs en {year}",
