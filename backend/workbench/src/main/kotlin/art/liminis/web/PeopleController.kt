@@ -7,7 +7,9 @@ import art.liminis.people.PeopleReview
 import art.liminis.people.PersonPreviews
 import art.liminis.people.ReviewScope
 import art.liminis.workbench.api.PeopleApi
+import art.liminis.workbench.api.PlacesApi
 import art.liminis.workbench.api.model.EvidenceDto
+import art.liminis.workbench.api.model.FoundPlaceDto
 import art.liminis.workbench.api.model.PeopleToReviewDto
 import art.liminis.workbench.api.model.PersonPreviewDto
 import art.liminis.workbench.api.model.PersonSummaryDto
@@ -32,6 +34,20 @@ class PeopleController(
     override fun getReviewNeighbours(qid: String, moment: String?, filter: ReviewFilterDto, q: String?): ReviewNeighboursDto =
         mapper.toDto(review.neighbours(qid, ReviewScope(moment, mapper.toModel(filter), q)))
 
-    override fun getPersonPreview(qid: String, moment: String?, born: Int?, died: Int?, occupation: List<String>?): PersonPreviewDto =
-        mapper.toDto(previews.preview(qid, moment, EditedFacts(born, died, occupation?.takeIf { it.isNotEmpty() })))
+    override fun getPersonPreview(
+        qid: String,
+        moment: String?,
+        born: Int?,
+        died: Int?,
+        occupation: List<String>?,
+        birthplace: String?,
+        enwiki: String?,
+    ): PersonPreviewDto =
+        mapper.toDto(previews.preview(qid, moment, EditedFacts(born, died, occupation?.takeIf { it.isNotEmpty() }, birthplace, enwiki)))
+}
+
+@RestController
+class PlacesController(private val people: People, private val mapper: PeopleApiMapper) : PlacesApi {
+
+    override fun findPlaces(q: String, limit: Int): List<FoundPlaceDto> = people.findPlaces(q, limit).map(mapper::toDto)
 }

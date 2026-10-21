@@ -389,6 +389,68 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
             DataClassRowMapper(PersonPortrait::class.java), qids.toTypedArray(),
         )
 
+    /**
+     * The places whose English or French label contains [query], ignoring case and accents, those it starts with first,
+     * then those of the most people; the place [query] names first when it is a Q-id.
+     */
+    fun findPlaces(query: String, limit: Int): List<FoundPlace> =
+        jdbc.query(
+            """
+            with tied as (select place, count(distinct person) as people from dataset.person_place group by place)
+            select pl.qid as place, pl.label, pl.label_fr, $PLACE_COUNTRY as country, coalesce(t.people, 0) as people
+            from dataset.place pl left join tied t on t.place = pl.qid
+            where pl.qid = ? or strpos(${fold("pl.label")}, ${fold("?")}) > 0 or strpos(${fold("pl.label_fr")}, ${fold("?")}) > 0
+            order by pl.qid = ? desc, starts_with(${fold("pl.label")}, ${fold("?")}) desc, people desc, pl.qid
+            limit ?
+            """.trimIndent(),
+            DataClassRowMapper(FoundPlace::class.java), query.uppercase(), query, query, query.uppercase(), query, limit,
+        )
+
+    /** Those of [qids] the dataset holds, as [findPlaces] finds them, in no particular order. */
+    fun foundPlaces(qids: Collection<String>): List<FoundPlace> =
+        jdbc.query(
+            """
+            select pl.qid as place, pl.label, pl.label_fr, $PLACE_COUNTRY as country,
+                (select count(distinct pp.person) from dataset.person_place pp where pp.place = pl.qid) as people
+            from dataset.place pl where pl.qid = any (?)
+            """.trimIndent(),
+            DataClassRowMapper(FoundPlace::class.java), qids.toTypedArray(),
+        )
+
+    /** The labels of those of [qids] the dataset holds, by Q-id. */
+    fun placeLabels(qids: Collection<String>): Map<String, String> =
+        jdbc.query("select qid, label from dataset.place where qid = any (?)", { rs, _ -> rs.getString("qid") to rs.getString("label") }, qids.toTypedArray())
+            .toMap()
+
+    /**
+     * The occupations, and classes above them, whose English or French label contains [query], ignoring case and
+     * accents, those it starts with first, then those the most people hold; the one [query] names first when it is a
+     * Q-id.
+     */
+    fun findOccupations(query: String, limit: Int): List<FoundOccupation> =
+        jdbc.query(
+            """
+            with held as (select occupation, count(distinct person) as people from dataset.person_occupation group by occupation)
+            select o.qid as occupation, o.label, o.label_fr, coalesce(h.people, 0) as people
+            from dataset.occupation o left join held h on h.occupation = o.qid
+            where o.qid = ? or strpos(${fold("o.label")}, ${fold("?")}) > 0 or strpos(${fold("o.label_fr")}, ${fold("?")}) > 0
+            order by o.qid = ? desc, starts_with(${fold("o.label")}, ${fold("?")}) desc, people desc, o.qid
+            limit ?
+            """.trimIndent(),
+            DataClassRowMapper(FoundOccupation::class.java), query.uppercase(), query, query, query.uppercase(), query, limit,
+        )
+
+    /** Those of [qids] the dataset holds, as [findOccupations] finds them, in no particular order. */
+    fun foundOccupations(qids: Collection<String>): List<FoundOccupation> =
+        jdbc.query(
+            """
+            select o.qid as occupation, o.label, o.label_fr,
+                (select count(distinct po.person) from dataset.person_occupation po where po.occupation = o.qid) as people
+            from dataset.occupation o where o.qid = any (?)
+            """.trimIndent(),
+            DataClassRowMapper(FoundOccupation::class.java), qids.toTypedArray(),
+        )
+
     /** The person's Wikipedia articles, by language. */
     fun articles(person: String): List<ArticleRow> =
         jdbc.query(

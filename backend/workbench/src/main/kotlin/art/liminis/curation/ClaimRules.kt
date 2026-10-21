@@ -189,7 +189,7 @@ object ClaimRules {
      */
     private fun check(payload: Payload) {
         val years = when (payload) {
-            is PersonFacts -> listOf(payload.born, payload.died)
+            is PersonFacts -> listOf(payload.born, payload.died) + payload.places.flatMap { listOfNotNull(it.startYear, it.endYear) }
             is Connection -> listOf(payload.year)
             is Event -> listOf(payload.year)
             is Anecdote -> listOf(payload.year)

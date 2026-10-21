@@ -1,9 +1,12 @@
 package art.liminis.wikimedia
 
+import art.liminis.support.UnavailableException
 import io.github.resilience4j.bulkhead.Bulkhead
+import io.github.resilience4j.bulkhead.BulkheadFullException
 import io.github.resilience4j.bulkhead.BulkheadRegistry
 import io.github.resilience4j.ratelimiter.RateLimiter
 import io.github.resilience4j.ratelimiter.RateLimiterRegistry
+import io.github.resilience4j.ratelimiter.RequestNotPermitted
 import io.github.resilience4j.retry.Retry
 import io.github.resilience4j.retry.RetryRegistry
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -62,6 +65,20 @@ class WikimediaException(message: String) : RuntimeException(message)
 
 /** The query service stopped a SPARQL query that took too long. Not retried: ask for less instead. */
 class SparqlTimeoutException(message: String) : RuntimeException(message)
+
+/**
+ * What [call] gets from Wikimedia while a curator waits: Wikimedia busy, an error it answered with, a failed request or
+ * the shared pace's wait running out become an [UnavailableException] naming [service].
+ */
+fun <T> answeredBy(service: String, call: () -> T): T =
+    try {
+        call()
+    } catch (e: WikimediaBusyException) {
+        throw UnavailableException("$service is busy: ${e.message}")
+    } catch (e: RuntimeException) {
+        if (e !is WikimediaException && e !is RestClientException && e !is RequestNotPermitted && e !is BulkheadFullException) throw e
+        throw UnavailableException("$service did not answer: ${e.message}")
+    }
 
 /**
  * The workbench's way to Wikimedia: Wikidata's, Wikipedia's and Commons' Action APIs, which answer many entities or

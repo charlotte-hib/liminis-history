@@ -78,3 +78,9 @@ data class FoundPerson(
 
 /** A person's English Wikipedia intro, for drafting from. */
 data class Intro(val person: String, val title: String, val url: String, val extract: String)
+
+/** A place of the dataset, with the country it lies in today and how many people it is a place of. */
+data class FoundPlace(val place: String, val label: String, val labelFr: String?, val country: String?, val people: Int)
+
+/** An occupation of the dataset, or a class above some, with how many people hold it. */
+data class FoundOccupation(val occupation: String, val label: String, val labelFr: String?, val people: Int)

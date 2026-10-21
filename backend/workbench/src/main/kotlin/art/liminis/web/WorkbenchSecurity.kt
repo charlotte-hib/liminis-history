@@ -39,7 +39,7 @@ class WorkbenchSecurity {
             authorizeHttpRequests {
                 for (path in listOf(
                     "/api/queues", "/api/claims", "/api/claims/*", "/api/people", "/api/people/review", "/api/people/*/evidence",
-                    "/api/people/*/neighbours", "/api/people/*/preview", "/api/occupations/*",
+                    "/api/people/*/neighbours", "/api/people/*/preview", "/api/places", "/api/occupations", "/api/occupations/*",
                     "/api/moments", "/api/moments/*", "/api/moments/*/people", "/api/moments/*/preview", "/api/moments/*/subjects",
                     "/api/paintings",
                 )) {

@@ -15,8 +15,11 @@ import art.liminis.curation.PersonFacts
 import art.liminis.curation.SourceKind
 import art.liminis.curation.SourceRef
 import art.liminis.domain.Domain
+import art.liminis.domain.PlaceKind
 import art.liminis.release.AnecdoteRecord
 import art.liminis.release.AnecdoteSourceRecord
+import art.liminis.release.ClearedField
+import art.liminis.release.CorrectionPlaceRecord
 import art.liminis.release.CorrectionRecord
 import art.liminis.release.OccupationRecord
 import art.liminis.support.UnavailableException
@@ -43,8 +46,8 @@ data class ApprovedAnecdote(val id: String, val anecdote: Anecdote, val source: 
  * people's facts, and the anecdotes publishing does not hold back. A correction holds only the fields approved
  * otherwise than Wikidata proposed them; facts approved as proposed need none. Corrections for people written by hand
  * in `people.jsonl` are written too, though the release gives them no effect: they are the curator's decisions all the
- * same. A correction can set a field, not clear it: a French name removed in curate, and a date's precision, which the
- * release does not use, are not published.
+ * same. A French name or an article removed in curate is cleared; a date's precision, which the release does not use,
+ * is not published.
  */
 @Component
 class DataFiles(private val claims: ClaimRepository, private val sources: ClaimSources, jsonMapper: JsonMapper) {
@@ -116,7 +119,11 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
     /** The fields of [approved] that differ from what Wikidata [proposed], or nothing when none does. */
     private fun correction(approved: PersonFacts, proposed: PersonFacts): CorrectionRecord? {
         fun <T> changed(field: (PersonFacts) -> T): T? = field(approved).takeIf { it != field(proposed) }
+        fun cleared(field: (PersonFacts) -> String?, name: ClearedField) = name.takeIf { field(approved) == null && field(proposed) != null }
         val occupations: (PersonFacts) -> List<String> = { facts -> facts.occupations.map { it.occupation } }
+        val places: (PersonFacts) -> List<CorrectionPlaceRecord> = { facts ->
+            facts.places.map { CorrectionPlaceRecord(PlaceKind.valueOf(it.role.name), it.place, it.startYear, it.endYear) }
+        }
         val correction = CorrectionRecord(
             id = approved.person,
             name = changed(PersonFacts::label),
@@ -125,6 +132,14 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
             died = changed(PersonFacts::died),
             approximate = changed(PersonFacts::datesApproximate),
             occupations = changed(occupations),
+            places = changed(places),
+            wikipedia = changed(PersonFacts::enwiki),
+            wikipediaFr = changed(PersonFacts::frwiki),
+            cleared = setOfNotNull(
+                cleared(PersonFacts::labelFr, ClearedField.NAME_FR),
+                cleared(PersonFacts::enwiki, ClearedField.WIKIPEDIA),
+                cleared(PersonFacts::frwiki, ClearedField.WIKIPEDIA_FR),
+            ).ifEmpty { null },
         )
         return correction.takeIf { it != CorrectionRecord(approved.person) }
     }

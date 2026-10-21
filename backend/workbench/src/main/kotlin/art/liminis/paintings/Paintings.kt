@@ -5,13 +5,8 @@ import org.springframework.stereotype.Service
 import tools.jackson.databind.JsonNode
 import art.liminis.curation.Painting
 import art.liminis.curation.PaintingLicence
-import art.liminis.support.UnavailableException
-import art.liminis.wikimedia.WikimediaBusyException
 import art.liminis.wikimedia.WikimediaClient
-import art.liminis.wikimedia.WikimediaException
-import io.github.resilience4j.bulkhead.BulkheadFullException
-import io.github.resilience4j.ratelimiter.RequestNotPermitted
-import org.springframework.web.client.RestClientException
+import art.liminis.wikimedia.answeredBy
 import java.net.URLDecoder
 
 /** An image found on Commons, as a card or a moment would show it, with a small copy to choose it by. */
@@ -32,14 +27,8 @@ class Paintings(private val wikimedia: WikimediaClient) {
 
     fun find(q: String, limit: Int): PaintingSearch {
         val text = q.trim()
-        val files = try {
+        val files = answeredBy("Wikimedia Commons") {
             fileNamed(text)?.let { listOfNotNull(wikimedia.commonsFile(it, WIDTH)) } ?: wikimedia.commonsSearch(text, limit, WIDTH)
-        } catch (e: WikimediaBusyException) {
-            throw UnavailableException("Wikimedia Commons is busy: ${e.message}")
-        } catch (e: RuntimeException) {
-            // An error Commons answered with, a failed request, or the shared pace's wait running out.
-            if (e !is WikimediaException && e !is RestClientException && e !is RequestNotPermitted && e !is BulkheadFullException) throw e
-            throw UnavailableException("Wikimedia Commons did not answer: ${e.message}")
         }
         val (free, others) = files.partition { licence(it) != null }
         return PaintingSearch(

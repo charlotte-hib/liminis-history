@@ -28,6 +28,8 @@ import art.liminis.support.NotFoundException
 import art.liminis.support.dropHatnote
 import art.liminis.support.leadSentences
 import art.liminis.support.yearsBetween
+import art.liminis.wikimedia.WikimediaClient
+import art.liminis.wikimedia.answeredBy
 
 /** What the site's person panel shows of someone beyond their name, dates and occupations. */
 data class PersonPreview(
@@ -54,8 +56,20 @@ data class PreviewLifeLine(
     val waiting: Boolean = false,
 )
 
-/** The facts a preview shows, as the curator is editing them: their years and first occupations' Q-ids. */
-data class EditedFacts(val born: Int?, val died: Int?, val occupations: List<String>?)
+/**
+ * The facts a preview shows, as the curator is editing them: their years, first occupations' Q-ids, their birthplace's
+ * Q-id and their English Wikipedia article's title, both blank for none.
+ */
+data class EditedFacts(
+    val born: Int? = null,
+    val died: Int? = null,
+    val occupations: List<String>? = null,
+    val birthplace: String? = null,
+    val enwiki: String? = null,
+)
+
+/** The parts of an English Wikipedia article a preview shows. */
+private data class PreviewArticle(val extract: String?, val thumbnailUrl: String?, val url: String?)
 
 /**
  * A person as the site would show them once their facts are approved and published: from their claim, else the
@@ -72,6 +86,7 @@ class PersonPreviews(
     private val regions: RegionRepository,
     private val eras: EraRepository,
     private val events: EventRepository,
+    private val wikimedia: WikimediaClient,
 ) {
 
     @Transactional(readOnly = true)
@@ -83,9 +98,18 @@ class PersonPreviews(
         val born = edited.born ?: facts.born
         val died = edited.died ?: facts.died
         if (born > died) throw InvalidRequestException("Born in $born, after the death in $died")
-        val region = moment?.region?.code ?: facts.places.firstOrNull { it.role == PlaceRole.BIRTH }?.country
+        val birthCountry = when {
+            edited.birthplace == null -> facts.places.firstOrNull { it.role == PlaceRole.BIRTH }?.country
+            edited.birthplace.isBlank() -> null
+            else -> dataset.foundPlaces(listOf(edited.birthplace)).singleOrNull()?.country
+        }
+        val region = moment?.region?.code ?: birthCountry
         val articles = dataset.articles(qid)
-        val english = articles.firstOrNull { it.language == "en" }
+        val english = if (edited.enwiki == null || edited.enwiki == facts.enwiki) {
+            articles.firstOrNull { it.language == "en" }?.let { PreviewArticle(it.extract, it.thumbnailUrl, it.url) }
+        } else {
+            edited.enwiki.takeIf { it.isNotBlank() }?.let(::fetched)
+        }
         val anecdotes = claims.anecdotesAbout(qid).filter { it.status != ClaimStatus.REJECTED }.map { claim ->
             val told = sources.of(claim)
             // The source publishing names, without a book's quote, which stays in the workbench.
@@ -94,7 +118,8 @@ class PersonPreviews(
         }
         return PersonPreview(
             person = qid,
-            portrait = articles.firstNotNullOfOrNull { it.thumbnailUrl },
+            // Another English article than the claim's gives its own portrait, or none: as the release has it.
+            portrait = if (edited.enwiki == null || edited.enwiki == facts.enwiki) articles.firstNotNullOfOrNull { it.thumbnailUrl } else english?.thumbnailUrl,
             about = english?.extract?.let(::dropHatnote)?.takeIf { it.isNotBlank() }?.let(::about),
             wikipediaUrl = english?.url,
             domain = domainOf(edited.occupations ?: facts.occupations.map { it.occupation }),
@@ -106,6 +131,16 @@ class PersonPreviews(
                 region?.let { events.findByEraRegionCodeAndYearBetweenOrderByYearAscIdAsc(it, born, died) }.orEmpty(),
                 anecdotes,
             ),
+        )
+    }
+
+    /** The English Wikipedia article titled [title], fetched now; none when there is no such page. */
+    private fun fetched(title: String): PreviewArticle? {
+        val page = answeredBy("Wikipedia") { wikimedia.pages("en", listOf(title))[title] } ?: return null
+        return PreviewArticle(
+            page.path("extract").asString(null),
+            page.path("thumbnail").path("source").asString(null),
+            page.path("fullurl").asString(null),
         )
     }
 

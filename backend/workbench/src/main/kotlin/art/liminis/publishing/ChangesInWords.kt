@@ -10,10 +10,13 @@ import art.liminis.curation.Story
 import art.liminis.dataset.DatasetStore
 import art.liminis.domain.CardType
 import art.liminis.domain.Domain
+import art.liminis.domain.PlaceKind
 import art.liminis.release.AnecdoteRecord
 import art.liminis.release.AnecdoteSourceRecord
 import art.liminis.release.ArtRecord
 import art.liminis.release.CardRecord
+import art.liminis.release.ClearedField
+import art.liminis.release.CorrectionPlaceRecord
 import art.liminis.release.CorrectionRecord
 import art.liminis.release.WorldRecord
 import art.liminis.repository.EventRepository
@@ -27,7 +30,7 @@ data class PersonChange(val person: String, val name: String, val change: Change
 
 data class FactChange(val fact: Fact, val before: String?, val after: String?)
 
-enum class Fact { NAME, FRENCH_NAME, BORN, DIED, DATES_APPROXIMATE, OCCUPATIONS }
+enum class Fact { NAME, FRENCH_NAME, BORN, DIED, DATES_APPROXIMATE, OCCUPATIONS, BIRTHPLACE, DEATHPLACE, WORK_PLACES, RESIDENCES, WIKIPEDIA, WIKIPEDIA_FR }
 
 /** An occupation whose domain changes: [before] none when main does not map it, [after] none when it no longer is. */
 data class OccupationChange(val occupation: String, val label: String, val change: Change, val before: OccupationChoice?, val after: OccupationChoice?)
@@ -104,27 +107,59 @@ class ChangesInWords(
             val before = change.before?.let(dataFiles::readCorrection)
             val after = change.after?.let(dataFiles::readCorrection)
             val labels = (proposal?.occupations.orEmpty() + approved?.occupations.orEmpty()).associate { it.occupation to it.label }
+            val places = placeLabels(listOfNotNull(proposal, approved), listOfNotNull(before, after))
 
-            fun <T> fact(fact: Fact, corrected: (CorrectionRecord) -> T?, wikidata: (PersonFacts) -> T?, words: (T) -> String): FactChange? {
-                val was = before?.let(corrected) ?: proposal?.let(wikidata)
-                val will = after?.let(corrected) ?: proposal?.let(wikidata)
+            fun <T> fact(fact: Fact, corrected: (CorrectionRecord) -> T?, wikidata: (PersonFacts) -> T?, cleared: ClearedField? = null, words: (T) -> String): FactChange? {
+                fun inEffect(correction: CorrectionRecord?) =
+                    if (cleared != null && correction?.cleared.orEmpty().contains(cleared)) null else correction?.let(corrected) ?: proposal?.let(wikidata)
+                val was = inEffect(before)
+                val will = inEffect(after)
                 return if (was == will) null else FactChange(fact, was?.let(words), will?.let(words))
             }
+            fun places(fact: Fact, kind: PlaceKind) = fact(
+                fact,
+                { correction -> correction.places?.filter { it.kind == kind } },
+                { facts -> facts.places.filter { it.role.name == kind.name }.map { CorrectionPlaceRecord(kind, it.place, it.startYear, it.endYear) } },
+            ) { held -> held.joinToString(", ") { placeInWords(it, places) }.ifEmpty { "none" } }
             val name = approved?.label ?: proposal?.label ?: after?.name ?: before?.name ?: change.id
             PersonChange(
                 change.id, name, change.change,
                 listOfNotNull(
                     fact(Fact.NAME, CorrectionRecord::name, PersonFacts::label) { it },
-                    fact(Fact.FRENCH_NAME, CorrectionRecord::nameFr, PersonFacts::labelFr) { it },
-                    fact(Fact.BORN, CorrectionRecord::born, PersonFacts::born, ::year),
-                    fact(Fact.DIED, CorrectionRecord::died, PersonFacts::died, ::year),
+                    fact(Fact.FRENCH_NAME, CorrectionRecord::nameFr, PersonFacts::labelFr, ClearedField.NAME_FR) { it },
+                    fact(Fact.BORN, CorrectionRecord::born, PersonFacts::born, words = ::year),
+                    fact(Fact.DIED, CorrectionRecord::died, PersonFacts::died, words = ::year),
                     fact(Fact.DATES_APPROXIMATE, CorrectionRecord::approximate, PersonFacts::datesApproximate) { if (it) "yes" else "no" },
                     fact(Fact.OCCUPATIONS, CorrectionRecord::occupations, { facts -> facts.occupations.map { it.occupation } }) { ids ->
                         ids.joinToString(", ") { labels[it] ?: it }
                     },
+                    places(Fact.BIRTHPLACE, PlaceKind.BIRTH),
+                    places(Fact.DEATHPLACE, PlaceKind.DEATH),
+                    places(Fact.WORK_PLACES, PlaceKind.WORK),
+                    places(Fact.RESIDENCES, PlaceKind.RESIDENCE),
+                    fact(Fact.WIKIPEDIA, CorrectionRecord::wikipedia, PersonFacts::enwiki, ClearedField.WIKIPEDIA) { it },
+                    fact(Fact.WIKIPEDIA_FR, CorrectionRecord::wikipediaFr, PersonFacts::frwiki, ClearedField.WIKIPEDIA_FR) { it },
                 ),
             )
         }.sortedWith(compareBy(byName) { it: PersonChange -> it.name }.thenBy { it.person })
+    }
+
+    /** The labels of the places [facts] and [corrections] name: from the claims, else from the dataset. */
+    private fun placeLabels(facts: List<PersonFacts>, corrections: List<CorrectionRecord>): Map<String, String> {
+        val known = facts.flatMap { it.places }.associate { it.place to it.label }
+        val unknown = corrections.flatMap { it.places.orEmpty() }.map { it.place }.filter { it !in known }
+        return known + if (unknown.isEmpty()) emptyMap() else dataset.placeLabels(unknown)
+    }
+
+    private fun placeInWords(place: CorrectionPlaceRecord, labels: Map<String, String>): String {
+        val (start, end) = place.start to place.end
+        val years = when {
+            start != null && end != null -> " (${year(start)}–${year(end)})"
+            start != null -> " (from ${year(start)})"
+            end != null -> " (until ${year(end)})"
+            else -> ""
+        }
+        return (labels[place.place] ?: place.place) + years
     }
 
     /** The occupations of [changes], those of `occupations.jsonl`, by label. */
@@ -350,6 +385,8 @@ class ChangesInWords(
         val FACTS = mapOf(
             Fact.NAME to "name", Fact.FRENCH_NAME to "French name", Fact.BORN to "born", Fact.DIED to "died",
             Fact.DATES_APPROXIMATE to "dates approximate", Fact.OCCUPATIONS to "occupations",
+            Fact.BIRTHPLACE to "birthplace", Fact.DEATHPLACE to "death place", Fact.WORK_PLACES to "work places",
+            Fact.RESIDENCES to "residences", Fact.WIKIPEDIA to "English Wikipedia", Fact.WIKIPEDIA_FR to "French Wikipedia",
         )
         // As curate names them.
         val WORLD = mapOf(

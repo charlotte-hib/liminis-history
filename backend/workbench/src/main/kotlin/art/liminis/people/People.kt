@@ -5,6 +5,7 @@ import tools.jackson.databind.json.JsonMapper
 import tools.jackson.module.kotlin.readValue
 import art.liminis.dataset.ArticleRow
 import art.liminis.dataset.DatasetStore
+import art.liminis.dataset.FoundPlace
 import art.liminis.dataset.PersonSummary
 import art.liminis.dataset.PlaceProperty
 import art.liminis.dataset.Rank
@@ -46,6 +47,9 @@ data class EvidenceStatement(
 class People(private val raw: RawStore, private val dataset: DatasetStore, private val jsonMapper: JsonMapper) {
 
     fun find(query: String, limit: Int): List<PersonSummary> = dataset.find(query.trim(), limit)
+
+    /** The places a person's may be chosen among. */
+    fun findPlaces(query: String, limit: Int): List<FoundPlace> = dataset.findPlaces(query.trim(), limit)
 
     fun evidence(qid: String): Evidence {
         val json = raw.entities(listOf(qid), EvidenceField.entries.map { it.property }).singleOrNull()
