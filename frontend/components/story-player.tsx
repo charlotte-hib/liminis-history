@@ -2,8 +2,7 @@
 
 import { BookOpen, ChevronRight, ChevronUp, X } from "lucide-react";
 import { AnimatePresence, animate, motion, useMotionValue, useTransform } from "motion/react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { type ReactNode, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ArtworkImage } from "@/components/artwork-image";
 import { DetailPanel } from "@/components/detail-panel";
@@ -13,11 +12,13 @@ import { LifeDetails, LifeMark } from "@/components/life";
 import { PersonAvatar } from "@/components/person-avatar";
 import { TrailOrigin } from "@/components/person-panel";
 import { buttonVariants } from "@/components/ui/button";
+import { Link, useRouter } from "@/i18n/navigation";
 import { track } from "@/lib/analytics";
+import { CONTENT_LANG } from "@/lib/content";
 import { titleOf } from "@/lib/moments";
 import type { Story, StoryCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ageText, formatYear, isAlive } from "@/lib/years";
+import { isAlive, useYears } from "@/lib/years";
 
 const SWIPE_PX = 50;
 const SWIPE_VELOCITY = 400;
@@ -52,6 +53,8 @@ const hasMore = (card: StoryCard | undefined) =>
  */
 export function StoryPlayer({ story }: { story: Story }) {
   const router = useRouter();
+  const t = useTranslations("story");
+  const common = useTranslations("common");
   const { moment, cards, doors } = story;
   // The server cannot see the hash, so it renders the first card and the browser moves to the one in the hash.
   const hash = useSyncExternalStore(noChanges, () => window.location.hash, () => null);
@@ -161,13 +164,13 @@ export function StoryPlayer({ story }: { story: Story }) {
 
       <div className="absolute inset-x-4 top-4 z-20 flex items-start gap-3">
         {/* Each bar goes to its card. The line is thin, so the button around it is taller, to be easy to tap. */}
-        <nav aria-label="Story cards" className="-mt-1 flex flex-1">
+        <nav aria-label={t("cards")} className="-mt-1 flex flex-1">
           {[...cards, null].map((_, i) => (
             <button
               key={i}
               type="button"
               onClick={() => setTurned(i)}
-              aria-label={i === cards.length ? "Where next?" : `Card ${i + 1} of ${cards.length}`}
+              aria-label={i === cards.length ? common("whereNext") : t("card", { index: i + 1, total: cards.length })}
               aria-current={i === index ? "step" : undefined}
               className="group flex-1 px-0.5 py-3"
             >
@@ -175,7 +178,7 @@ export function StoryPlayer({ story }: { story: Story }) {
             </button>
           ))}
         </nav>
-        <button type="button" onClick={close} aria-label="Close story" className={cn(buttonVariants({ variant: "outline", size: "icon" }), "rounded-full border-white/30 bg-black/30")}>
+        <button type="button" onClick={close} aria-label={t("close")} className={cn(buttonVariants({ variant: "outline", size: "icon" }), "rounded-full border-white/30 bg-black/30")}>
           <X />
         </button>
       </div>
@@ -186,7 +189,7 @@ export function StoryPlayer({ story }: { story: Story }) {
           href={`/moment/${moment.id}`}
           className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-white/30 bg-black/30 py-1 pr-2 pl-3 text-xs font-medium tracking-[0.12em] uppercase hover:bg-black/50"
         >
-          {titleOf(moment)} <ChevronRight className="size-3.5" />
+          <span lang={CONTENT_LANG}>{titleOf(moment)}</span> <ChevronRight className="size-3.5" />
         </Link>
         {art && (
           <a href={art.sourceUrl} target="_blank" rel="noreferrer" className="max-w-xs min-w-0 text-right text-[11px] text-white/60 hover:underline">
@@ -197,8 +200,8 @@ export function StoryPlayer({ story }: { story: Story }) {
 
       {!atEnd && (
         <>
-          <button type="button" aria-label="Previous card" onClick={() => tap(-1)} className="absolute inset-y-0 left-0 z-10 w-[30%] cursor-w-resize" />
-          <button type="button" aria-label="Next card" onClick={() => tap(1)} className="absolute inset-y-0 right-0 z-10 w-[70%] cursor-e-resize" />
+          <button type="button" aria-label={t("previous")} onClick={() => tap(-1)} className="absolute inset-y-0 left-0 z-10 w-[30%] cursor-w-resize" />
+          <button type="button" aria-label={t("next")} onClick={() => tap(1)} className="absolute inset-y-0 right-0 z-10 w-[70%] cursor-e-resize" />
         </>
       )}
 
@@ -226,7 +229,7 @@ export function StoryPlayer({ story }: { story: Story }) {
                   {doors.map((door) => <DoorCard key={door.target.id} door={door} />)}
                 </div>
                 <Link href={`/moment/${moment.id}`} className={cn(buttonVariants({ variant: "outline" }), "mt-4 rounded-full border-white/30 bg-black/30")}>
-                  Meet everyone in {titleOf(moment)}
+                  {t("meetEveryone", { title: titleOf(moment) })}
                 </Link>
               </EndCard>
             ) : (
@@ -238,20 +241,20 @@ export function StoryPlayer({ story }: { story: Story }) {
                 onClick={readMore}
                 className="mt-5 inline-flex items-center gap-1 rounded-full border border-white/30 bg-black/30 py-1.5 pr-4 pl-3 text-sm hover:bg-black/50"
               >
-                <ChevronUp className="size-4" /> {card.type === "PERSON" ? `More about ${card.person!.name}` : "Read more"}
+                <ChevronUp className="size-4" /> {card.type === "PERSON" ? t("moreAbout", { name: card.person!.name }) : t("readMore")}
               </button>
             )}
             {index === 0 && (
               <p className="mt-6 flex items-center gap-1 text-xs tracking-wide text-white/60">
-                Tap or swipe to turn the page <ChevronRight className="size-3.5" />
+                {t("tapHint")} <ChevronRight className="size-3.5" />
               </p>
             )}
           </motion.div>
         </AnimatePresence>
       </motion.div>
 
-      <TrailOrigin label={`The story of ${titleOf(moment)}`} />
-      <DetailPanel open={moreOpen} onOpenChange={setMoreOpen} kicker={card?.type === "EVENT" ? "Documented event" : "Everyday life"}>
+      <TrailOrigin label={t("trail", { title: titleOf(moment) })} />
+      <DetailPanel open={moreOpen} onOpenChange={setMoreOpen} kicker={card?.type === "EVENT" ? common("documentedEvent") : common("everydayLife")}>
         {card?.life && (
           <LifeDetails
             life={card.life}
@@ -273,13 +276,18 @@ const titleClass = "font-story text-3xl leading-tight font-medium sm:text-5xl";
 const textClass = "max-w-2xl font-story text-lg leading-relaxed text-white/90 sm:text-xl";
 
 function Card({ card }: { card: StoryCard }) {
+  const t = useTranslations("story");
+  const common = useTranslations("common");
+  const life = useTranslations("life");
+  const years = useYears();
+
   if (card.type === "SCENE") {
     return (
-      <>
+      <div lang={CONTENT_LANG}>
         <Kicker>{card.kicker}</Kicker>
         <h2 className={cn(titleClass, "mb-3")}>{card.title}</h2>
         <p className={textClass}>{card.text}</p>
-      </>
+      </div>
     );
   }
 
@@ -287,18 +295,18 @@ function Card({ card }: { card: StoryCard }) {
     const { person } = card;
     return (
       <>
-        <Kicker>Someone who lived it</Kicker>
+        <Kicker>{common("someoneWhoLivedIt")}</Kicker>
         <Link href={personHref(card)} className="mb-4 flex items-center gap-4 hover:opacity-90">
           <PersonAvatar person={person} className="size-24 ring-4" />
           <span>
             <span className={titleClass}>{person.name}</span>
             <span className="mt-1 block text-sm text-white/70">
-              {person.occupations[0]}
-              {card.year && ` · ${ageText(person, card.year)} in ${formatYear(card.year)}`}
+              <span lang={CONTENT_LANG}>{person.occupations[0]}</span>
+              {card.year && ` · ${years.ageInYear(person, card.year)}`}
             </span>
           </span>
         </Link>
-        <p className={textClass}>{card.text ?? person.bioShort}</p>
+        <p lang={CONTENT_LANG} className={textClass}>{card.text ?? person.bioShort}</p>
       </>
     );
   }
@@ -306,15 +314,15 @@ function Card({ card }: { card: StoryCard }) {
   if (card.type === "LIFE" && card.life) {
     return (
       <>
-        <Kicker>Everyday life</Kicker>
+        <Kicker>{common("everydayLife")}</Kicker>
         <div className="mb-4 flex items-center gap-4">
           <LifeMark life={card.life} size="lg" />
           <span>
-            <span className={titleClass}>{card.life.label}</span>
-            <span className="mt-1 block text-sm text-white/70">Illustrated · typical of the period</span>
+            <span lang={CONTENT_LANG} className={titleClass}>{card.life.label}</span>
+            <span className="mt-1 block text-sm text-white/70">{life("illustrated")}</span>
           </span>
         </div>
-        <p className={textClass}>{card.text ?? card.life.description}</p>
+        <p lang={CONTENT_LANG} className={textClass}>{card.text ?? card.life.description}</p>
         {card.life.art && (
           <a href={card.life.art.sourceUrl} target="_blank" rel="noreferrer" className="mt-3 block text-[11px] text-white/60 hover:underline">
             {card.life.art.credit}
@@ -328,9 +336,9 @@ function Card({ card }: { card: StoryCard }) {
     const { event } = card;
     return (
       <>
-        <Kicker>Documented event · {formatYear(event.year)}</Kicker>
-        <h2 className={cn(titleClass, "mb-3")}>{event.title}</h2>
-        <p className={textClass}>
+        <Kicker>{t("eventKicker", { year: years.year(event.year) })}</Kicker>
+        <h2 lang={CONTENT_LANG} className={cn(titleClass, "mb-3")}>{event.title}</h2>
+        <p lang={CONTENT_LANG} className={textClass}>
           {event.description}
           {card.text && ` ${card.text}`}
         </p>
@@ -339,14 +347,14 @@ function Card({ card }: { card: StoryCard }) {
             {event.participants.map(({ person, role }) => (
               <li key={person.slug}>
                 <Link href={`/person/${person.slug}?year=${event.year}`} className="rounded-full bg-white/15 px-3 py-1 text-sm hover:bg-white/25">
-                  {person.name} · {role}
+                  {person.name} · <span lang={CONTENT_LANG}>{role}</span>
                 </Link>
               </li>
             ))}
           </ul>
         )}
         <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-xs text-white/70 hover:underline">
-          <BookOpen className="size-3.5" /> Source: {sourceLabel(event.sourceUrl)}
+          <BookOpen className="size-3.5" /> {common("sourceOf", { source: sourceLabel(event.sourceUrl) })}
         </a>
       </>
     );
@@ -356,10 +364,12 @@ function Card({ card }: { card: StoryCard }) {
 }
 
 function EndCard({ children }: { children: ReactNode }) {
+  const t = useTranslations("story");
+  const common = useTranslations("common");
   return (
     <>
-      <Kicker>Where next?</Kicker>
-      <h2 className={titleClass}>Step through another door</h2>
+      <Kicker>{common("whereNext")}</Kicker>
+      <h2 className={titleClass}>{t("anotherDoor")}</h2>
       {children}
     </>
   );

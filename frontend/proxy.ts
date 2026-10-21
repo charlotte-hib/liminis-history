@@ -1,11 +1,16 @@
-import { NextResponse, type NextRequest } from "next/server";
+import createMiddleware from "next-intl/middleware";
+import { NextRequest, NextResponse } from "next/server";
+import { routing } from "@/i18n/routing";
 import { take } from "@/lib/rate-limit";
 
-const PERSON_PAGE = /^\/person\/[^/]+$/;
+const PERSON_PAGE = /^(?:\/(?:en|fr))?\/person\/[^/]+$/;
+
+/** Picks the page's language from its address (or, on a first visit, the browser's), and sends it on. */
+const intl = createMiddleware(routing);
 
 /**
- * Limits how fast one visitor can load pages and call the API (see `lib/rate-limit.ts`), and keeps a person's full
- * page from opening other people in the panel.
+ * Limits how fast one visitor can load pages and call the API (see `lib/rate-limit.ts`), gives pages their language,
+ * and keeps a person's full page from opening other people in the panel.
  */
 export function proxy(request: NextRequest) {
   const prefetch = request.headers.has("rsc") && request.headers.has("next-router-prefetch");
@@ -27,9 +32,14 @@ export function proxy(request: NextRequest) {
   if (from && PERSON_PAGE.test(from) && PERSON_PAGE.test(request.nextUrl.pathname)) {
     const headers = new Headers(request.headers);
     headers.delete("next-url");
-    return NextResponse.next({ request: { headers } });
+    request = new NextRequest(request, { headers });
   }
-  return NextResponse.next();
+  // The few API paths the browser calls are forwarded to the backend as they are (next.config.ts), and files (the
+  // icons, the home page's preview) are the same in every language. Link previews of English pages are addressed
+  // under /en (Next.js fills in the route's [locale]): served there, not redirected, as some apps follow no redirect.
+  const { pathname } = request.nextUrl;
+  const passThrough = pathname.startsWith("/api/") || pathname.includes(".") || pathname.endsWith("/opengraph-image");
+  return passThrough ? NextResponse.next() : intl(request);
 }
 
 // Pages, navigations and API calls, but not static files, nor Next.js prefetches: a page prefetches every link in
@@ -40,6 +50,7 @@ export const config = {
   matcher: [
     { source: "/((?!_next/static|_next/image|favicon.ico).*)", missing: [{ type: "header", key: "rsc" }] },
     { source: "/((?!_next/static|_next/image|favicon.ico).*)", missing: [{ type: "header", key: "next-router-prefetch" }] },
-    { source: "/person/:slug", has: [{ type: "header", key: "next-url", value: "/person/[^/]+" }] },
+    { source: "/person/:slug", has: [{ type: "header", key: "next-url", value: "(/en|/fr)?/person/[^/]+" }] },
+    { source: "/fr/person/:slug", has: [{ type: "header", key: "next-url", value: "(/en|/fr)?/person/[^/]+" }] },
   ],
 };

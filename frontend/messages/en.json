@@ -1,0 +1,158 @@
+{
+  "site": {
+    "description": "Step into a moment in history and meet the people who lived it, from kings to washerwomen.",
+    "tagline": "step into a moment",
+    "otherLanguage": "Français",
+    "otherLanguageLabel": "Lire Liminis en français",
+    "previewAlt": "Liminis: step into a moment in history"
+  },
+  "years": {
+    "bce": "{year} BCE",
+    "ce": "{year} CE",
+    "today": "Today",
+    "chipAge": "aged {age}",
+    "chipAgeApprox": "aged c. {age}",
+    "chipBorn": "born",
+    "age": "{age, plural, one {# year old} other {# years old}}",
+    "ageApprox": "about {age, plural, one {# year old} other {# years old}}",
+    "newborn": "a newborn",
+    "ageInYear": "{age} in {year}"
+  },
+  "common": {
+    "story": "Story",
+    "moment": "Moment",
+    "source": "Source",
+    "sourceOf": "Source: {source}",
+    "close": "Close",
+    "documentedEvent": "Documented event",
+    "everydayLife": "Everyday life",
+    "someoneWhoLivedIt": "Someone who lived it",
+    "whoWasThere": "Who was there",
+    "whereNext": "Where next?",
+    "cards": "{count, plural, one {# card} other {# cards}}",
+    "yourPath": "Your path"
+  },
+  "domains": {
+    "POWER": "Politics and power",
+    "ARTS": "Arts and ideas",
+    "EVERYDAY": "Everyday life"
+  },
+  "world": {
+    "governs": "Who governs",
+    "everyday": "Everyday life",
+    "arts": "Arts and ideas",
+    "meanwhile": "Meanwhile"
+  },
+  "home": {
+    "trail": "Home",
+    "mapTitle": "Where the stories are",
+    "mapHint": "Gold dots are stories. Tap any dot to step in.",
+    "stories": "Stories",
+    "more": "More moments to explore",
+    "credits": "Bios and portraits come from Wikipedia, and every connection between people is a dated, sourced event. Paintings are public domain, via Wikimedia Commons."
+  },
+  "storyMap": {
+    "storyLabel": "{title}, story",
+    "storyTip": "{title} · story",
+    "exploreTip": "{title} · explore",
+    "range": "Moments from {start} to today."
+  },
+  "tile": {
+    "story": "▶ Story · {count, plural, one {# card} other {# cards}}",
+    "explore": "Explore"
+  },
+  "featured": {
+    "kicker": "Featured story",
+    "play": "Play the story",
+    "explore": "Explore the moment",
+    "previous": "Previous story",
+    "next": "Next story"
+  },
+  "search": {
+    "placeholder": "Search a name you know…",
+    "label": "Search people and moments",
+    "hint": "Type a name, a place or a decade. Results appear as you type, from 2 letters.",
+    "clear": "Clear search",
+    "keysChoose": "to choose",
+    "keysOpen": "to open",
+    "emptyTitle": "Type a name, a place or a decade",
+    "emptyHint": "Like Zola, Kyoto or 1870s. Results appear as you type, from 2 letters.",
+    "shortTitle": "Type at least 2 letters",
+    "shortHint": "Like Zola, Kyoto or 1870s. Results appear as you type.",
+    "offlineTitle": "You’re offline",
+    "offlineHint": "Results will appear once you’re back online.",
+    "failedTitle": "Search isn’t available right now",
+    "failedHint": "Please try again in a moment.",
+    "searching": "Searching…",
+    "count": "{count, plural, one {# result} other {# results}}",
+    "noneTitle": "No people or moments match “{query}”",
+    "noneHint": "Try a name, a place or a decade, like Zola, Kyoto or 1870s.",
+    "keysEnter": "Enter"
+  },
+  "moment": {
+    "year": "Year",
+    "whoGoverns": "Who governs:",
+    "drag": "Drag to move through the moment",
+    "ages": "In {year}, {oldest} is {oldestAge} and {youngest} is {youngestAge}.",
+    "worldTitle": "The world around · {title}",
+    "people": "People",
+    "others": "Others alive in {year}",
+    "shown": "{count} shown in {year}",
+    "nobody": "Nobody in this group yet.",
+    "documented": "Documented in this moment",
+    "theStory": "The story",
+    "play": "Play {title}"
+  },
+  "person": {
+    "worldAround": "The world around them",
+    "lifeInTime": "Their life in their time",
+    "connected": "Connected to",
+    "around": "Around them in {region}, {year}",
+    "elsewhere": "Meanwhile, elsewhere in {year}",
+    "stepInto": "Step into their time",
+    "openFullPage": "Open the full page",
+    "readMore": "Read more on Wikipedia"
+  },
+  "lifeInTime": {
+    "year": "Year",
+    "age": "Age",
+    "yearsOld": "{age, plural, one {year old} other {years old}}",
+    "birth": "Born",
+    "birthUnder": "Born under <era>{label}</era>",
+    "era": "<era>{label}</era> begins",
+    "death": "Dies",
+    "anecdote": "Anecdote",
+    "page": "p. {page}",
+    "episode": "episode {episode}",
+    "minute": "at {minute}"
+  },
+  "life": {
+    "typical": "typical life",
+    "notReal": "A typical life of the period, illustrated rather than documented: not a real person.",
+    "aliveThen": "Alive at the same time, {year}",
+    "illustrated": "Illustrated · typical of the period"
+  },
+  "era": {
+    "moments": "Moments in this era",
+    "youAreHere": "You are here"
+  },
+  "story": {
+    "cards": "Story cards",
+    "card": "Card {index} of {total}",
+    "close": "Close story",
+    "previous": "Previous card",
+    "next": "Next card",
+    "meetEveryone": "Meet everyone in {title}",
+    "moreAbout": "More about {name}",
+    "readMore": "Read more",
+    "tapHint": "Tap or swipe to turn the page",
+    "trail": "The story of {title}",
+    "eventKicker": "Documented event · {year}",
+    "anotherDoor": "Step through another door"
+  },
+  "notFound": {
+    "title": "Nothing here",
+    "text": "This page doesn’t exist, or the moment or person it showed is no longer on the site.",
+    "home": "Back to the home page"
+  }
+}

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { CONTENT_LANG } from "@/lib/content";
 import type { Artwork } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +15,7 @@ export function ArtworkImage({ art, priority, sizes = "100vw", className }: Prop
 /** The credit line every painting carries, linked to its source page. */
 export function ArtworkCredit({ art, className }: { art: Artwork; className?: string }) {
   return (
-    <a href={art.sourceUrl} target="_blank" rel="noreferrer" className={cn("text-xs text-muted-foreground hover:underline", className)}>
+    <a href={art.sourceUrl} target="_blank" rel="noreferrer" lang={CONTENT_LANG} className={cn("text-xs text-muted-foreground hover:underline", className)}>
       {art.credit}
     </a>
   );

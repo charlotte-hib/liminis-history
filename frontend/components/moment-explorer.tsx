@@ -2,7 +2,7 @@
 
 import { Slider } from "@base-ui/react/slider";
 import { Play, Shuffle } from "lucide-react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { ArtworkImage } from "@/components/artwork-image";
 import { DoorCard } from "@/components/door-card";
@@ -12,11 +12,13 @@ import { EventDetails } from "@/components/event-details";
 import { LifeChip } from "@/components/life";
 import { PersonChip } from "@/components/person-chip";
 import { WorldAround } from "@/components/world-around";
+import { Link } from "@/i18n/navigation";
 import { fetchAliveElsewhere, fetchMomentPeople } from "@/lib/api-browser";
-import { DOMAIN_ORDER, DOMAINS } from "@/lib/domains";
+import { CONTENT_LANG } from "@/lib/content";
+import { DOMAIN_ORDER } from "@/lib/domains";
 import { hasStory, titleOf } from "@/lib/moments";
 import type { Era, Event, MomentDetail, MomentPeople, Person } from "@/lib/types";
-import { ageText, formatYear, isAlive } from "@/lib/years";
+import { isAlive, useYears } from "@/lib/years";
 
 const DEBOUNCE_MS = 200;
 
@@ -81,6 +83,10 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
   // The event stays set while its panel slides away.
   const [panelEvent, setPanelEvent] = useState<Event | null>(null);
   const [eventOpen, setEventOpen] = useState(false);
+  const t = useTranslations("moment");
+  const common = useTranslations("common");
+  const domains = useTranslations("domains");
+  const years = useYears();
 
   const livesHere = lives.filter((life) => life.startYear <= year && year <= life.endYear);
   const era = eraAt(eras, year);
@@ -92,14 +98,14 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
   // whole page past a phone's screen.
   return (
     <div className="grid grid-cols-1 gap-10">
-      <section aria-label="Year" className="grid gap-3">
+      <section aria-label={t("year")} className="grid gap-3">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <p className="font-display text-7xl leading-none font-extrabold text-lamp tabular-nums sm:text-8xl" aria-live="polite">
-            {formatYear(year)}
+            {years.year(year)}
           </p>
           {era && (
             <p className="pb-2 text-muted-foreground">
-              Who governs:{" "}
+              {t("whoGoverns")}{" "}
               <EraButton era={era} momentId={moment.id} />
             </p>
           )}
@@ -108,18 +114,24 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
           <Slider.Control className="flex h-6 cursor-ew-resize touch-none items-center select-none">
             <Slider.Track className="h-1 w-full rounded-full bg-muted">
               <Slider.Indicator className="rounded-full bg-lamp" />
-              <Slider.Thumb aria-label="Year" getAriaValueText={() => formatYear(year)} className="size-5 rounded-full border-4 border-background bg-lamp shadow outline-none has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50" />
+              <Slider.Thumb aria-label={t("year")} getAriaValueText={() => years.year(year)} className="size-5 rounded-full border-4 border-background bg-lamp shadow outline-none has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50" />
             </Slider.Track>
           </Slider.Control>
         </Slider.Root>
         <div className="flex justify-between font-mono text-xs text-muted-foreground">
-          <span>{formatYear(moment.startYear)}</span>
-          <span>Drag to move through the moment</span>
-          <span>{formatYear(moment.endYear)}</span>
+          <span>{years.year(moment.startYear)}</span>
+          <span>{t("drag")}</span>
+          <span>{years.year(moment.endYear)}</span>
         </div>
         {oldest && youngest && oldest !== youngest && (
           <p className="font-story text-xl">
-            In {formatYear(year)}, {oldest.name} is {ageText(oldest, year)} and {youngest.name} is {ageText(youngest, year)}.
+            {t("ages", {
+              year: years.year(year),
+              oldest: oldest.name,
+              oldestAge: years.age(oldest, year),
+              youngest: youngest.name,
+              youngestAge: years.age(youngest, year),
+            })}
           </p>
         )}
       </section>
@@ -127,7 +139,7 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
       {world && (
         <section aria-labelledby="world-title" className="rounded-2xl border bg-card/40 p-5">
           <h2 id="world-title" className="mb-4 text-xs tracking-widest text-muted-foreground uppercase">
-            The world around · {titleOf(moment)}
+            {t("worldTitle", { title: titleOf(moment) })}
           </h2>
           <WorldAround
             world={world}
@@ -140,10 +152,10 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
         </section>
       )}
 
-      <section aria-label="People" className="grid gap-2">
+      <section aria-label={t("people")} className="grid gap-2">
         {draws > 1 && (
           <button type="button" onClick={another} className="inline-flex items-center gap-2 justify-self-end rounded-full border px-3 py-1 text-sm hover:border-lamp">
-            <Shuffle className="size-4" /> Others alive in {formatYear(year)}
+            <Shuffle className="size-4" /> {t("others", { year: years.year(year) })}
           </button>
         )}
         <div className="divide-y border-y">
@@ -154,15 +166,15 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
           return (
             <div key={domain} className="grid grid-cols-1 gap-3 py-4 sm:grid-cols-[11rem_minmax(0,1fr)]">
               <h3 className="text-sm font-semibold">
-                {DOMAINS[domain].title}
+                {domains(domain)}
                 <span className="block font-mono text-xs font-normal text-muted-foreground">
-                  {count} shown in {formatYear(year)}
+                  {t("shown", { count, year: years.year(year) })}
                 </span>
               </h3>
               <div className="flex flex-wrap gap-2">
                 {group.map((person) => <PersonChip key={person.slug} person={person} year={year} />)}
                 {groupLives.map((life) => <LifeChip key={life.id} life={life} around={here} year={year} />)}
-                {count === 0 && <p className="py-1 text-sm text-muted-foreground">Nobody in this group yet.</p>}
+                {count === 0 && <p className="py-1 text-sm text-muted-foreground">{t("nobody")}</p>}
               </div>
             </div>
           );
@@ -172,13 +184,13 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
 
       {events.length > 0 && (
         <section aria-labelledby="events-title" className="grid max-w-3xl gap-3">
-          <h2 id="events-title" className="text-xs tracking-widest text-muted-foreground uppercase">Documented in this moment</h2>
+          <h2 id="events-title" className="text-xs tracking-widest text-muted-foreground uppercase">{t("documented")}</h2>
           {events.map((event) => (
             <article key={event.id} className="border-l-2 border-arts pl-3">
               <h3 className="font-medium">
-                {formatYear(event.year)} · {event.title}
+                {years.year(event.year)} · <span lang={CONTENT_LANG}>{event.title}</span>
               </h3>
-              <p className="text-sm text-muted-foreground">{event.description}</p>
+              <p lang={CONTENT_LANG} className="text-sm text-muted-foreground">{event.description}</p>
               <div className="mt-1 flex gap-4 text-xs text-muted-foreground">
                 {event.participants.length > 0 && (
                   <button
@@ -189,23 +201,23 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
                     }}
                     className="text-arts underline"
                   >
-                    Who was there
+                    {common("whoWasThere")}
                   </button>
                 )}
                 <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="underline">
-                  Source
+                  {common("source")}
                 </a>
               </div>
             </article>
           ))}
-          <DetailPanel open={eventOpen} onOpenChange={setEventOpen} kicker="Documented event">
+          <DetailPanel open={eventOpen} onOpenChange={setEventOpen} kicker={common("documentedEvent")}>
             {panelEvent && <EventDetails event={panelEvent} />}
           </DetailPanel>
         </section>
       )}
 
       <section aria-labelledby="next-title" className="grid gap-3">
-        <h2 id="next-title" className="text-xs tracking-widest text-muted-foreground uppercase">Where next?</h2>
+        <h2 id="next-title" className="text-xs tracking-widest text-muted-foreground uppercase">{common("whereNext")}</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {hasStory(moment) && (
             <Link
@@ -215,11 +227,11 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
               {moment.art && <ArtworkImage art={moment.art} sizes="(min-width: 768px) 33vw, 100vw" className="transition-transform duration-700 group-hover:scale-105" />}
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/10" />
               <div className="relative grid gap-1 p-4">
-                <span className="text-[11px] font-medium tracking-widest text-lamp uppercase">The story</span>
+                <span className="text-[11px] font-medium tracking-widest text-lamp uppercase">{t("theStory")}</span>
                 <span className="flex items-center gap-2 font-story text-xl font-medium">
-                  <Play className="size-5" /> Play {titleOf(moment)}
+                  <Play className="size-5" /> {t("play", { title: titleOf(moment) })}
                 </span>
-                <span className="text-sm text-muted-foreground">{moment.storyCards} cards</span>
+                <span className="text-sm text-muted-foreground">{common("cards", { count: moment.storyCards })}</span>
               </div>
             </Link>
           )}

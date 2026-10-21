@@ -1,26 +1,31 @@
+import { useTranslations } from "next-intl";
 import { PersonAvatar } from "@/components/person-avatar";
 import { Badge } from "@/components/ui/badge";
+import { CONTENT_LANG } from "@/lib/content";
 import { DOMAINS } from "@/lib/domains";
 import type { PersonDetail } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ageText, formatLifespan, formatYear } from "@/lib/years";
+import { useYears } from "@/lib/years";
 
 /** Who someone was, in a few lines: portrait, dates, occupation and their age in the year looked at. */
 export function PersonHeader({ detail, className }: { detail: PersonDetail; className?: string }) {
   const { person, year } = detail;
   const domain = DOMAINS[person.domain];
+  const domains = useTranslations("domains");
+  const years = useYears();
   return (
     <header className={cn("flex items-center gap-5", className)}>
       <PersonAvatar person={person} className="size-28 shrink-0 ring-4" />
       <div className="grid gap-1">
         <h1 className="font-story text-4xl leading-tight font-medium">{person.name}</h1>
         <p className="text-sm text-muted-foreground">
-          {[formatLifespan(person.birthYear, person.deathYear), person.occupations.join(", "), person.region].filter(Boolean).join(" · ")}
+          {years.lifespan(person.birthYear, person.deathYear)}
+          {[person.occupations.join(", "), person.region].filter(Boolean).map((part) => <span key={part} lang={CONTENT_LANG}> · {part}</span>)}
         </p>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className={cn(domain.soft, domain.text)}>{domain.title}</Badge>
+          <Badge variant="secondary" className={cn(domain.soft, domain.text)}>{domains(person.domain)}</Badge>
           <span className="text-sm text-lamp tabular-nums">
-            {ageText(person, year)} in {formatYear(year)}
+            {years.ageInYear(person, year)}
           </span>
         </div>
       </div>
@@ -30,14 +35,15 @@ export function PersonHeader({ detail, className }: { detail: PersonDetail; clas
 
 /** The first paragraph of their Wikipedia article, or the short bio when there is none. */
 export function PersonAbout({ detail }: { detail: PersonDetail }) {
+  const t = useTranslations("person");
   const about = detail.about ?? detail.person.bioShort;
   if (!about) return null;
   return (
     <div>
-      <p className="font-story text-lg leading-relaxed text-foreground/90">{about}</p>
+      <p lang={CONTENT_LANG} className="font-story text-lg leading-relaxed text-foreground/90">{about}</p>
       {detail.wikipediaUrl && (
         <a href={detail.wikipediaUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-muted-foreground underline">
-          Read more on Wikipedia
+          {t("readMore")}
         </a>
       )}
     </div>
