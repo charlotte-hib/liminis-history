@@ -79,5 +79,5 @@ test("a person opens in a French panel over a French moment", async ({ page }) =
 
 test("years before the common era read in French", async ({ page }) => {
   await page.goto("/fr");
-  await expect(page.getByText("3000 av. n. è.", { exact: true })).toBeAttached();
+  await expect(page.getByText("3000 av. J.-C.", { exact: true })).toBeAttached();
 });
