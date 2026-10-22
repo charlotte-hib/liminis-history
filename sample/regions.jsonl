@@ -1,4 +1,4 @@
-{"id":"CN","name":"China"}
-{"id":"FR","name":"France"}
-{"id":"GB","name":"Britain"}
-{"id":"JP","name":"Japan"}
+{"id":"CN","name":"China","fr":{"name":"Chine"}}
+{"id":"FR","name":"France","fr":{"name":"France"}}
+{"id":"GB","name":"Britain","fr":{"name":"Grande-Bretagne"}}
+{"id":"JP","name":"Japan","fr":{"name":"Japon"}}

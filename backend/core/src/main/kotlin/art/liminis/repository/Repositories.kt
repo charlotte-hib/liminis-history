@@ -91,6 +91,9 @@ interface PersonRepository : JpaRepository<Person, String> {
     /** People with an article to fetch: those the fetched dataset gave none, so with no link to it yet. */
     fun findByWikipediaTitleIsNotNullAndWikipediaUrlIsNull(): List<Person>
 
+    /** People with a French article to fetch, as [findByWikipediaTitleIsNotNullAndWikipediaUrlIsNull]. */
+    fun findByWikipediaTitleFrIsNotNullAndWikipediaUrlFrIsNull(): List<Person>
+
     /**
      * People whose name contains [pattern], ignoring case and accents: names that start with it first, then the most
      * famous in their time and place, then in order of birth. [pattern] has `\`, `%` and `_` escaped for `like`. Served by the trigram index on `search_name`.

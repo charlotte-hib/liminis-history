@@ -24,6 +24,7 @@ object FetchedDatasetReader {
     /** The files' format this reader understands (`DatasetManifest.format`). */
     const val FORMAT = 1
     private const val ENGLISH = "en"
+    private const val FRENCH = "fr"
 
     private val mapper = jacksonMapperBuilder().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build()
 
@@ -34,10 +35,12 @@ object FetchedDatasetReader {
         if (manifest.format != FORMAT) {
             throw InvalidReleaseException("${where(DatasetFile.MANIFEST)}: format ${manifest.format}, this code reads format $FORMAT")
         }
+        val articles = lines<ArticleRow>(dir, DatasetFile.ARTICLES)
         return FetchedDataset(
             manifest = manifest,
             people = lines<PersonRow>(dir, DatasetFile.PEOPLE),
-            articles = lines<ArticleRow>(dir, DatasetFile.ARTICLES).filter { it.language == ENGLISH }.associateBy { it.person },
+            articles = articles.filter { it.language == ENGLISH }.associateBy { it.person },
+            articlesFr = articles.filter { it.language == FRENCH }.associateBy { it.person },
             places = lines<PlaceRow>(dir, DatasetFile.PLACES).associateBy { it.qid },
             occupations = lines<OccupationRow>(dir, DatasetFile.OCCUPATIONS).associateBy { it.qid },
         )

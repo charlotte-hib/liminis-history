@@ -20,10 +20,17 @@ import art.liminis.domain.StoryCard
 // `region_code`. Enums are their names. Ids Hibernate would generate are given by [ReleaseRowMapper.rows], in the order
 // Hibernate stored them.
 
-data class RegionRow(val code: String, val name: String)
+data class RegionRow(val code: String, val name: String, val nameFr: String?)
 
 data class EraRow(
-    val id: String, val regionCode: String, val label: String, val governedBy: String, val startYear: Int, val endYear: Int,
+    val id: String,
+    val regionCode: String,
+    val label: String,
+    val governedBy: String,
+    val startYear: Int,
+    val endYear: Int,
+    val labelFr: String?,
+    val governedByFr: String?,
 )
 
 data class PersonRow(
@@ -44,6 +51,12 @@ data class PersonRow(
     val about: String?,
     val wikipediaUrl: String?,
     val portraitUrl: String?,
+    val nameFr: String?,
+    val occupationsFr: List<String>?,
+    val wikipediaTitleFr: String?,
+    val bioShortFr: String?,
+    val aboutFr: String?,
+    val wikipediaUrlFr: String?,
 )
 
 data class PersonPlaceRow(
@@ -69,13 +82,22 @@ data class LifeRow(
     val position: String?,
     val fit: String?,
     val icon: String?,
+    val labelFr: String?,
+    val descriptionFr: String?,
 )
 
 data class EventRow(
-    val id: String, val eraId: String, val title: String, val eventYear: Int, val description: String, val sourceUrl: String,
+    val id: String,
+    val eraId: String,
+    val title: String,
+    val eventYear: Int,
+    val description: String,
+    val sourceUrl: String,
+    val titleFr: String?,
+    val descriptionFr: String?,
 )
 
-data class EventParticipantRow(val id: Long, val eventId: String, val personId: String, val role: String)
+data class EventParticipantRow(val id: Long, val eventId: String, val personId: String, val role: String, val roleFr: String?)
 
 data class ConnectionRow(
     val id: Long,
@@ -85,6 +107,8 @@ data class ConnectionRow(
     val connectionYear: Int,
     val text: String,
     val sourceUrl: String,
+    val kindFr: String?,
+    val textFr: String?,
 )
 
 data class AnecdoteRow(
@@ -97,6 +121,7 @@ data class AnecdoteRow(
     val episode: String?,
     val minute: String?,
     val url: String?,
+    val textFr: String?,
 )
 
 data class MomentRow(
@@ -118,6 +143,13 @@ data class MomentRow(
     val meanwhile: String?,
     val status: String,
     val featured: Boolean,
+    val placeFr: String?,
+    val periodFr: String?,
+    val hookFr: String?,
+    val governsFr: String?,
+    val everydayFr: String?,
+    val artsFr: String?,
+    val meanwhileFr: String?,
 )
 
 data class StoryCardRow(
@@ -135,9 +167,21 @@ data class StoryCardRow(
     val url: String?,
     val credit: String?,
     val sourceUrl: String?,
+    val kickerFr: String?,
+    val titleFr: String?,
+    val textFr: String?,
 )
 
-data class DoorRow(val id: Long, val originId: String, val targetId: String, val position: Int, val kind: String, val text: String)
+data class DoorRow(
+    val id: Long,
+    val originId: String,
+    val targetId: String,
+    val position: Int,
+    val kind: String,
+    val text: String,
+    val kindFr: String?,
+    val textFr: String?,
+)
 
 data class DoorFaceRow(val doorId: Long, val position: Int, val facesId: String)
 
@@ -155,6 +199,8 @@ abstract class ReleaseRowMapper {
     abstract fun region(entity: Region): RegionRow
 
     @Mapping(target = "regionCode", source = "region.code")
+    @Mapping(target = "labelFr", source = "fr.label")
+    @Mapping(target = "governedByFr", source = "fr.governedBy")
     abstract fun era(entity: Era): EraRow
 
     @Mapping(target = "regionCode", source = "region.code")
@@ -169,10 +215,14 @@ abstract class ReleaseRowMapper {
     @Mapping(target = "sourceUrl", source = "art.sourceUrl")
     @Mapping(target = "position", source = "art.position")
     @Mapping(target = "fit", source = "art.fit")
+    @Mapping(target = "labelFr", source = "fr.label")
+    @Mapping(target = "descriptionFr", source = "fr.description")
     abstract fun life(entity: Life): LifeRow
 
     @Mapping(target = "eraId", source = "era.id")
     @Mapping(target = "eventYear", source = "year")
+    @Mapping(target = "titleFr", source = "fr.title")
+    @Mapping(target = "descriptionFr", source = "fr.description")
     abstract fun event(entity: Event): EventRow
 
     @Mapping(target = "id", source = "rowId")
@@ -184,6 +234,8 @@ abstract class ReleaseRowMapper {
     @Mapping(target = "firstId", source = "entity.first.id")
     @Mapping(target = "secondId", source = "entity.second.id")
     @Mapping(target = "connectionYear", source = "entity.year")
+    @Mapping(target = "kindFr", source = "entity.fr.kind")
+    @Mapping(target = "textFr", source = "entity.fr.text")
     abstract fun connection(entity: Connection, rowId: Long): ConnectionRow
 
     @Mapping(target = "personId", source = "person.id")
@@ -203,6 +255,13 @@ abstract class ReleaseRowMapper {
     @Mapping(target = "everyday", source = "world.everyday")
     @Mapping(target = "arts", source = "world.arts")
     @Mapping(target = "meanwhile", source = "world.meanwhile")
+    @Mapping(target = "placeFr", source = "fr.place")
+    @Mapping(target = "periodFr", source = "fr.period")
+    @Mapping(target = "hookFr", source = "fr.hook")
+    @Mapping(target = "governsFr", source = "fr.world.governs")
+    @Mapping(target = "everydayFr", source = "fr.world.everyday")
+    @Mapping(target = "artsFr", source = "fr.world.arts")
+    @Mapping(target = "meanwhileFr", source = "fr.world.meanwhile")
     abstract fun moment(entity: Moment): MomentRow
 
     @Mapping(target = "id", source = "rowId")
@@ -214,11 +273,16 @@ abstract class ReleaseRowMapper {
     @Mapping(target = "url", source = "entity.art.url")
     @Mapping(target = "credit", source = "entity.art.credit")
     @Mapping(target = "sourceUrl", source = "entity.art.sourceUrl")
+    @Mapping(target = "kickerFr", source = "entity.fr.kicker")
+    @Mapping(target = "titleFr", source = "entity.fr.title")
+    @Mapping(target = "textFr", source = "entity.fr.text")
     abstract fun card(entity: StoryCard, rowId: Long): StoryCardRow
 
     @Mapping(target = "id", source = "rowId")
     @Mapping(target = "originId", source = "entity.origin.id")
     @Mapping(target = "targetId", source = "entity.target.id")
+    @Mapping(target = "kindFr", source = "entity.fr.kind")
+    @Mapping(target = "textFr", source = "entity.fr.text")
     abstract fun door(entity: Door, rowId: Long): DoorRow
 
     /** Every table's rows. Generated ids count from 1 in the order the entities were stored before: by their parent. */
