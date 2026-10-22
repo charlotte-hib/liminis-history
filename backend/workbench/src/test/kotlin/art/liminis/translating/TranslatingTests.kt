@@ -16,6 +16,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.wiremock.spring.ConfigureWireMock
 import org.wiremock.spring.EnableWireMock
@@ -26,8 +28,12 @@ import art.liminis.curation.CurationFixtures
 import art.liminis.curation.Flag
 import art.liminis.curation.Translation
 import art.liminis.testing.PostgresTestConfiguration
+import java.nio.file.Files
+import java.nio.file.Path
+import java.security.KeyPairGenerator
 import java.time.Duration
 import java.time.Instant
+import java.util.Base64
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -153,5 +159,20 @@ class TranslatingTests(
         assertEquals("Paris (édité)", (again.payload as Translation).texts.first().fr)
         assertEquals("FR A republic born of defeat.", (again.payload as Translation).texts.single { it.path == "hook" }.fr)
         assertTrue(again.flags.any { it.flag == Flag.CONFLICT })
+    }
+
+    companion object {
+        /** A key of the App's, made for the tests: the curator's own is not on CI. */
+        private val keyFile: Path = Files.createTempFile("github-app", ".pem").also {
+            val key = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair().private
+            val body = Base64.getMimeEncoder(64, "\n".toByteArray()).encodeToString(key.encoded)
+            Files.writeString(it, "-----BEGIN PRIVATE KEY-----\n$body\n-----END PRIVATE KEY-----\n")
+        }
+
+        @JvmStatic
+        @DynamicPropertySource
+        fun key(registry: DynamicPropertyRegistry) {
+            registry.add("app.publish.github.private-key") { keyFile.toString() }
+        }
     }
 }
