@@ -720,6 +720,94 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/translations/{record}:
+    get:
+      tags: [translations]
+      operationId: getRecordFrench
+      security:
+        - auth: ["curation:read"]
+      summary: A record's French
+      description: |
+        A record of `data/`, with the English publishing will write (the data repository's `main`, with the headers,
+        stories and anecdotes approved since): its texts, the French `main` has for them, its translation claim if any,
+        and the last run that translated it. A person may be named by Q-id (`person:Q535`): the one written by hand
+        with it.
+      parameters:
+        - $ref: "#/components/parameters/Record"
+      responses:
+        "200":
+          description: The record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordFrench"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    post:
+      tags: [translations]
+      operationId: writeRecordFrench
+      security:
+        - auth: ["curation:write"]
+      summary: Write a record's French by hand
+      description: |
+        The record's French as the curator wrote it, every text of it, approved at once as its `TRANSLATION` claim.
+        Refused (409) when the record has a claim already: decide on it instead.
+      parameters:
+        - $ref: "#/components/parameters/Record"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewFrench"
+      responses:
+        "201":
+          description: The claim, approved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/translations/{record}/run:
+    post:
+      tags: [translations]
+      operationId: translateRecord
+      security:
+        - auth: ["curation:write"]
+      summary: Translate one record
+      description: Starts the run that drafts the record's French with Claude, as `TRANSLATIONS` does for every record.
+      parameters:
+        - $ref: "#/components/parameters/Record"
+      responses:
+        "202":
+          description: The run, started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/moments/{id}/holder:
     put:
       tags: [moments]
@@ -1249,6 +1337,15 @@ components:
       schema:
         type: string
         maxLength: 200
+    Record:
+      name: record
+      in: path
+      required: true
+      description: A record of `data/`, by kind and id, e.g. `moment:paris-1870s`.
+      schema:
+        type: string
+        pattern: "^(region|era|person|life|event|connection|anecdote|moment):.+$"
+        maxLength: 300
     ReviewMoment:
       name: moment
       in: query
@@ -1731,6 +1828,63 @@ components:
           maxItems: 200
           items:
             $ref: "#/components/schemas/TranslatedText"
+
+    RecordFrench:
+      type: object
+      required: [record, label, texts]
+      properties:
+        record:
+          type: string
+          description: The record's key, by kind and id; a person's by their id written by hand.
+          example: moment:paris-1870s
+        label:
+          type: string
+        texts:
+          type: array
+          description: Its texts, by path, each with the French `main` has for it, if any.
+          items:
+            $ref: "#/components/schemas/RecordText"
+        claim:
+          type: string
+          description: The id of its translation claim, if it has one.
+          example: translation:moment:paris-1870s
+        run:
+          $ref: "#/components/schemas/Run"
+
+    RecordText:
+      type: object
+      required: [path, en]
+      properties:
+        path:
+          type: string
+          example: cards[2].text
+        en:
+          type: string
+        fr:
+          type: string
+
+    NewFrench:
+      type: object
+      required: [texts]
+      properties:
+        texts:
+          type: array
+          description: Every text of the record, by path, in French.
+          maxItems: 200
+          items:
+            type: object
+            required: [path, fr]
+            properties:
+              path:
+                type: string
+                maxLength: 100
+              fr:
+                type: string
+                minLength: 1
+                maxLength: 4000
+        note:
+          type: string
+          maxLength: 2000
 
     TranslatedText:
       type: object
@@ -2466,6 +2620,11 @@ components:
           description: The moment to draft, for `STORY_DRAFT`.
           pattern: "^[a-z0-9-]+$"
           maxLength: 100
+        record:
+          type: string
+          description: The one record to translate, for `TRANSLATIONS`; every one with no French yet without it.
+          pattern: "^(region|era|person|life|event|connection|anecdote|moment):.+$"
+          maxLength: 300
 
     RunKind:
       type: string
@@ -2491,6 +2650,9 @@ components:
           $ref: "#/components/schemas/RunKind"
         moment:
           type: string
+        record:
+          type: string
+          description: The record a `TRANSLATIONS` run translates, when only one.
         status:
           type: string
           enum: [RUNNING, SUCCEEDED, FAILED]

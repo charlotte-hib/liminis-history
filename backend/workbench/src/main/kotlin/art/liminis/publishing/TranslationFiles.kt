@@ -22,12 +22,16 @@ data class TranslatedTextChange(val path: String, val en: String, val before: St
 /** A file's records with the approved French beside them, the changes to their French, and the translations held back. */
 data class Translated(val lines: Map<String, String>, val changes: List<TranslationChange>, val heldBack: List<HeldBack>)
 
+/** A record's translation claim, as publishing reads it: where it stands, and its French. */
+data class TranslationClaim(val status: ClaimStatus, val translation: Translation)
+
 /**
- * What the approved translations make of the records of `data/`: each one's French written beside its English, in the
+ * What the translations make of the records of `data/`: an approved one's French written beside its English, in the
  * same file, while its English is still the English that was translated. One whose English changed since is held
- * back, and the French the record had goes too, as it was of other English: the site shows it in English until it is
- * translated again. Records with no approved translation keep the French they have, if any. A person's French also
- * names their French Wikipedia article, from the dataset.
+ * back, and the French the record had goes too, as it was of other English: the site shows it in English until a new
+ * French is approved. A record whose French is waiting for review, kept for later or rejected loses the French it had
+ * too, which can only be of other English or turned down. Records with no translation claim keep the French they
+ * have, if any: written by hand. A person's French also names their French Wikipedia article, from the dataset.
  */
 @Component
 class TranslationFiles(private val claims: ClaimRepository, private val dataset: DatasetStore, jsonMapper: JsonMapper) {
@@ -35,36 +39,36 @@ class TranslationFiles(private val claims: ClaimRepository, private val dataset:
     // Records keep their fields in the order they have, as the files written by hand do.
     private val mapper = jsonMapper
 
-    /** The approved translations, by the record they are of. */
-    fun approved(): Map<String, Translation> =
-        claims.findByTypeAndStatusOrderById(ClaimType.TRANSLATION, ClaimStatus.APPROVED).map { it.payload as Translation }.associateBy { it.record }
+    /** Every translation claim, by the record it is of. */
+    fun claims(): Map<String, TranslationClaim> =
+        claims.findByTypeOrderById(ClaimType.TRANSLATION).map { TranslationClaim(it.status, it.payload as Translation) }.associateBy { it.translation.record }
 
     /**
      * [text], a file of [kind]'s records one per line ([kind] is not a moment), as lines by record, with the French of
-     * [approved] beside the English.
+     * [translations] beside the English; its French compared with [before]'s, the file on `main`, when it is another
+     * text (anecdotes, written whole from their claims), else with [text]'s.
      */
-    fun lines(kind: RecordKind, text: String?, approved: Map<String, Translation>): Translated {
-        val records = text.orEmpty().lines().filter { it.isNotBlank() }.map { line ->
-            DataRecord(kind, mapper.readTree(line) as? ObjectNode ?: throw UnavailableException("${kind.path} holds a line that is not a record: $line"))
-        }
-        val wikipedia = if (kind == RecordKind.PERSON) frenchArticles(records, approved) else emptyMap()
-        val written = records.map { record -> translate(record, approved[record.key], wikipedia[record.key]) }
+    fun lines(kind: RecordKind, text: String?, translations: Map<String, TranslationClaim>, before: String? = text): Translated {
+        val records = records(kind, text)
+        val was = records(kind, before).associateBy { it.key }
+        val wikipedia = if (kind == RecordKind.PERSON) frenchArticles(records, translations) else emptyMap()
+        val written = records.map { record -> translate(record, translations[record.key], wikipedia[record.key]) }
         return Translated(
             written.associate { (record, node) -> record.key to mapper.writeValueAsString(node) },
-            written.mapNotNull { (record, node, _) -> change(record, node) },
+            written.mapNotNull { (record, node, _) -> change(was[record.key] ?: DataRecord(kind, RecordTexts.withFrench(kind, record.node, null)), node) },
             written.mapNotNull { it.third },
         )
     }
 
     /**
-     * [after], a moment's file as an object once its approved header and story are in it, with the French of [approved]
-     * beside its English; [before], as `main` has it. With no translation approved, a moment whose English changes loses
-     * the French it had, of the English before.
+     * [after], a moment's file as an object once its approved header and story are in it, with the French of
+     * [translations] beside its English; [before], as `main` has it. With no translation claim, a moment whose English
+     * changes loses the French it had, of the English before.
      */
-    fun moment(id: String, before: ObjectNode, after: ObjectNode, approved: Map<String, Translation>): Triple<ObjectNode, TranslationChange?, HeldBack?> {
+    fun moment(id: String, before: ObjectNode, after: ObjectNode, translations: Map<String, TranslationClaim>): Triple<ObjectNode, TranslationChange?, HeldBack?> {
         val was = DataRecord(RecordKind.MOMENT, before, id)
         val moment = DataRecord(RecordKind.MOMENT, after, id)
-        val translation = approved[moment.key]
+        val translation = translations[moment.key]
         val (_, node, held) = when {
             translation != null -> translate(moment, translation, null)
             was.texts != moment.texts -> Triple(moment, RecordTexts.withFrench(RecordKind.MOMENT, after, null), null)
@@ -73,13 +77,24 @@ class TranslationFiles(private val claims: ClaimRepository, private val dataset:
         return Triple(node, change(was, node), held)
     }
 
-    private fun translate(record: DataRecord, translation: Translation?, article: String?): Triple<DataRecord, ObjectNode, HeldBack?> {
-        if (translation == null) return Triple(record, record.node, null)
-        if (!record.matches(translation.texts)) {
+    private fun records(kind: RecordKind, text: String?): List<DataRecord> {
+        val records = text.orEmpty().lines().filter { it.isNotBlank() }.map { line ->
+            DataRecord(kind, mapper.readTree(line) as? ObjectNode ?: throw UnavailableException("${kind.path} holds a line that is not a record: $line"))
+        }
+        // Each line is written back under its key: two records with one key would be one.
+        records.groupBy { it.key }.values.firstOrNull { it.size > 1 }?.let { throw UnavailableException("${kind.path} holds ${it[0].key} twice") }
+        return records
+    }
+
+    private fun translate(record: DataRecord, claim: TranslationClaim?, article: String?): Triple<DataRecord, ObjectNode, HeldBack?> {
+        if (claim == null) return Triple(record, record.node, null)
+        val matches = record.matches(claim.translation.texts)
+        if (claim.status != ClaimStatus.APPROVED || !matches) {
             val held = HeldBack(record.key, "Its English changed since its French was approved: translate it again. Until then the site shows it in English")
+                .takeIf { claim.status == ClaimStatus.APPROVED }
             return Triple(record, RecordTexts.withFrench(record.kind, record.node, null), held)
         }
-        val french = translation.texts.associate { it.path to it.fr }
+        val french = claim.translation.texts.associate { it.path to it.fr }
         return Triple(record, RecordTexts.withFrench(record.kind, record.node, french, listOfNotNull(article?.let { "wikipedia" to it }).toMap()), null)
     }
 
@@ -102,8 +117,8 @@ class TranslationFiles(private val claims: ClaimRepository, private val dataset:
     }
 
     /** The titles of the French Wikipedia articles of the people of [records] being translated, by record, from their Q-ids. */
-    private fun frenchArticles(records: List<DataRecord>, approved: Map<String, Translation>): Map<String, String> {
-        val qids = records.filter { it.key in approved }.mapNotNull { record -> record.node["qid"]?.asString()?.let { record.key to it } }.toMap()
+    private fun frenchArticles(records: List<DataRecord>, translations: Map<String, TranslationClaim>): Map<String, String> {
+        val qids = records.filter { translations[it.key]?.status == ClaimStatus.APPROVED }.mapNotNull { record -> record.node["qid"]?.asString()?.let { record.key to it } }.toMap()
         val titles = dataset.frenchArticles(qids.values)
         return qids.mapNotNull { (key, qid) -> titles[qid]?.let { key to it.replace(' ', '_') } }.toMap()
     }

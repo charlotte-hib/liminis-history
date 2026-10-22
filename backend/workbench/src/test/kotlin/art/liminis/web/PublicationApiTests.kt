@@ -652,4 +652,29 @@ class PublicationApiTests(
         val body = github.findAll(postRequestedFor(urlPathEqualTo("$repo/pulls"))).single().bodyAsString
         assertTrue("**French** (4)" in body && "Paris, 1870s (moment:paris-1870s): translated" in body, body)
     }
+
+    @Test
+    fun `a record whose new French waits for review loses its old French, and an anecdote's French already on main is no change`() {
+        file("data/people.jsonl", """{"id":"katsushika-hokusai","qid":"Q5586","name":"Katsushika Hokusai"}""" + "\n")
+        file("data/eras.jsonl", """{"id":"fr-third-republic","region":"FR","label":"The Republic","start":1870,"end":1940,"fr":{"label":"Troisième République"}}""" + "\n")
+        // Translated again since the label changed: waiting for review.
+        claims.save(
+            Claim.candidate(Translation("era:fr-third-republic", "The Republic", listOf(TranslatedText("label", "The Republic", "La République"))), Origin.CLAUDE, emptyList()),
+        )
+        val daruma = approveAnecdote(Anecdote("Q5586", 1804, "He paints Daruma."), refs = listOf(SourceRef(SourceKind.WEB, url = "https://example.org/daruma")))
+        file(
+            "data/anecdotes.jsonl",
+            """{"id":"$daruma","person":"Q5586","year":1804,"text":"He paints Daruma.","source":{"url":"https://example.org/daruma"},"fr":{"text":"Il peint Daruma."}}""" + "\n",
+        )
+        translated("anecdote:$daruma", "He paints Daruma.", Triple("text", "He paints Daruma.", "Il peint Daruma."))
+
+        mockMvc.get("/api/publication") { signedIn() }.andExpect {
+            status { isOk() }
+            jsonPath("$.translations.length()") { value(1) }
+            jsonPath("$.translations[0].record") { value("era:fr-third-republic") }
+            jsonPath("$.translations[0].change") { value("REMOVED") }
+            jsonPath("$.heldBack.length()") { value(0) }
+            jsonPath("$.files[2].changes.length()") { value(0) }
+        }
+    }
 }

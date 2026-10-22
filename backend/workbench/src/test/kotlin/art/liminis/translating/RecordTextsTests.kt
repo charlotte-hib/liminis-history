@@ -34,7 +34,7 @@ class RecordTextsTests {
         )
         assertEquals("moment:paris-1870s", DataRecord(RecordKind.MOMENT, moment).key)
         val connection = node("""{"people":["paul-cezanne","emile-zola"],"kind":"school friends","year":1852,"text":"Friends.","source":"s"}""")
-        assertEquals("connection:paul-cezanne|emile-zola:school-friends", DataRecord(RecordKind.CONNECTION, connection).key)
+        assertEquals("connection:paul-cezanne|emile-zola:school friends", DataRecord(RecordKind.CONNECTION, connection).key)
     }
 
     @Test

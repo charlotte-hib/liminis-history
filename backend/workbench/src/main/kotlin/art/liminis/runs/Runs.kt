@@ -47,11 +47,14 @@ class Runs(
 
     fun find(id: Long): RunDto = runs[id] ?: throw NotFoundException("No run $id")
 
+    /** The last run that translated, [record] alone if given, else every record with no French. */
+    fun lastTranslation(record: String? = null): RunDto? = all().firstOrNull { it.kind == RunKindDto.TRANSLATIONS && it.record == record }
+
     /** The last run that drafted [moment]'s story, if any. */
     fun lastDraft(moment: String): RunDto? = all().firstOrNull { it.kind == RunKindDto.STORY_DRAFT && it.moment == moment }
 
     @Synchronized
-    fun start(kind: RunKindDto, moment: String?): RunDto {
+    fun start(kind: RunKindDto, moment: String?, record: String? = null): RunDto {
         if (kind == RunKindDto.STORY_DRAFT && (moment == null || !moments.existsById(moment))) {
             throw InvalidRequestException("A story draft needs a moment of the release")
         }
@@ -61,6 +64,7 @@ class Runs(
         val run = RunDto(
             id = ids.incrementAndGet(), kind = kind, status = RunDto.Status.RUNNING, startedAt = now(),
             moment = moment.takeIf { kind == RunKindDto.STORY_DRAFT },
+            record = record.takeIf { kind == RunKindDto.TRANSLATIONS },
         )
         runs[run.id] = run
         executor.execute { finish(run) }
@@ -86,7 +90,7 @@ class Runs(
         RunKindDto.PERSON_FACTS_CLAIMS -> personFacts.propose().toString()
         RunKindDto.OCCUPATION_CLAIMS -> occupations.propose().toString()
         RunKindDto.STORY_DRAFT -> drafting.draft(run.moment!!)
-        RunKindDto.TRANSLATIONS -> translating.translate()
+        RunKindDto.TRANSLATIONS -> translating.translate(run.record)
     }
 
     override fun destroy() {

@@ -45,6 +45,9 @@ class WorkbenchSecurityTests(
         "GET /api/paintings" to CURATION_READ,
         "GET /api/translations/run" to CURATION_READ,
         "POST /api/translations/run" to CURATION_WRITE,
+        "GET /api/translations/{record}" to CURATION_READ,
+        "POST /api/translations/{record}" to CURATION_WRITE,
+        "POST /api/translations/{record}/run" to CURATION_WRITE,
         "GET /api/moments" to CURATION_READ,
         "GET /api/moments/{id}" to CURATION_READ,
         "GET /api/moments/{id}/people" to CURATION_READ,
@@ -75,7 +78,7 @@ class WorkbenchSecurityTests(
 
     /** The endpoint's method and path, its path variables filled in. */
     private fun call(endpoint: String) = endpoint.split(" ").let { (method, path) ->
-        HttpMethod.valueOf(method) to path.replace("{id}", "1").replace("{qid}", "Q1").replace("{username}", "someone")
+        HttpMethod.valueOf(method) to path.replace("{id}", "1").replace("{qid}", "Q1").replace("{username}", "someone").replace("{record}", "era:x")
     }
 
     @Test

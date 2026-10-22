@@ -9,6 +9,7 @@ import com.anthropic.models.messages.StructuredOutputConfig
 import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Component
 import art.liminis.drafting.DraftingProperties
+import tools.jackson.databind.json.JsonMapper
 
 // The shape Claude must answer in: the JSON schema sent to the API is derived from these classes.
 
@@ -20,8 +21,11 @@ data class DraftRecord(val record: String, val texts: List<DraftText>)
 
 data class TranslationDraft(val records: List<DraftRecord>)
 
-/** A record to translate: its key, what it is, all its texts in English for context, and the paths of those to translate. */
-data class ToTranslate(val record: String, val label: String, val texts: List<Pair<String, String>>, val paths: List<String>)
+/**
+ * A record to translate: its key, what it is, all its texts in English for context, the paths of those to translate,
+ * and why the curator rejected its last French, if they did.
+ */
+data class ToTranslate(val record: String, val label: String, val texts: List<Pair<String, String>>, val paths: List<String>, val rejected: String? = null)
 
 /** A batch's French, with the model that wrote it and the tokens it took. */
 data class TranslatedBatch(val draft: TranslationDraft, val model: String, val inputTokens: Long, val outputTokens: Long)
@@ -45,11 +49,15 @@ private val SYSTEM_PROMPT = """
       English uses quotes, a non-breaking space before : ; ? !, and French capitalisation (only the first word of a
       work's title, "le Second Empire").
     - Kickers keep their " · " separator: "Setting the scene · Paris, 1870s" is "Le décor · Paris, années 1870".
+    - A record with "rejected" had its last French turned down by the curator for that reason: avoid it.
+
+    The records come as JSON: each has its key, a label saying what it is, its English texts by path, and the paths
+    to translate. Answer with the same keys and paths.
 """.trimIndent()
 
 /** Translates records of `data/` into French with Claude, a batch at a time, as structured output checked against a schema. */
 @Component
-class Translator(@Lazy private val client: AnthropicClient, private val properties: DraftingProperties) {
+class Translator(@Lazy private val client: AnthropicClient, private val properties: DraftingProperties, private val jsonMapper: JsonMapper) {
 
     fun translate(records: List<ToTranslate>, glossary: Map<String, String>): TranslatedBatch {
         val params = MessageCreateParams.builder()
@@ -81,20 +89,21 @@ class Translator(@Lazy private val client: AnthropicClient, private val properti
         return TranslatedBatch(draft, message.model().asString(), usage.inputTokens(), usage.outputTokens())
     }
 
-    private fun userPrompt(records: List<ToTranslate>, glossary: Map<String, String>) = buildString {
-        if (glossary.isNotEmpty()) {
-            appendLine("Glossary:")
-            glossary.forEach { (en, fr) -> appendLine("- $en → $fr") }
-            appendLine()
-        }
-        for (record in records) {
-            appendLine("<record key=\"${record.record}\" label=\"${record.label}\">")
-            appendLine("English:")
-            record.texts.forEach { (path, en) -> appendLine("$path: $en") }
-            appendLine("To translate: ${record.paths.joinToString(", ")}")
-            appendLine("</record>")
-        }
-    }
+    /** The glossary and the records, as JSON: texts written by curators cannot pass for the prompt's structure. */
+    private fun userPrompt(records: List<ToTranslate>, glossary: Map<String, String>): String = jsonMapper.writeValueAsString(
+        mapOf(
+            "glossary" to glossary,
+            "records" to records.map { record ->
+                listOfNotNull(
+                    "key" to record.record,
+                    "label" to record.label,
+                    "english" to record.texts.toMap(),
+                    "translate" to record.paths,
+                    record.rejected?.let { "rejected" to it },
+                ).toMap()
+            },
+        ),
+    )
 
     private companion object {
         const val MAX_TOKENS = 16_000L

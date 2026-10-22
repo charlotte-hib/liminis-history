@@ -5,7 +5,6 @@ import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.JsonNodeFactory
 import tools.jackson.databind.node.ObjectNode
 import art.liminis.curation.TranslatedText
-import art.liminis.support.slugify
 
 /**
  * The kinds of records of `data/` with texts to translate, each in its file, and the fields of their texts, in the
@@ -57,7 +56,7 @@ class DataRecord(val kind: RecordKind, val node: ObjectNode, id: String? = null)
 
     private fun id(): String = when (kind) {
         // Connections have no id: by their two people and their kind, as the file sorts them.
-        RecordKind.CONNECTION -> "${node["people"].values().joinToString("|") { it.asString() }}:${slugify(node.string("kind")!!)}"
+        RecordKind.CONNECTION -> "${node["people"].values().joinToString("|") { it.asString() }}:${node.string("kind")}"
         else -> node.string("id")!!
     }
 

@@ -14,11 +14,16 @@ import org.mockito.ArgumentMatchers
 import org.mockito.Mockito.doAnswer
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.http.MediaType
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.context.bean.override.mockito.MockitoBean
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import org.wiremock.spring.ConfigureWireMock
 import org.wiremock.spring.EnableWireMock
 import org.wiremock.spring.InjectWireMock
@@ -28,6 +33,7 @@ import art.liminis.curation.CurationFixtures
 import art.liminis.curation.Flag
 import art.liminis.curation.Translation
 import art.liminis.testing.PostgresTestConfiguration
+import art.liminis.web.signedIn
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.KeyPairGenerator
@@ -46,11 +52,13 @@ import kotlin.test.assertTrue
     ],
 )
 @EnableWireMock(ConfigureWireMock(baseUrlProperties = ["github.base-url"]))
+@AutoConfigureMockMvc
 @Import(PostgresTestConfiguration::class)
 class TranslatingTests(
     @Autowired private val translating: Translating,
     @Autowired private val claims: ClaimRepository,
     @Autowired private val jdbc: JdbcTemplate,
+    @Autowired private val mockMvc: MockMvc,
 ) {
 
     @InjectWireMock
@@ -110,9 +118,9 @@ class TranslatingTests(
         )
     }
 
-    private fun moment(hook: String) = file(
+    private fun moment(hook: String, french: String = "") = file(
         "data/moments/paris-1870s.json",
-        """{"id": "paris-1870s", "place": "Paris", "period": "1870s", "hook": "$hook", "cards": [{"type": "SCENE", "title": "Paris in 1871", "text": "A siege."}]}""",
+        """{"id": "paris-1870s", "place": "Paris", "period": "1870s", "hook": "$hook", "cards": [{"type": "SCENE", "title": "Paris in 1871", "text": "A siege."}]$french}""",
     )
 
     private fun translation(record: String) = claims.findById("translation:$record").orElseThrow()
@@ -159,6 +167,62 @@ class TranslatingTests(
         assertEquals("Paris (édité)", (again.payload as Translation).texts.first().fr)
         assertEquals("FR A republic born of defeat.", (again.payload as Translation).texts.single { it.path == "hook" }.fr)
         assertTrue(again.flags.any { it.flag == Flag.CONFLICT })
+    }
+
+    @Test
+    fun `a record translated alone, and French in its file not reused once a claim knows other English`() {
+        // Published French, of the hook as it was.
+        moment("A republic born of defeat.", """, "fr": {"place": "Paris", "period": "années 1870", "hook": "Une république née de la défaite."}""")
+        translating.translate("moment:paris-1870s")
+        assertEquals(listOf("moment:paris-1870s"), asked.flatMap { it.keys })
+        // The claim knows the file's French; then the hook changes on main.
+        moment("A republic, and painters.", """, "fr": {"place": "Paris", "period": "années 1870", "hook": "Une république née de la défaite."}""")
+        asked.clear()
+        translating.translate("moment:paris-1870s")
+        assertTrue("hook" in asked.single().getValue("moment:paris-1870s"), asked.toString())
+    }
+
+    @Test
+    fun `a record's French, by its key or a person by Q-id, and French written by hand approved at once`() {
+        mockMvc.get("/api/translations/person:Q7226") { signedIn() }.andExpect {
+            status { isOk() }
+            jsonPath("$.record") { value("person:joan-of-arc") }
+            jsonPath("$.texts[1].path") { value("occupation") }
+            jsonPath("$.claim") { doesNotExist() }
+        }
+        mockMvc.post("/api/translations/person:joan-of-arc") {
+            signedIn()
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"texts": [{"path": "name", "fr": "Jeanne d'Arc"}]}"""
+        }.andExpect { status { isBadRequest() } }
+        mockMvc.post("/api/translations/person:joan-of-arc") {
+            signedIn()
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"texts": [{"path": "name", "fr": "Jeanne d'Arc"}, {"path": "occupation", "fr": "cheffe de guerre"}]}"""
+        }.andExpect {
+            status { isCreated() }
+            jsonPath("$.status") { value("APPROVED") }
+            jsonPath("$.payload.texts[1].fr") { value("cheffe de guerre") }
+        }
+        mockMvc.get("/api/translations/person:joan-of-arc") { signedIn() }.andExpect {
+            jsonPath("$.claim") { value("translation:person:joan-of-arc") }
+        }
+        mockMvc.get("/api/translations/era:nowhere") { signedIn() }.andExpect { status { isNotFound() } }
+        // Its French approved, a run leaves it alone.
+        translating.translate()
+        assertTrue(asked.none { "person:joan-of-arc" in it }, asked.toString())
+    }
+
+    @Test
+    fun `a batch that fails is named in the result, and the others are proposed`() {
+        doAnswer { throw TranslatingException("Claude declined to translate region:FR") }
+            .`when`(translator).translate(ArgumentMatchers.argThat { records: List<ToTranslate>? -> records?.any { it.record == "region:FR" } == true } ?: emptyList(), ArgumentMatchers.anyMap() ?: emptyMap())
+
+        val result = translating.translate()
+
+        assertTrue(result.endsWith("1 could not be translated, try again: region:FR"), result)
+        assertEquals(false, claims.existsById("translation:region:FR"))
+        assertEquals(true, claims.existsById("translation:moment:paris-1870s"))
     }
 
     companion object {

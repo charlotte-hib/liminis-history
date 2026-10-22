@@ -106,14 +106,14 @@ class Publishing(
         val published = anecdotes.filter { anecdote -> anecdotesHeldBack.none { it.id == anecdote.id } }
             .map { AnecdoteRecord(it.id, it.anecdote.person, it.anecdote.year, it.anecdote.text, it.source!!) }
 
-        val french = translationFiles.approved()
+        val french = translationFiles.claims()
         val heldBack = mutableListOf<HeldBack>()
         val translations = mutableListOf<TranslationChange>()
 
         // The anecdotes are written whole from their claims, then their French goes beside them.
         val files = dataFiles.build(published).mapValues { (file, lines) ->
             if (file != DataFile.ANECDOTES) return@mapValues lines
-            val translated = translationFiles.lines(RecordKind.ANECDOTE, lines.text(), french)
+            val translated = translationFiles.lines(RecordKind.ANECDOTE, lines.text(), french, github.file(file.path, base))
             translations += translated.changes
             heldBack += translated.heldBack
             translated.lines.mapKeys { (key, _) -> key.removePrefix("${RecordKind.ANECDOTE.key}:") }.toSortedMap()
