@@ -24,7 +24,7 @@
     "source": "Source",
     "sourceOf": "Source : {source}",
     "close": "Fermer",
-    "documentedEvent": "Événement attesté",
+    "documentedEvent": "Événement",
     "everydayLife": "Vie quotidienne",
     "someoneWhoLivedIt": "Quelqu’un qui l’a vécu",
     "whoWasThere": "Qui était là",
@@ -99,18 +99,18 @@
     "others": "D’autres personnes en vie en {year}",
     "shown": "{count, plural, one {# affiché} other {# affichés}} en {year}",
     "nobody": "Personne dans ce groupe pour l’instant.",
-    "documented": "Attesté dans ce moment",
+    "documented": "Les événements de ce moment",
     "theStory": "Le récit",
     "play": "Lire {title}"
   },
   "person": {
     "worldAround": "Le monde autour",
     "lifeInTime": "La vie en son temps",
-    "connected": "Lié à",
+    "connected": "Ils se sont croisés",
     "around": "Autour · {region}, {year}",
     "elsewhere": "Pendant ce temps, ailleurs en {year}",
     "stepInto": "Entrer dans son époque",
-    "openFullPage": "Ouvrir la page entière",
+    "openFullPage": "Agrandir",
     "readMore": "Lire la suite sur Wikipédia"
   },
   "lifeInTime": {
@@ -147,7 +147,7 @@
     "readMore": "En savoir plus",
     "tapHint": "Touchez ou balayez pour tourner la page",
     "trail": "Le récit de {title}",
-    "eventKicker": "Événement attesté · {year}",
+    "eventKicker": "Événement · {year}",
     "anotherDoor": "Passez une autre porte"
   },
   "notFound": {
