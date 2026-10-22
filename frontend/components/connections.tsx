@@ -2,7 +2,6 @@ import { useTranslations } from "next-intl";
 import { PersonAvatar } from "@/components/person-avatar";
 import { sourceLabel } from "@/components/event-details";
 import { Link } from "@/i18n/navigation";
-import { CONTENT_LANG } from "@/lib/content";
 import type { Connection } from "@/lib/types";
 import { useYears } from "@/lib/years";
 
@@ -28,11 +27,11 @@ export function Connections({ connections, replace }: Props) {
               <Link href={`/person/${connection.person.slug}?year=${connection.year}`} replace={replace} className="font-medium hover:underline">
                 {connection.person.name}
               </Link>
-              <span lang={CONTENT_LANG} className="text-sm text-lamp"> · {connection.kind}</span>
+              <span lang={connection.lang} className="text-sm text-lamp"> · {connection.kind}</span>
             </p>
             <p className="text-sm text-foreground/80">
               <span className="font-mono text-xs text-muted-foreground tabular-nums">{years.year(connection.year)}</span>{" "}
-              <span lang={CONTENT_LANG}>{connection.text}</span>
+              <span lang={connection.lang}>{connection.text}</span>
             </p>
             <a href={connection.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:underline">
               {t("sourceOf", { source: sourceLabel(connection.sourceUrl) })}

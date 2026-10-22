@@ -10,7 +10,6 @@ import { useState } from "react";
 import { ArtworkCredit } from "@/components/artwork-image";
 import { DetailPanel } from "@/components/detail-panel";
 import { PersonChip, chipClass } from "@/components/person-chip";
-import { CONTENT_LANG } from "@/lib/content";
 import type { Life, LifeIcon, Person } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useYears } from "@/lib/years";
@@ -74,13 +73,13 @@ export function LifeDetails({ life, around = [], year }: { life: Life } & Around
       <div className="flex items-center gap-4">
         <LifeMark life={life} size="lg" />
         <div>
-          <h2 lang={CONTENT_LANG} className="font-story text-3xl leading-tight font-medium">{life.label}</h2>
+          <h2 lang={life.lang} className="font-story text-3xl leading-tight font-medium">{life.label}</h2>
           <p className="mt-1 font-mono text-sm text-muted-foreground">
             {years.year(life.startYear)}–{years.year(life.endYear)}
           </p>
         </div>
       </div>
-      <p lang={CONTENT_LANG} className="font-story text-lg leading-relaxed text-foreground/90">{life.description}</p>
+      <p lang={life.lang} className="font-story text-lg leading-relaxed text-foreground/90">{life.description}</p>
       <p className="text-sm text-muted-foreground">{t("notReal")}</p>
       {life.art && <ArtworkCredit art={life.art} />}
       {around.length > 0 && year !== undefined && (
@@ -104,7 +103,7 @@ export function LifeChip({ life, around, year }: { life: Life } & AroundProps) {
     <>
       <button type="button" onClick={() => setOpen(true)} className={cn(chipClass, "border-dashed hover:border-lamp")}>
         <LifeMark life={life} size="sm" />
-        <span lang={CONTENT_LANG} className="truncate">{life.label}</span>
+        <span lang={life.lang} className="truncate">{life.label}</span>
         <span className="shrink-0 font-mono text-xs text-muted-foreground">{t("typical")}</span>
       </button>
       <DetailPanel open={open} onOpenChange={setOpen} kicker={common("everydayLife")}>

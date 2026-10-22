@@ -74,7 +74,7 @@ test("a person opens in a French panel over a French moment", async ({ page }) =
   await expect(panel.getByText("Quelqu’un qui l’a vécu")).toBeVisible();
   await expect(panel.getByRole("heading", { name: "Émile Zola" })).toBeVisible();
   await expect(page).toHaveURL(/\/fr\/person\/emile-zola\?year=\d+$/);
-  await expect(panel.getByRole("link", { name: "Ouvrir la page entière" })).toHaveAttribute("href", /^\/fr\/person\/emile-zola\?year=\d+$/);
+  await expect(panel.getByRole("link", { name: "Agrandir" })).toHaveAttribute("href", /^\/fr\/person\/emile-zola\?year=\d+$/);
 });
 
 test("years before the common era read in French", async ({ page }) => {

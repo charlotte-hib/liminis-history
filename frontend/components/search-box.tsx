@@ -2,14 +2,14 @@
 
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { LoaderCircle, Search, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { PersonAvatar } from "@/components/person-avatar";
 import { useRouter } from "@/i18n/navigation";
 import { openingFromSearch, track } from "@/lib/analytics";
 import { fetchSearch } from "@/lib/api-browser";
 import { momentHref, titleOf } from "@/lib/moments";
-import type { SearchResults } from "@/lib/types";
+import type { Language, SearchResults } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useYears } from "@/lib/years";
 
@@ -29,6 +29,7 @@ const EMPTY: SearchResults = { people: [], moments: [] };
  */
 export function SearchBox({ className }: { className?: string }) {
   const router = useRouter();
+  const lang = useLocale() as Language;
   const t = useTranslations("search");
   const common = useTranslations("common");
   const years = useYears();
@@ -63,7 +64,7 @@ export function SearchBox({ className }: { className?: string }) {
     }
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetchSearch(q, controller.signal)
+      fetchSearch(q, lang, controller.signal)
         .then((next) => {
           if (!searched.current) track({ name: "search_used" });
           searched.current = true;
@@ -78,7 +79,7 @@ export function SearchBox({ className }: { className?: string }) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [q, reconnects]);
+  }, [q, lang, reconnects]);
 
   const options: Option[] = [
     ...results.moments.map((moment) => ({

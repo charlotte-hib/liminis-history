@@ -4,6 +4,7 @@ import type { components } from "@/lib/api-schema";
 
 type Schemas = components["schemas"];
 
+export type Language = Schemas["Language"];
 export type Domain = Schemas["Domain"];
 export type Region = Schemas["Region"];
 export type Era = Schemas["Era"];

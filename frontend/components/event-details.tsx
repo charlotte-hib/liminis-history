@@ -2,7 +2,6 @@ import { BookOpen } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { PersonAvatar } from "@/components/person-avatar";
 import { Link } from "@/i18n/navigation";
-import { CONTENT_LANG } from "@/lib/content";
 import type { Event } from "@/lib/types";
 import { useYears } from "@/lib/years";
 
@@ -15,10 +14,10 @@ export function EventDetails({ event }: { event: Event }) {
   return (
     <article className="grid gap-5">
       <div>
-        <h2 lang={CONTENT_LANG} className="font-story text-3xl leading-tight font-medium">{event.title}</h2>
+        <h2 lang={event.lang} className="font-story text-3xl leading-tight font-medium">{event.title}</h2>
         <p className="mt-1 font-mono text-sm text-muted-foreground">{years.year(event.year)}</p>
       </div>
-      <p lang={CONTENT_LANG} className="font-story text-lg leading-relaxed text-foreground/90">{event.description}</p>
+      <p lang={event.lang} className="font-story text-lg leading-relaxed text-foreground/90">{event.description}</p>
 
       {event.participants.length > 0 && (
         <section className="grid gap-3">
@@ -30,12 +29,12 @@ export function EventDetails({ event }: { event: Event }) {
                   <PersonAvatar person={person} className="size-12" />
                   <span className="grid gap-0.5">
                     <span className="font-medium group-hover:underline">{person.name}</span>
-                    <span lang={CONTENT_LANG} className="text-sm text-arts">{role}</span>
+                    <span lang={event.lang} className="text-sm text-arts">{role}</span>
                     <span className="text-xs text-muted-foreground">
-                      {person.occupations[0] && <span lang={CONTENT_LANG}>{person.occupations[0]} · </span>}
+                      {person.occupations[0] && <span lang={person.lang}>{person.occupations[0]} · </span>}
                       {years.ageInYear(person, event.year)}
                     </span>
-                    {person.bioShort && <span lang={CONTENT_LANG} className="mt-1 text-sm text-foreground/80">{person.bioShort}</span>}
+                    {person.bioShort && <span lang={person.bioLang} className="mt-1 text-sm text-foreground/80">{person.bioShort}</span>}
                   </span>
                 </Link>
               </li>
