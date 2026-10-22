@@ -53,9 +53,10 @@ alter table door
 -- WikipediaJob fills in the French article's bio and link as it does the English ones (V2__reader.sql).
 grant update (bio_short_fr, about_fr, wikipedia_url_fr) on ${flyway:defaultSchema}.person to ${reader};
 
--- Names are searched in both languages: "Jeanne d'Arc" finds Joan of Arc on either site.
+-- Names are searched in both languages: "Jeanne d'Arc" finds Joan of Arc on either site. A French name like the
+-- English one is not repeated.
 drop index person_search_name_idx;
 alter table person drop column search_name;
 alter table person add column search_name text
-    generated always as (fold_for_search(name || coalesce(' ' || name_fr, ''))) stored;
+    generated always as (fold_for_search(name || coalesce(' ' || nullif(name_fr, name), ''))) stored;
 create index person_search_name_idx on person using gin (search_name extensions.gin_trgm_ops);

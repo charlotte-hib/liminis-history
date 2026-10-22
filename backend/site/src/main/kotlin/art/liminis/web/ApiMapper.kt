@@ -111,11 +111,15 @@ abstract class ApiMapper {
     fun toDto(era: Era, @Context language: Language): EraDto =
         english(era, language).let { dto -> era.fr?.inFrench(language)?.let { dto.copy(label = it.label, governedBy = it.governedBy, lang = LanguageDto.fr) } ?: dto }
 
-    /** A person in French when their name is written in French; their bio in French when it is, apart. */
+    /**
+     * A person in French when their name and occupations are written in French (someone with none known, by their name);
+     * their bio in French when it is, apart.
+     */
     fun toDto(person: Person, @Context language: Language): PersonDto {
         val dto = english(person, language)
         if (language != Language.FR) return dto
-        val named = person.nameFr?.let { name -> dto.copy(name = name, occupations = person.occupationsFr ?: dto.occupations, lang = LanguageDto.fr) } ?: dto
+        val occupations = person.occupationsFr ?: emptyList<String>().takeIf { person.occupations.isEmpty() }
+        val named = if (person.nameFr != null && occupations != null) dto.copy(name = person.nameFr!!, occupations = occupations, lang = LanguageDto.fr) else dto
         return person.bioShortFr?.let { named.copy(bioShort = it, bioLang = LanguageDto.fr) } ?: named
     }
 

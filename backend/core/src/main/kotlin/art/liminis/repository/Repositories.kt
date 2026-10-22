@@ -95,7 +95,7 @@ interface PersonRepository : JpaRepository<Person, String> {
     fun findByWikipediaTitleFrIsNotNullAndWikipediaUrlFrIsNull(): List<Person>
 
     /**
-     * People whose name contains [pattern], ignoring case and accents: names that start with it first, then the most
+     * People whose name, in English or French, contains [pattern], ignoring case and accents: names that start with it first, then the most
      * famous in their time and place, then in order of birth. [pattern] has `\`, `%` and `_` escaped for `like`. Served by the trigram index on `search_name`.
      */
     @Query(
@@ -103,7 +103,9 @@ interface PersonRepository : JpaRepository<Person, String> {
         value = """
         select p.* from {h-schema}person p
         where p.search_name like '%' || {h-schema}fold_for_search(:pattern) || '%' escape '\'
-        order by p.search_name like {h-schema}fold_for_search(:pattern) || '%' escape '\' desc, p.fame desc, p.birth_year, p.id
+        order by ({h-schema}fold_for_search(p.name) like {h-schema}fold_for_search(:pattern) || '%' escape '\'
+            or {h-schema}fold_for_search(p.name_fr) like {h-schema}fold_for_search(:pattern) || '%' escape '\') desc,
+            p.fame desc, p.birth_year, p.id
         limit :limit
         """,
     )

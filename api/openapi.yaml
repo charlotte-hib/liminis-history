@@ -12,8 +12,9 @@ info:
     Years are integers, negative for BCE. There is no year 0: 1 BCE is followed by 1 CE.
 
     The site is read in English and French: every read takes `lang`. A record comes back in French when the release has
-    its French, else in English, and says which in its `lang`. Lines the API words itself (a life's regime changes, the
-    doors to the nearest moments) and the names of regions without a written name follow `lang`.
+    its French, else in English, and says which in its `lang`. The doors to the nearest moments, which the API words
+    itself, follow `lang`; the lines of a life in its time it words (birth, a new regime, death) stay in English, with
+    their era in `lang`, for the page to word them again.
   license:
     name: MIT
     url: https://github.com/charlotte-hib/liminis-history/blob/main/LICENSE

@@ -138,7 +138,8 @@ internal class PeopleCompiler(private val release: Release) {
             wikipediaUrl = article?.url,
             portraitUrl = article?.thumbnailUrl,
             nameFr = row.labelFr,
-            occupationsFr = occupations.map { (if (row.gender == FEMALE) it.femaleLabelFr else null) ?: it.labelFr ?: it.label },
+            // In French when every one of them is, else left in English with the rest of the person.
+            occupationsFr = occupations.map { (if (row.gender == FEMALE) it.femaleLabelFr else null) ?: it.labelFr }.takeIf { null !in it }?.filterNotNull(),
             wikipediaTitleFr = articleFr?.title,
             bioShortFr = textFr?.let(::leadSentences),
             aboutFr = textFr?.let(::about),
