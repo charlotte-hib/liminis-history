@@ -140,7 +140,8 @@ export function FrenchDesk({ french, viewer, story }: Props) {
       {problem && <ProblemBanner problem={problem} onReload={() => router.refresh()} />}
       {stale && (
         <div role="note" className="rounded bg-lamp-soft px-4 py-2.5">
-          Its English changed since this French was drafted. <button type="button" className="underline" onClick={translate}>Translate again</button> to bring it in line.
+          Its English changed since this French was drafted: French visitors still read the French of the English before.{" "}
+          <button type="button" className="underline" onClick={translate}>Translate again</button> to bring it in line.
         </div>
       )}
       {general.map((flag) => (

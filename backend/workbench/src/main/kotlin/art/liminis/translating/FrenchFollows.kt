@@ -16,7 +16,7 @@ import art.liminis.workbench.api.model.RunKindDto
 /**
  * The French follows the English: once a curator approves a new header, story or anecdote of a record that has a
  * translation, Claude updates its French (only the texts whose English changed, from the French approved before), and
- * it waits for review under the record's Français tab. While another run runs, nothing starts: the tab says the English
+ * it waits for review under the record's Français tab. Meanwhile the site keeps the French written before. While another run runs, nothing starts: the tab says the English
  * changed, and "Translate again" does it. English changed by hand in `data/` waits for "Translate everything missing".
  */
 @Component

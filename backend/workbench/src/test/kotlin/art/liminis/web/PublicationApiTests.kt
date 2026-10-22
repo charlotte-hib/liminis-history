@@ -583,7 +583,7 @@ class PublicationApiTests(
         )
 
     @Test
-    fun `writes approved French beside the English, holds back one whose English changed and takes its French away`() {
+    fun `writes approved French beside the English, and holds back one whose English changed, its old French kept`() {
         file(
             "data/eras.jsonl",
             """{"id":"fr-second-empire","region":"FR","label":"Second Empire","start":1852,"end":1870,"fr":{"label":"Second Empire"}}""" + "\n" +
@@ -623,9 +623,9 @@ class PublicationApiTests(
         mockMvc.get("/api/publication") { signedIn() }.andExpect {
             status { isOk() }
             jsonPath("$.files[3].path") { value("data/eras.jsonl") }
-            jsonPath("$.files[3].changes[0].id") { value("era:fr-second-empire") }
-            jsonPath("$.files[3].changes[1].id") { value("era:fr-third-republic") }
-            jsonPath("$.files[3].changes[1].after") {
+            jsonPath("$.files[3].changes.length()") { value(1) }
+            jsonPath("$.files[3].changes[0].id") { value("era:fr-third-republic") }
+            jsonPath("$.files[3].changes[0].after") {
                 value("""{"id":"fr-third-republic","region":"FR","label":"Third Republic","start":1870,"end":1940,"fr":{"label":"Troisième République"}}""")
             }
             jsonPath("$.files[4].path") { value("data/people.jsonl") }
@@ -634,15 +634,14 @@ class PublicationApiTests(
             }
             jsonPath("$.files[5].path") { value("data/moments/paris-1870s.json") }
             jsonPath("$.moments.length()") { value(0) }
-            jsonPath("$.translations.length()") { value(4) }
-            jsonPath("$.translations[0].record") { value("era:fr-second-empire") }
-            jsonPath("$.translations[2].record") { value("moment:paris-1870s") }
-            jsonPath("$.translations[0].change") { value("REMOVED") }
-            jsonPath("$.translations[1].change") { value("ADDED") }
-            jsonPath("$.translations[2].texts[1].path") { value("period") }
-            jsonPath("$.translations[2].texts[1].after") { value("années 1870") }
+            jsonPath("$.translations.length()") { value(3) }
+            jsonPath("$.translations[0].record") { value("era:fr-third-republic") }
+            jsonPath("$.translations[1].record") { value("moment:paris-1870s") }
+            jsonPath("$.translations[0].change") { value("ADDED") }
+            jsonPath("$.translations[1].texts[1].path") { value("period") }
+            jsonPath("$.translations[1].texts[1].after") { value("années 1870") }
             jsonPath("$.heldBack[0].id") { value("era:fr-second-empire") }
-            jsonPath("$.heldBack[0].reason") { value(containsString("Its English changed")) }
+            jsonPath("$.heldBack[0].reason") { value(containsString("read the French of the English before")) }
         }
 
         stubWrites()
@@ -650,11 +649,11 @@ class PublicationApiTests(
         val tree = github.findAll(postRequestedFor(urlPathEqualTo("$repo/git/trees"))).single().bodyAsString
         assertTrue("""\"title\": \"A republic\",\n      \"art\"""" in tree && """\"fr\": {\n        \"title\": \"Une république\"""" in tree, tree)
         val body = github.findAll(postRequestedFor(urlPathEqualTo("$repo/pulls"))).single().bodyAsString
-        assertTrue("**French** (4)" in body && "Paris, 1870s (moment:paris-1870s): translated" in body, body)
+        assertTrue("**French** (3)" in body && "Paris, 1870s (moment:paris-1870s): translated" in body, body)
     }
 
     @Test
-    fun `a record whose new French waits for review loses its old French, and an anecdote's French already on main is no change`() {
+    fun `French stays while a new one waits for review, an anecdote's French on main is no change, a new story keeps its cards' French`() {
         file("data/people.jsonl", """{"id":"katsushika-hokusai","qid":"Q5586","name":"Katsushika Hokusai"}""" + "\n")
         file("data/eras.jsonl", """{"id":"fr-third-republic","region":"FR","label":"The Republic","start":1870,"end":1940,"fr":{"label":"Troisième République"}}""" + "\n")
         // Translated again since the label changed: waiting for review.
@@ -667,14 +666,35 @@ class PublicationApiTests(
             """{"id":"$daruma","person":"Q5586","year":1804,"text":"He paints Daruma.","source":{"url":"https://example.org/daruma"},"fr":{"text":"Il peint Daruma."}}""" + "\n",
         )
         translated("anecdote:$daruma", "He paints Daruma.", Triple("text", "He paints Daruma.", "Il peint Daruma."))
+        file(
+            "data/moments/paris-1870s.json",
+            """{
+  "id": "paris-1870s",
+  "hook": "Old hook.",
+  "cards": [
+    {
+      "type": "PERSON",
+      "text": "Old text.",
+      "year": 1875,
+      "person": "victor-hugo",
+      "fr": {
+        "text": "Ancien texte."
+      }
+    }
+  ]
+}
+""",
+        )
+        // The story's card, the same person, gets new English.
+        claims.save(Claim.candidate(story("paris-1870s", "victor-hugo"), Origin.CLAUDE, emptyList()).apply { status = ClaimStatus.APPROVED })
 
         mockMvc.get("/api/publication") { signedIn() }.andExpect {
             status { isOk() }
-            jsonPath("$.translations.length()") { value(1) }
-            jsonPath("$.translations[0].record") { value("era:fr-third-republic") }
-            jsonPath("$.translations[0].change") { value("REMOVED") }
+            jsonPath("$.translations.length()") { value(0) }
             jsonPath("$.heldBack.length()") { value(0) }
             jsonPath("$.files[2].changes.length()") { value(0) }
+            jsonPath("$.files[3].path") { value("data/moments/paris-1870s.json") }
+            jsonPath("$.files[3].changes[0].after") { value(containsString(""""text":"Someone there.","year":1875,"person":"victor-hugo","fr":{"text":"Ancien texte."}""")) }
         }
     }
 }

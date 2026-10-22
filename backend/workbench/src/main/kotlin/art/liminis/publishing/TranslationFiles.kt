@@ -27,11 +27,12 @@ data class TranslationClaim(val status: ClaimStatus, val translation: Translatio
 
 /**
  * What the translations make of the records of `data/`: an approved one's French written beside its English, in the
- * same file, while its English is still the English that was translated. One whose English changed since is held
- * back, and the French the record had goes too, as it was of other English: the site shows it in English until a new
- * French is approved. A record whose French is waiting for review, kept for later or rejected loses the French it had
- * too, which can only be of other English or turned down. Records with no translation claim keep the French they
- * have, if any: written by hand. A person's French also names their French Wikipedia article, from the dataset.
+ * same file, while its English is still the English that was translated. Any other record keeps the French it has,
+ * even when its English changed since (the curator: a French page never turns English): an approved translation of
+ * other English is held back, and curate says the French is behind until a new one is approved. A record whose English
+ * is written again (a moment's new story, an anecdote rebuilt from its claim) keeps the French of the one before, card
+ * by card, as far as it holds together with the new English. A person's French also names their French Wikipedia
+ * article, from the dataset.
  */
 @Component
 class TranslationFiles(private val claims: ClaimRepository, private val dataset: DatasetStore, jsonMapper: JsonMapper) {
@@ -52,7 +53,10 @@ class TranslationFiles(private val claims: ClaimRepository, private val dataset:
         val records = records(kind, text)
         val was = records(kind, before).associateBy { it.key }
         val wikipedia = if (kind == RecordKind.PERSON) frenchArticles(records, translations) else emptyMap()
-        val written = records.map { record -> translate(record, translations[record.key], wikipedia[record.key]) }
+        val written = records.map { record ->
+            val carried = was[record.key]?.let { DataRecord(kind, RecordTexts.carry(kind, it.node, record.node)) } ?: record
+            translate(carried, translations[record.key], wikipedia[record.key])
+        }
         return Translated(
             written.associate { (record, node) -> record.key to mapper.writeValueAsString(node) },
             written.mapNotNull { (record, node, _) -> change(was[record.key] ?: DataRecord(kind, RecordTexts.withFrench(kind, record.node, null)), node) },
@@ -62,18 +66,12 @@ class TranslationFiles(private val claims: ClaimRepository, private val dataset:
 
     /**
      * [after], a moment's file as an object once its approved header and story are in it, with the French of
-     * [translations] beside its English; [before], as `main` has it. With no translation claim, a moment whose English
-     * changes loses the French it had, of the English before.
+     * [translations] beside its English, else the French [before] had (`main`'s), each card keeping its own.
      */
     fun moment(id: String, before: ObjectNode, after: ObjectNode, translations: Map<String, TranslationClaim>): Triple<ObjectNode, TranslationChange?, HeldBack?> {
         val was = DataRecord(RecordKind.MOMENT, before, id)
-        val moment = DataRecord(RecordKind.MOMENT, after, id)
-        val translation = translations[moment.key]
-        val (_, node, held) = when {
-            translation != null -> translate(moment, translation, null)
-            was.texts != moment.texts -> Triple(moment, RecordTexts.withFrench(RecordKind.MOMENT, after, null), null)
-            else -> Triple(moment, RecordTexts.withFrench(RecordKind.MOMENT, after, RecordTexts.french(RecordKind.MOMENT, before)), null)
-        }
+        val moment = DataRecord(RecordKind.MOMENT, RecordTexts.carry(RecordKind.MOMENT, before, after), id)
+        val (_, node, held) = translate(moment, translations[moment.key], null)
         return Triple(node, change(was, node), held)
     }
 
@@ -87,12 +85,10 @@ class TranslationFiles(private val claims: ClaimRepository, private val dataset:
     }
 
     private fun translate(record: DataRecord, claim: TranslationClaim?, article: String?): Triple<DataRecord, ObjectNode, HeldBack?> {
-        if (claim == null) return Triple(record, record.node, null)
-        val matches = record.matches(claim.translation.texts)
-        if (claim.status != ClaimStatus.APPROVED || !matches) {
-            val held = HeldBack(record.key, "Its English changed since its French was approved: translate it again. Until then the site shows it in English")
-                .takeIf { claim.status == ClaimStatus.APPROVED }
-            return Triple(record, RecordTexts.withFrench(record.kind, record.node, null), held)
+        if (claim == null || claim.status != ClaimStatus.APPROVED) return Triple(record, record.node, null)
+        if (!record.matches(claim.translation.texts)) {
+            val held = HeldBack(record.key, "Its English changed since its French was approved: French visitors read the French of the English before until you approve its update")
+            return Triple(record, record.node, held)
         }
         val french = claim.translation.texts.associate { it.path to it.fr }
         return Triple(record, RecordTexts.withFrench(record.kind, record.node, french, listOfNotNull(article?.let { "wikipedia" to it }).toMap()), null)

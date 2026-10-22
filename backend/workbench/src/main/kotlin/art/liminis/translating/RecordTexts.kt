@@ -112,6 +112,64 @@ object RecordTexts {
         return written
     }
 
+    /**
+     * [record] with the French [from] had, where [record] has none: the record's own French, and each card's, door's or
+     * participant's from the one of [from] that shows the same (a card the same person, life or event, in order; a door
+     * the same moment; a participant the same person). For a record whose English was written again (a moment's new
+     * story, an anecdote rebuilt from its claim): its French stays until a new one is approved.
+     */
+    fun carry(kind: RecordKind, from: ObjectNode, record: ObjectNode): ObjectNode {
+        val written = record.deepCopy()
+        if (written[FR] == null) from[FR]?.let { written.set(FR, it.deepCopy()) }
+        for (list in kind.fields.mapNotNull { split(it).first }.distinct()) {
+            val unused = from[list]?.values().orEmpty().filter { it[FR] != null }.toMutableList()
+            for (item in written[list]?.values().orEmpty().filterIsInstance<ObjectNode>()) {
+                if (item[FR] != null) continue
+                val same = unused.firstOrNull { shows(it) == shows(item) } ?: continue
+                unused.remove(same)
+                item.set(FR, same[FR].deepCopy())
+            }
+        }
+        return consistent(kind, written)
+    }
+
+    /**
+     * [record] without the French that does not hold together with its English: a `fr`, the record's or an item's,
+     * that lacks a text its English has or has one its English lacks, goes. The release refuses one.
+     */
+    fun consistent(kind: RecordKind, record: ObjectNode): ObjectNode {
+        val written = record.deepCopy()
+        val english = english(kind, written).map { it.first }
+        fun check(node: ObjectNode, inner: Set<String>) {
+            val fr = node[FR] as? ObjectNode ?: return
+            if (leaves(fr) - EXTRAS != inner) node.remove(FR)
+        }
+        check(written, english.filter { containerOf(it) == null }.toSet())
+        for (list in kind.fields.mapNotNull { split(it).first }.distinct()) {
+            written[list]?.values()?.withIndex()?.forEach { (index, item) ->
+                if (item is ObjectNode) check(item, english.filter { it.startsWith("$list[$index].") }.map { it.substringAfter("].") }.toSet())
+            }
+        }
+        // An event is in French with each of its participants' roles, or not at all.
+        if (kind == RecordKind.EVENT) {
+            val participants = written["participants"]?.values().orEmpty().filterIsInstance<ObjectNode>()
+            if (participants.any { (it[FR] == null) != (written[FR] == null) }) return withFrench(kind, written, null)
+        }
+        return written
+    }
+
+    /** The paths of the texts in a `fr`: `hook`, `world.governs`. */
+    private fun leaves(node: JsonNode, prefix: String = ""): Set<String> = node.properties().flatMap { (name, value) ->
+        if (value.isObject) leaves(value, "$prefix$name.") else setOf("$prefix$name")
+    }.toSet()
+
+    /** What an item of a list shows, to match it with another: a card its type and record, a door its moment, a participant their person. */
+    private fun shows(item: JsonNode): List<String?> =
+        listOf("type", "person", "life", "event", "to").map { item[it]?.asString() }
+
+    /** The list item a path's French goes beside (`cards[2]`), or none for the record's own. */
+    private fun containerOf(path: String): String? = ITEM.matchEntire(path)?.let { "${it.groupValues[1]}[${it.groupValues[2]}]" }
+
     /** The list a field is in (`cards`), if any, and its path within each item (`text`), or within the record. */
     private fun split(field: String): Pair<String?, String> =
         if ("[]." in field) field.substringBefore("[].") to field.substringAfter("[].") else null to field
@@ -133,6 +191,9 @@ object RecordTexts {
     }
 
     private const val FR = "fr"
+
+    /** What a `fr` may hold beside its texts: a person's French Wikipedia article. */
+    private val EXTRAS = setOf("wikipedia")
     private val ITEM = Regex("""(\w+)\[(\d+)]\.(.+)""")
 }
 

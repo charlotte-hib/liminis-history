@@ -6,7 +6,7 @@ type Translation = { texts: { path: string; en: string }[] };
 
 /**
  * Whether a record's French is of other English than it has now: translated before its English changed, or translated
- * again since and waiting for review. French visitors then read the record in English.
+ * again since and waiting for review. French visitors then still read the French written for the English before.
  */
 export function frenchBehind({ record, review }: French): boolean {
   const claim = review?.claim;
@@ -34,7 +34,8 @@ type Props = { english: string; french: string; open: "en" | "fr"; englishStandi
 
 /**
  * A page's two languages: the English as it is reviewed, and its French beside it, each with where it stands. On the
- * English tab, a French behind the English says so: French visitors read the record in English until it is reviewed.
+ * English tab, a French behind the English says so: French visitors read the French of the English before until the
+ * update is approved. The warning is curate's alone: the site never shows it.
  */
 export function LanguageTabs({ english, french, open, englishStanding, frenchState }: Props) {
   const standing = frenchStanding(frenchState);
@@ -54,8 +55,8 @@ export function LanguageTabs({ english, french, open, englishStanding, frenchSta
         <div role="note" className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded bg-lamp-soft px-4 py-2.5">
           <span>
             Its English changed since its French was approved.{" "}
-            {running ? "Claude is updating the French: it then waits for your review." : "Its French needs your review."} Until then, French visitors read
-            it in English.
+            {running ? "Claude is updating the French: it then waits for your review." : "Its French needs your review."} Until you approve it,
+            French visitors still read the French written for the English before.
           </span>
           <Link href={french} className="font-medium text-lamp underline-offset-4 hover:underline">
             Review the French
