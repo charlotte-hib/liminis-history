@@ -4,6 +4,7 @@ import { QUEUES } from "@/lib/labels";
 import { queue, review } from "@/lib/queue";
 import { listHref, personHref, type ReviewScope } from "@/lib/review-scope";
 import { summaryOf } from "@/lib/summary";
+import { frenchHref } from "@/lib/translations";
 import { viewer } from "@/lib/viewer";
 
 /** One queue: its waiting claims beside the one under review, with what the sources say. */
@@ -23,10 +24,8 @@ export default async function ReviewPage({ params, searchParams }: PageProps<"/r
   }
   // Translations have their own page, English and French side by side.
   if (found.type === "TRANSLATION") {
-    const to = new URLSearchParams();
-    if (typeof query.claim === "string") to.set("claim", query.claim);
-    if (later) to.set("later", "1");
-    redirect(`/translations${to.size ? `?${to}` : ""}`);
+    if (typeof query.claim === "string" && query.claim.startsWith("translation:")) redirect(frenchHref(query.claim.slice("translation:".length)));
+    redirect(`/translations${later ? "?later=1" : ""}`);
   }
   const claims = await queue(found.type, later ? "NEEDS_WORK" : "CANDIDATE", moment);
   const id = typeof query.claim === "string" ? query.claim : claims[0]?.id;

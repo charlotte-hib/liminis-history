@@ -31,3 +31,11 @@ export function fieldName(path: string): string {
   const [, list, index, field] = item;
   return `${ITEMS[list] ?? list} ${Number(index) + 1} · ${FIELDS[field] ?? field}`;
 }
+
+/**
+ * Where a record's French is reviewed: a moment under its story's Français tab, any other record on a page of its own.
+ */
+export function frenchHref(record: string): string {
+  const moment = record.match(/^moment:(.+)$/)?.[1];
+  return moment ? `/moments/${encodeURIComponent(moment)}/story?lang=fr` : `/translations/${encodeURIComponent(record)}`;
+}

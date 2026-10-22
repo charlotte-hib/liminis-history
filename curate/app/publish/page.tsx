@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { CHOICES, choiceLabel } from "@/components/occupation";
 import { PublishButton } from "@/components/publish-button";
+import { TranslateMissing } from "@/components/translate-missing";
 import { ValueChange, WordDiff } from "@/components/word-diff";
 import { passkey, readSession, SESSION_COOKIE } from "@/lib/auth";
 import { KINDS } from "@/lib/summary";
@@ -59,7 +60,7 @@ const CARD_FIELDS: Record<CardChange["fields"][number]["field"], string> = {
 export default async function PublishPage() {
   // The changes come from the workbench and GitHub: render at request time, never at build time.
   await connection();
-  const preview = await outcome(workbench.GET("/api/publication"));
+  const [preview, run] = await Promise.all([outcome(workbench.GET("/api/publication")), workbench.GET("/api/translations/run").then(({ data }) => data)]);
   const session = await readSession((await cookies()).get(SESSION_COOKIE)?.value);
 
   return (
@@ -72,6 +73,7 @@ export default async function PublishPage() {
           it packs a release.
         </p>
       </div>
+      <TranslateMissing run={run} />
       {preview.ok ? <Changes publication={preview.data} /> : <p className="text-conflict">The workbench could not tell: {preview.detail}</p>}
       {preview.ok && session && (
         <PublishButton

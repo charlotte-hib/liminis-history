@@ -381,6 +381,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/translations/{record}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A record's French
+         * @description A record of `data/`, with the English publishing will write (the data repository's `main`, with the headers,
+         *     stories and anecdotes approved since): its texts, the French `main` has for them, its translation claim if any,
+         *     and the last run that translated it. A person may be named by Q-id (`person:Q535`): the one written by hand
+         *     with it.
+         */
+        get: operations["getRecordFrench"];
+        put?: never;
+        /**
+         * Write a record's French by hand
+         * @description The record's French as the curator wrote it, every text of it, approved at once as its `TRANSLATION` claim.
+         *     Refused (409) when the record has a claim already: decide on it instead.
+         */
+        post: operations["writeRecordFrench"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/translations/{record}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Translate one record
+         * @description Starts the run that drafts the record's French with Claude, as `TRANSLATIONS` does for every record.
+         */
+        post: operations["translateRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/moments/{id}/holder": {
         parameters: {
             query?: never;
@@ -869,6 +917,36 @@ export interface components {
             label: string;
             texts: components["schemas"]["TranslatedText"][];
         };
+        RecordFrench: {
+            /**
+             * @description The record's key, by kind and id; a person's by their id written by hand.
+             * @example moment:paris-1870s
+             */
+            record: string;
+            label: string;
+            /** @description Its texts, by path, each with the French `main` has for it, if any. */
+            texts: components["schemas"]["RecordText"][];
+            /**
+             * @description The id of its translation claim, if it has one.
+             * @example translation:moment:paris-1870s
+             */
+            claim?: string;
+            run?: components["schemas"]["Run"];
+        };
+        RecordText: {
+            /** @example cards[2].text */
+            path: string;
+            en: string;
+            fr?: string;
+        };
+        NewFrench: {
+            /** @description Every text of the record, by path, in French. */
+            texts: {
+                path: string;
+                fr: string;
+            }[];
+            note?: string;
+        };
         TranslatedText: {
             /**
              * @description Where the text is in the record.
@@ -1248,6 +1326,8 @@ export interface components {
             kind: components["schemas"]["RunKind"];
             /** @description The moment to draft, for `STORY_DRAFT`. */
             moment?: string;
+            /** @description The one record to translate, for `TRANSLATIONS`; every one with no French yet without it. */
+            record?: string;
         };
         /**
          * @description `WIKIDATA_IMPORT` fetches Wikidata's people, or resumes the import that stopped. `DATASET_MAPPING` maps the last
@@ -1266,6 +1346,8 @@ export interface components {
             id: number;
             kind: components["schemas"]["RunKind"];
             moment?: string;
+            /** @description The record a `TRANSLATIONS` run translates, when only one. */
+            record?: string;
             /** @enum {string} */
             status: "RUNNING" | "SUCCEEDED" | "FAILED";
             /** Format: date-time */
@@ -1622,6 +1704,8 @@ export interface components {
         IfMatch: string;
         /** @description The claim's id, URL-encoded, e.g. `person-facts:Q535`. */
         ClaimId: string;
+        /** @description A record of `data/`, by kind and id, e.g. `moment:paris-1870s`. */
+        Record: string;
         /** @description Everyone alive in the moment, those without a claim too, instead of everyone the dataset holds. */
         ReviewMoment: components["schemas"]["MomentId"];
         ReviewFilter: components["schemas"]["ReviewFilter"];
@@ -2183,6 +2267,91 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run, started. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getRecordFrench: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A record of `data/`, by kind and id, e.g. `moment:paris-1870s`. */
+                record: components["parameters"]["Record"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The record. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordFrench"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    writeRecordFrench: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A record of `data/`, by kind and id, e.g. `moment:paris-1870s`. */
+                record: components["parameters"]["Record"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewFrench"];
+            };
+        };
+        responses: {
+            /** @description The claim, approved. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    translateRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A record of `data/`, by kind and id, e.g. `moment:paris-1870s`. */
+                record: components["parameters"]["Record"];
+            };
             cookie?: never;
         };
         requestBody?: never;

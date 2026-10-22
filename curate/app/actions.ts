@@ -65,6 +65,18 @@ export async function draftStory(moment: string): Promise<Outcome<{ id: number }
   return result.ok ? { ok: true, data: { id: result.data.id } } : result;
 }
 
+/** Starts drafting the French of [record] with Claude: 409 while another run runs. */
+export async function translateRecord(record: string): Promise<Outcome<{ id: number }>> {
+  const result = await outcome(workbench.POST("/api/translations/{record}/run", { params: { path: { record } } }));
+  return result.ok ? { ok: true, data: { id: result.data.id } } : result;
+}
+
+/** The French of [record], every text, as the curator wrote it: approved at once. 409 when it has a claim already. */
+export async function writeFrench(record: string, texts: { path: string; fr: string }[]): Promise<Outcome<{ id: string }>> {
+  const result = await outcome(workbench.POST("/api/translations/{record}", { params: { path: { record } }, body: { texts } }));
+  return result.ok ? { ok: true, data: { id: result.data.id } } : result;
+}
+
 /** Starts drafting in French, with Claude, every record with no French yet: 409 while another run runs. */
 export async function translate(): Promise<Outcome<{ id: number }>> {
   const result = await outcome(workbench.POST("/api/translations/run"));
