@@ -27,7 +27,17 @@ import org.springframework.test.web.servlet.post
 import org.wiremock.spring.ConfigureWireMock
 import org.wiremock.spring.EnableWireMock
 import org.wiremock.spring.InjectWireMock
+import art.liminis.curation.Actor
+import art.liminis.curation.Claim
 import art.liminis.curation.ClaimRepository
+import art.liminis.curation.Claims
+import art.liminis.curation.NewDecision
+import art.liminis.curation.Origin
+import art.liminis.curation.Story
+import art.liminis.curation.StoryCard
+import art.liminis.curation.Verdict
+import art.liminis.domain.CardType
+import art.liminis.runs.Runs
 import art.liminis.curation.ClaimStatus
 import art.liminis.curation.CurationFixtures
 import art.liminis.curation.Flag
@@ -59,6 +69,8 @@ class TranslatingTests(
     @Autowired private val claims: ClaimRepository,
     @Autowired private val jdbc: JdbcTemplate,
     @Autowired private val mockMvc: MockMvc,
+    @Autowired private val decisions: Claims,
+    @Autowired private val runs: Runs,
 ) {
 
     @InjectWireMock
@@ -72,6 +84,9 @@ class TranslatingTests(
 
     /** What each call asked Claude to translate: record, then paths. */
     private val asked = mutableListOf<Map<String, List<String>>>()
+
+    /** The French each call asked Claude to update, by record and path. */
+    private val updates = mutableMapOf<String, Map<String, Before>>()
 
     @BeforeEach
     fun setUp() {
@@ -102,6 +117,7 @@ class TranslatingTests(
         doAnswer { call ->
             val records = call.getArgument<List<ToTranslate>>(0)
             asked += records.associate { it.record to it.paths }
+            records.filter { it.updates.isNotEmpty() }.forEach { updates[it.record] = it.updates }
             TranslatedBatch(
                 TranslationDraft(records.map { record ->
                     DraftRecord(record.record, record.paths.map { path -> DraftText(path, "FR " + record.texts.toMap().getValue(path)) })
@@ -162,6 +178,8 @@ class TranslatingTests(
         translating.translate()
 
         assertEquals(listOf(mapOf("moment:paris-1870s" to listOf("hook"))), asked)
+        // Claude updates the French approved for the hook before, rather than translating it anew.
+        assertEquals(mapOf("hook" to Before("A republic born out of defeat.", "FR A republic born out of defeat.")), updates["moment:paris-1870s"])
         val again = translation("moment:paris-1870s")
         assertEquals(ClaimStatus.CANDIDATE, again.status)
         assertEquals("Paris (édité)", (again.payload as Translation).texts.first().fr)
@@ -223,6 +241,19 @@ class TranslatingTests(
         assertTrue(result.endsWith("1 could not be translated, try again: region:FR"), result)
         assertEquals(false, claims.existsById("translation:region:FR"))
         assertEquals(true, claims.existsById("translation:moment:paris-1870s"))
+    }
+
+    @Test
+    fun `approving a new story of a translated moment starts its French's update`() {
+        translating.translate("moment:paris-1870s")
+        val story = Story("paris-1870s", listOf(StoryCard(CardType.SCENE, title = "Paris in 1871", text = "A long siege.")))
+        claims.save(Claim.candidate(story, Origin.CLAUDE, emptyList()))
+        val version = claims.findById("story:paris-1870s").orElseThrow().version!!
+
+        decisions.decide("story:paris-1870s", version, NewDecision(Verdict.APPROVE, null, null), Actor("curator", admin = true))
+
+        val run = runs.lastTranslation("moment:paris-1870s")
+        assertEquals("moment:paris-1870s", run?.record)
     }
 
     companion object {

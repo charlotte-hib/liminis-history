@@ -23,9 +23,20 @@ data class TranslationDraft(val records: List<DraftRecord>)
 
 /**
  * A record to translate: its key, what it is, all its texts in English for context, the paths of those to translate,
- * and why the curator rejected its last French, if they did.
+ * why the curator rejected its last French, if they did, and, for a text whose English changed since its French was
+ * written, that English and French, by path: Claude updates the French rather than translating anew.
  */
-data class ToTranslate(val record: String, val label: String, val texts: List<Pair<String, String>>, val paths: List<String>, val rejected: String? = null)
+data class ToTranslate(
+    val record: String,
+    val label: String,
+    val texts: List<Pair<String, String>>,
+    val paths: List<String>,
+    val rejected: String? = null,
+    val updates: Map<String, Before> = emptyMap(),
+)
+
+/** A text's English as it was, and the French written for it then. */
+data class Before(val english: String, val french: String)
 
 /** A batch's French, with the model that wrote it and the tokens it took. */
 data class TranslatedBatch(val draft: TranslationDraft, val model: String, val inputTokens: Long, val outputTokens: Long)
@@ -50,6 +61,9 @@ private val SYSTEM_PROMPT = """
       work's title, "le Second Empire").
     - Kickers keep their " · " separator: "Setting the scene · Paris, 1870s" is "Le décor · Paris, années 1870".
     - A record with "rejected" had its last French turned down by the curator for that reason: avoid it.
+    - A text under "update" changed in English since its French was written: you get the English and French as they
+      were. Change the French only where the English changed (a year, a name, a clause) and keep the rest of it word
+      for word: the curator chose that wording.
 
     The records come as JSON: each has its key, a label saying what it is, its English texts by path, and the paths
     to translate. Answer with the same keys and paths.
@@ -100,6 +114,9 @@ class Translator(@Lazy private val client: AnthropicClient, private val properti
                     "english" to record.texts.toMap(),
                     "translate" to record.paths,
                     record.rejected?.let { "rejected" to it },
+                    record.updates.takeIf { it.isNotEmpty() }?.let { updates ->
+                        "update" to updates.mapValues { (_, before) -> mapOf("oldEnglish" to before.english, "oldFrench" to before.french) }
+                    },
                 ).toMap()
             },
         ),

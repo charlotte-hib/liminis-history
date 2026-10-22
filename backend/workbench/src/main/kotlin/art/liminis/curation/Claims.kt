@@ -1,5 +1,6 @@
 package art.liminis.curation
 
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
@@ -21,6 +22,7 @@ class Claims(
     private val sources: ClaimSources,
     private val transactions: TransactionTemplate,
     private val jsonMapper: JsonMapper,
+    private val events: ApplicationEventPublisher,
 ) {
 
     @Transactional(readOnly = true)
@@ -65,6 +67,7 @@ class Claims(
         val claim = Claim(id, ClaimRules.typeOf(payload), approved.status, Origin.MANUAL, approved.payload, proposal, approved.flags)
         val added = claims.save(claim.also { hold(it, by) })
         decisions.save(Decision(id, by, null, added.status, proposal, added.payload, note))
+        events.publishEvent(Approved(added.id, added.payload))
         return detail(added)
     }
 
@@ -76,6 +79,7 @@ class Claims(
         val decided = ClaimRules.decide(claim.state, decision)
         decisions.save(Decision(id, by.name, claim.status, decided.status, claim.payload, decided.payload, decision.note))
         claim.state = decided
+        if (decided.status == ClaimStatus.APPROVED) events.publishEvent(Approved(id, decided.payload))
         return detail(claim)
     }
 

@@ -116,7 +116,11 @@ class Translating(
         val known = (if (translation == null) written else emptyMap()) + named + kept
         val note = if (rejected) decisions.findByClaimOrderById(claim.id).lastOrNull()?.note else null
         val paths = record.texts.map { it.first }.filter { it !in known }
-        return Missing(record, known, ToTranslate(record.key, record.label, record.texts, paths, note))
+        // The French written for the English before, of a text that changed since: Claude updates it.
+        val updates = if (rejected) emptyMap() else translation?.texts.orEmpty()
+            .filter { it.path in paths && it.fr.isNotBlank() }
+            .associate { it.path to Before(it.en, it.fr) }
+        return Missing(record, known, ToTranslate(record.key, record.label, record.texts, paths, note, updates))
     }
 
     /** Batches of records to translate in one call: a moment's texts are many, short records go a few dozen at a time. */
