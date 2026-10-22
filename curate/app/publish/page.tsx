@@ -5,6 +5,8 @@ import { CHOICES, choiceLabel } from "@/components/occupation";
 import { PublishButton } from "@/components/publish-button";
 import { ValueChange, WordDiff } from "@/components/word-diff";
 import { passkey, readSession, SESSION_COOKIE } from "@/lib/auth";
+import { KINDS } from "@/lib/summary";
+import { fieldName } from "@/lib/translations";
 import { outcome, workbench, type Publication } from "@/lib/workbench";
 
 /** How many records of a file the file lines list: the first publish maps thousands of occupations. */
@@ -19,6 +21,7 @@ type PersonChange = Publication["people"][number];
 type OccupationChange = Publication["occupations"][number];
 type AnecdoteChange = Publication["anecdotes"][number];
 type MomentChange = Publication["moments"][number];
+type TranslationChange = Publication["translations"][number];
 type CardChange = MomentChange["cards"][number];
 
 const FACTS: Record<PersonChange["facts"][number]["fact"], string> = {
@@ -126,6 +129,15 @@ function Changes({ publication }: { publication: Publication }) {
           <Occupations occupations={publication.occupations} />
         </Section>
       )}
+      {publication.translations.length > 0 && (
+        <Section
+          title="French"
+          count={lineCounts(publication.translations)}
+          files={fileLines((path) => !["data/corrections.jsonl", "data/anecdotes.jsonl", "data/occupations.jsonl"].includes(path) && !path.startsWith("data/moments/"))}
+        >
+          <Translations translations={publication.translations} />
+        </Section>
+      )}
       {publication.withoutEffect.length > 0 && (
         <p className="text-[13px] text-muted">
           Written by hand in <code className="font-mono">people.jsonl</code>, so their record wins over your correction:{" "}
@@ -226,6 +238,39 @@ function Anecdotes({ anecdotes }: { anecdotes: AnecdoteChange[] }) {
                 ),
               )}
           </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Each record whose French changes: its texts' English beside their French, the words changed marked. */
+function Translations({ translations }: { translations: TranslationChange[] }) {
+  return (
+    <ul className="flex flex-col border-t border-line">
+      {translations.map((translation) => (
+        <li key={translation.record} className="flex flex-wrap gap-x-5 gap-y-1 border-b border-line py-3">
+          <span className="flex basis-60 flex-col gap-0.5">
+            <span className="font-serif text-[18px]">{translation.label}</span>
+            <span className="text-muted">
+              {KINDS[translation.record.split(":")[0]]}
+              {translation.change === "ADDED" && <span className="text-ok"> · translated</span>}
+              {translation.change === "REMOVED" && <span className="text-conflict"> · French removed: its English changed</span>}
+            </span>
+          </span>
+          <dl className="grid flex-1 basis-96 grid-cols-[9rem_minmax(0,1fr)] gap-x-3 gap-y-1.5">
+            {translation.texts.map((text) => (
+              <div key={text.path} className="contents">
+                <dt className="text-[12.5px] text-muted">{fieldName(text.path)}</dt>
+                <dd className="flex flex-col">
+                  <span lang="en" className="text-[12.5px] text-muted">{text.en}</span>
+                  <span lang="fr" className="font-serif text-[16px] leading-relaxed">
+                    <WordDiff before={text.before} after={text.after} />
+                  </span>
+                </dd>
+              </div>
+            ))}
+          </dl>
         </li>
       ))}
     </ul>
@@ -378,7 +423,7 @@ function FileLines({ file }: { file: FileChanges }) {
 
 const changed = (count: number) => `${count.toLocaleString("en")} changed`;
 
-function lineCounts(changes: (Change | OccupationChange | AnecdoteChange)[]): string {
+function lineCounts(changes: (Change | OccupationChange | AnecdoteChange | TranslationChange)[]): string {
   return (["ADDED", "CHANGED", "REMOVED"] as const)
     .map((kind) => [changes.filter((change) => change.change === kind).length, kind.toLowerCase()] as const)
     .filter(([count]) => count > 0)

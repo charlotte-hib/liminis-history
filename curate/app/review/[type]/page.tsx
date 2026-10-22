@@ -21,6 +21,13 @@ export default async function ReviewPage({ params, searchParams }: PageProps<"/r
     const qid = claim.match(/^person-facts:(Q[1-9][0-9]*)$/)?.[1];
     redirect(qid ? personHref(qid, scope) : listHref(scope));
   }
+  // Translations have their own page, English and French side by side.
+  if (found.type === "TRANSLATION") {
+    const to = new URLSearchParams();
+    if (typeof query.claim === "string") to.set("claim", query.claim);
+    if (later) to.set("later", "1");
+    redirect(`/translations${to.size ? `?${to}` : ""}`);
+  }
   const claims = await queue(found.type, later ? "NEEDS_WORK" : "CANDIDATE", moment);
   const id = typeof query.claim === "string" ? query.claim : claims[0]?.id;
   // A story is reviewed on its own page beside its preview, a moment's header on its own page under itself.

@@ -356,6 +356,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/translations/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The last translation run
+         * @description The last run that drafted translations, since the workbench started. 404 when there is none.
+         */
+        get: operations["getTranslationRun"];
+        put?: never;
+        /**
+         * Translate what has no French yet
+         * @description Starts the run that drafts in French with Claude every record of the data repository's `main` with no French
+         *     yet, or whose English changed since, and proposes each as a `TRANSLATION` claim, as `wb translate` does.
+         */
+        post: operations["translate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/moments/{id}/holder": {
         parameters: {
             query?: never;
@@ -598,9 +623,10 @@ export interface components {
          *     `OCCUPATION_DOMAIN`: the domain of the people who hold an occupation, one claim per occupation or class.
          *     `STORY`: a moment's story cards, drafted with Claude, one claim per moment. `MOMENT_PAGE`: the hook and the world
          *     around at the top of a moment's page, drafted with Claude or written from the release's, one claim per moment.
+         *     `TRANSLATION`: a record of `data/` in French, drafted with Claude, one claim per record.
          * @enum {string}
          */
-        ClaimType: "PERSON_FACTS" | "CONNECTION" | "EVENT" | "ANECDOTE" | "OCCUPATION_DOMAIN" | "STORY" | "MOMENT_PAGE";
+        ClaimType: "PERSON_FACTS" | "CONNECTION" | "EVENT" | "ANECDOTE" | "OCCUPATION_DOMAIN" | "STORY" | "MOMENT_PAGE" | "TRANSLATION";
         /**
          * @description `CANDIDATE` waits for review; `NEEDS_WORK` was kept for later, with a note.
          * @enum {string}
@@ -683,7 +709,7 @@ export interface components {
             note?: string;
         };
         /** @description The record as it would ship, by claim type. */
-        Payload: components["schemas"]["PersonFacts"] | components["schemas"]["Connection"] | components["schemas"]["Event"] | components["schemas"]["Anecdote"] | components["schemas"]["OccupationDomain"] | components["schemas"]["Story"] | components["schemas"]["MomentPage"];
+        Payload: components["schemas"]["PersonFacts"] | components["schemas"]["Connection"] | components["schemas"]["Event"] | components["schemas"]["Anecdote"] | components["schemas"]["OccupationDomain"] | components["schemas"]["Story"] | components["schemas"]["MomentPage"] | components["schemas"]["Translation"];
         /**
          * @description A person's facts as Wikidata states them. Whether each statement has a reference shows in the claim's flags,
          *     not here: a reference added later does not change the facts.
@@ -819,6 +845,38 @@ export interface components {
             world: components["schemas"]["StoryWorld"];
             /** @description The moment's painting, behind its header and every card without one of its own. */
             art?: components["schemas"]["Painting"];
+        };
+        /**
+         * @description A record of `data/` in French: each of its texts by its path in the record, beside its English as the record
+         *     had it when translated. Publishing writes the French beside the English in the record's file, while the English
+         *     is still the same. An edit changes the French only.
+         */
+        Translation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "TRANSLATION";
+            /**
+             * @description The record, by kind and id.
+             * @example moment:paris-1870s
+             */
+            record: string;
+            /**
+             * @description What the record is, in English.
+             * @example Paris, 1870s
+             */
+            label: string;
+            texts: components["schemas"]["TranslatedText"][];
+        };
+        TranslatedText: {
+            /**
+             * @description Where the text is in the record.
+             * @example cards[2].text
+             */
+            path: string;
+            en: string;
+            fr: string;
         };
         /** @description The text of a moment's page as the curator wrote it. */
         MomentPageText: {
@@ -1197,10 +1255,12 @@ export interface components {
          *     `backend/dataset-export/`. `PERSON_FACTS_CLAIMS` proposes the facts of the people of the release's moments.
          *     `OCCUPATION_CLAIMS` proposes a domain claim for every occupation the dataset's people hold, and their classes:
          *     those most held as a first occupation first, then the classes nobody holds directly. `STORY_DRAFT` drafts a moment's story with Claude and proposes it as the
-         *     moment's `STORY` claim; its result says what the draft cost.
+         *     moment's `STORY` claim; its result says what the draft cost. `TRANSLATIONS` drafts in French with Claude every
+         *     record of the data repository's `main` with no French yet, or whose English changed since, and proposes each as
+         *     a `TRANSLATION` claim; its result says what it cost.
          * @enum {string}
          */
-        RunKind: "WIKIDATA_IMPORT" | "DATASET_MAPPING" | "DATASET_EXPORT" | "PERSON_FACTS_CLAIMS" | "OCCUPATION_CLAIMS" | "STORY_DRAFT";
+        RunKind: "WIKIDATA_IMPORT" | "DATASET_MAPPING" | "DATASET_EXPORT" | "PERSON_FACTS_CLAIMS" | "OCCUPATION_CLAIMS" | "STORY_DRAFT" | "TRANSLATIONS";
         Run: {
             /** Format: int64 */
             id: number;
@@ -1278,10 +1338,12 @@ export interface components {
             anecdotes: components["schemas"]["AnecdoteChange"][];
             /** @description The moments whose header or story changes, by id. */
             moments: components["schemas"]["MomentChange"][];
+            /** @description The records whose French changes, by key. */
+            translations: components["schemas"]["TranslationChange"][];
             pullRequest?: components["schemas"]["PullRequest"];
             /** @description People written by hand in `people.jsonl` with a correction, which their record overrides. */
             withoutEffect: components["schemas"]["Qid"][];
-            /** @description Approved stories, moment pages and anecdotes not published, and why. */
+            /** @description Approved stories, moment pages, anecdotes and translations not published, and why. */
             heldBack: components["schemas"]["HeldBack"][];
             /**
              * Format: int32
@@ -1424,9 +1486,30 @@ export interface components {
             before?: string;
             after?: string;
         };
+        /**
+         * @description A record whose French changes: `ADDED` when it had none, `REMOVED` when its French goes, its English having
+         *     changed since it was translated, else `CHANGED`; with each text whose French changes.
+         */
+        TranslationChange: {
+            /** @example moment:paris-1870s */
+            record: string;
+            /** @example Paris, 1870s */
+            label: string;
+            change: components["schemas"]["Change"];
+            texts: components["schemas"]["TranslatedTextChange"][];
+        };
+        TranslatedTextChange: {
+            /** @example hook */
+            path: string;
+            en: string;
+            /** @description Its French on `main`. None when it had none. */
+            before?: string;
+            /** @description Its French once published. None when it goes. */
+            after?: string;
+        };
         HeldBack: {
             /**
-             * @description The moment's id, for its story or page, or the anecdote's claim id.
+             * @description The moment's id, for its story or page, the anecdote's claim id, or the translated record's key.
              * @example edo-1830s
              */
             id: string;
@@ -2069,6 +2152,52 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTranslationRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    translate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run, started. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
         };
     };

@@ -65,6 +65,12 @@ export async function draftStory(moment: string): Promise<Outcome<{ id: number }
   return result.ok ? { ok: true, data: { id: result.data.id } } : result;
 }
 
+/** Starts drafting in French, with Claude, every record with no French yet: 409 while another run runs. */
+export async function translate(): Promise<Outcome<{ id: number }>> {
+  const result = await outcome(workbench.POST("/api/translations/run"));
+  return result.ok ? { ok: true, data: { id: result.data.id } } : result;
+}
+
 /**
  * The person as the site would show them, looked at from [moment] if given, with the years and occupations being edited.
  */
