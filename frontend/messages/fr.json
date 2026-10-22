@@ -7,8 +7,8 @@
     "previewAlt": "Liminis : entrez dans un moment de l’histoire"
   },
   "years": {
-    "bce": "{year} av. n. è.",
-    "ce": "{year} de n. è.",
+    "bce": "{year} av. J.-C.",
+    "ce": "{year} apr. J.-C.",
     "today": "Aujourd’hui",
     "chipAge": "{age} ans",
     "chipAgeApprox": "env. {age} ans",
