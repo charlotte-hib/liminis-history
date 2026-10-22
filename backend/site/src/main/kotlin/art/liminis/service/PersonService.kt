@@ -3,6 +3,7 @@ package art.liminis.service
 import org.springframework.data.domain.Limit
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import art.liminis.domain.Language
 import art.liminis.domain.Person
 import art.liminis.domain.PublicationStatus.PUBLISHED
 import art.liminis.repository.AnecdoteRepository
@@ -17,6 +18,7 @@ import art.liminis.support.NotFoundException
 import art.liminis.support.currentYear
 import art.liminis.support.yearsBetween
 import art.liminis.web.ApiMapper
+import art.liminis.web.dto
 import art.liminis.api.model.ConnectionDto
 import art.liminis.api.model.PersonDetailDto
 import art.liminis.api.model.PersonDto
@@ -40,7 +42,7 @@ class PersonService(
     private val mapper: ApiMapper,
 ) {
     /** A person and the world around them in [year], or in their prime if they were not alive then. */
-    fun detail(slug: String, year: Int?): PersonDetailDto {
+    fun detail(slug: String, year: Int?, language: Language): PersonDetailDto {
         val person = people.findBySlug(slug)
             ?: throw NotFoundException("Unknown person: $slug")
         val region = person.region.code
@@ -52,26 +54,31 @@ class PersonService(
             .filter { it.region.code == region && it.world != null && it.startYear <= end && it.endYear >= person.birthYear }
             .minByOrNull { abs(it.focusYear - ref) }
 
+        // Their French article's intro on the French site, and its link, when it was fetched.
+        val aboutLanguage = if (language == Language.FR && person.aboutFr != null) Language.FR else Language.EN
         return PersonDetailDto(
-            person = mapper.toDto(person),
-            about = person.about,
-            wikipediaUrl = person.wikipediaUrl,
+            person = mapper.toDto(person, language),
+            about = if (aboutLanguage == Language.FR) person.aboutFr else person.about,
+            wikipediaUrl = if (aboutLanguage == Language.FR) person.wikipediaUrlFr ?: person.wikipediaUrl else person.wikipediaUrl,
             year = ref,
             age = yearsBetween(person.birthYear, ref),
-            world = worldMoment?.world?.let(mapper::toDto),
-            worldMoment = worldMoment?.let { momentService.summarize(listOf(it)).single() },
+            world = worldMoment?.let { mapper.world(it, language) },
+            worldMoment = worldMoment?.let { momentService.summarize(listOf(it), language).single() },
             lifeline = lifeInTime(
                 person,
                 eras.findByRegionCodeOrderByStartYearAscIdAsc(region),
                 events.findByEraRegionCodeAndYearBetweenOrderByYearAscIdAsc(region, person.birthYear, end),
                 anecdotes.findByPersonIdOrderByYearAscIdAsc(person.id),
                 mapper,
+                language,
             ),
-            connections = connectionsOf(person),
-            aroundPeople = people.findTiedAliveBetween(region, ref, ref, Limit.of(AROUND + 1)).filter { it.slug != slug }.take(AROUND).map(mapper::toDto),
-            aroundLives = lives.findLivedBetween(region, ref, ref).map(mapper::toDto),
-            elsewhere = aliveElsewhere(region, ref),
-            moments = momentService.overlapping(region, person.birthYear, end),
+            connections = connectionsOf(person, language),
+            aroundPeople = people.findTiedAliveBetween(region, ref, ref, Limit.of(AROUND + 1)).filter { it.slug != slug }.take(AROUND)
+                .map { mapper.toDto(it, language) },
+            aroundLives = lives.findLivedBetween(region, ref, ref).map { mapper.toDto(it, language) },
+            elsewhere = aliveElsewhere(region, ref, language = language),
+            moments = momentService.overlapping(region, person.birthYear, end, language),
+            aboutLang = aboutLanguage.dto(),
         )
     }
 
@@ -79,15 +86,16 @@ class PersonService(
      * Everyone [person] is documented to have known: curated connections, then the other people of each event
      * they took part in (with their role in it), unless a curated connection already links the pair. In order of year.
      */
-    fun connectionsOf(person: Person): List<ConnectionDto> {
+    fun connectionsOf(person: Person, language: Language): List<ConnectionDto> {
         val curated = connections.findInvolving(person.slug).map { connection ->
-            mapper.toDto(connection, connection.other(person))
+            mapper.toDto(connection, connection.other(person), language)
         }
         val linked = curated.map { it.person.slug }.toSet()
         val shared = events.findDistinctByParticipantsPersonSlugOrderByYearAscIdAsc(person.slug).flatMap { event ->
-            event.participants
+            val told = mapper.toDto(event, language)
+            told.participants
                 .filter { it.person.slug != person.slug && it.person.slug !in linked }
-                .map { ConnectionDto(mapper.toDto(it.person), it.role, event.year, "${event.title}. ${event.description}", event.sourceUrl) }
+                .map { ConnectionDto(it.person, it.role, event.year, "${told.title}. ${told.description}", event.sourceUrl, told.lang) }
         }
         return (curated + shared).sortedBy { it.year }
     }
@@ -96,14 +104,14 @@ class PersonService(
      * A few people alive in [year] in each other region with eras: among the most written about there, those in the
      * middle of their lives.
      */
-    fun aliveElsewhere(region: String, year: Int, perRegion: Int = 2): List<PersonDto> =
+    fun aliveElsewhere(region: String, year: Int, perRegion: Int = 2, language: Language): List<PersonDto> =
         regions.findWithEras().map { it.code }.filter { it != region }.sorted()
             .flatMap { other ->
                 people.findOfRegionAlive(other, year, Limit.of(POOL))
                     .sortedBy { abs(yearsBetween(it.birthYear, year) - MIDDLE_AGE) }
                     .take(perRegion)
             }
-            .map(mapper::toDto)
+            .map { mapper.toDto(it, language) }
 
     private companion object {
         const val MIDDLE_AGE = 40

@@ -10,6 +10,10 @@ info:
     `/api/years/{year}/people` and `POST /api/events`); the frontend's server fetches the rest while rendering.
 
     Years are integers, negative for BCE. There is no year 0: 1 BCE is followed by 1 CE.
+
+    The site is read in English and French: every read takes `lang`. A record comes back in French when the release has
+    its French, else in English, and says which in its `lang`. Lines the API words itself (a life's regime changes, the
+    doors to the nearest moments) and the names of regions without a written name follow `lang`.
   license:
     name: MIT
     url: https://github.com/charlotte-hib/liminis-history/blob/main/LICENSE
@@ -39,6 +43,8 @@ paths:
       operationId: listMoments
       summary: Published moments
       description: Every published moment, with who governed, the length of its story and its cast.
+      parameters:
+        - $ref: "#/components/parameters/Language"
       responses:
         "200":
           description: The published moments, by focus year.
@@ -56,6 +62,7 @@ paths:
       summary: A moment
       description: The world around a moment, its eras, people, everyday lives, events and doors.
       parameters:
+        - $ref: "#/components/parameters/Language"
         - $ref: "#/components/parameters/MomentId"
       responses:
         "200":
@@ -79,6 +86,7 @@ paths:
         random, weighted the same way, never repeating one before every person has been drawn once; after the last,
         draws start over. The same draw always picks the same people.
       parameters:
+        - $ref: "#/components/parameters/Language"
         - $ref: "#/components/parameters/MomentId"
         - name: year
           in: query
@@ -114,6 +122,7 @@ paths:
       summary: A moment's story
       description: The story cards of a moment, in order, and its doors to other moments.
       parameters:
+        - $ref: "#/components/parameters/Language"
         - $ref: "#/components/parameters/MomentId"
       responses:
         "200":
@@ -134,6 +143,7 @@ paths:
         A person in the world around them in a year, with their life in their time. Without a year, or with a year
         outside their life, the page looks at their prime.
       parameters:
+        - $ref: "#/components/parameters/Language"
         - name: slug
           in: path
           required: true
@@ -166,6 +176,7 @@ paths:
         A few people alive in a year in each region with eras but one: among the most written about of each, those in
         the middle of their lives.
       parameters:
+        - $ref: "#/components/parameters/Language"
         - name: year
           in: path
           required: true
@@ -208,6 +219,7 @@ paths:
       summary: Search people and moments
       description: Accent-insensitive, so `zola` finds Émile Zola. Fewer than two characters find nothing.
       parameters:
+        - $ref: "#/components/parameters/Language"
         - name: q
           in: query
           required: true
@@ -230,6 +242,8 @@ paths:
       tags: [regions]
       operationId: listRegions
       summary: Regions
+      parameters:
+        - $ref: "#/components/parameters/Language"
       responses:
         "200":
           description: The regions whose eras are written, by name. People come from other regions too.
@@ -245,6 +259,8 @@ paths:
       tags: [eras]
       operationId: listEras
       summary: Eras
+      parameters:
+        - $ref: "#/components/parameters/Language"
       responses:
         "200":
           description: Every era, by start year.
@@ -262,6 +278,7 @@ paths:
       summary: An era
       description: An era with the people alive in it by domain, its events and the moments set in it.
       parameters:
+        - $ref: "#/components/parameters/Language"
         - name: id
           in: path
           required: true
@@ -307,6 +324,13 @@ paths:
 
 components:
   parameters:
+    Language:
+      name: lang
+      in: query
+      required: false
+      description: The language to read the records in, where the release has them in it.
+      schema:
+        $ref: "#/components/schemas/Language"
     MomentId:
       name: id
       in: path
@@ -351,6 +375,12 @@ components:
           description: The path that was requested.
           type: string
 
+    Language:
+      description: A language the site is read in.
+      type: string
+      enum: [en, fr]
+      default: en
+
     Domain:
       description: What a person is known for.
       type: string
@@ -383,7 +413,7 @@ components:
     WorldAround:
       description: The world around a moment, one line per domain, and what is happening elsewhere at the same time.
       type: object
-      required: [governs, everyday, arts, meanwhile]
+      required: [governs, everyday, arts, meanwhile, lang]
       properties:
         governs:
           type: string
@@ -393,11 +423,16 @@ components:
           type: string
         meanwhile:
           type: string
+        lang:
+          description: The language of the record's text.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+
 
     Era:
       description: A region at a time span, named after who governed it. Both years are inclusive.
       type: object
-      required: [id, label, regionCode, region, governedBy, startYear, endYear]
+      required: [id, label, regionCode, region, governedBy, startYear, endYear, lang]
       properties:
         id:
           type: string
@@ -415,10 +450,15 @@ components:
         endYear:
           type: integer
           format: int32
+        lang:
+          description: The language of the record's text.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+
 
     Person:
       type: object
-      required: [slug, name, birthYear, deathYear, datesApproximate, regionCode, region, domain, occupations, bioShort, portraitUrl]
+      required: [slug, name, birthYear, deathYear, datesApproximate, regionCode, region, domain, occupations, bioShort, portraitUrl, lang, bioLang]
       properties:
         slug:
           type: string
@@ -452,13 +492,22 @@ components:
         portraitUrl:
           type: string
           nullable: true
+        lang:
+          description: The language of their name and occupations.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+        bioLang:
+          description: The language of their bio, which can differ from their name's.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+
 
     Life:
       description: >-
         A typical existence in an era, shown as representative of the period rather than as a real person. Drawn with its
         art, else its icon, else a generic one.
       type: object
-      required: [id, label, description, startYear, endYear, art, icon]
+      required: [id, label, description, startYear, endYear, art, icon, lang]
       properties:
         id:
           type: string
@@ -482,6 +531,11 @@ components:
           allOf:
             - $ref: "#/components/schemas/LifeIcon"
           nullable: true
+        lang:
+          description: The language of the record's text.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+
 
     LifeArt:
       description: A public-domain image of a typical life, with its credit, the page it comes from, and how to frame it in a circle.
@@ -512,7 +566,7 @@ components:
       enum: [AMPHORA, BRIEFCASE, CAR, COINS, CONCIERGE_BELL, FACTORY, FISH, HAMMER, LEAF, PICKAXE, SHELL, SHIELD, SHIRT, SHOVEL, SPOOL, SPROUT, WHEAT]
 
     Participant:
-      description: Someone in an event, with their part in it, e.g. "author".
+      description: Someone in an event, with their part in it, e.g. "author", in the event's language.
       type: object
       required: [person, role]
       properties:
@@ -524,7 +578,7 @@ components:
     Event:
       description: A dated, sourced event.
       type: object
-      required: [id, title, year, description, sourceUrl, participants]
+      required: [id, title, year, description, sourceUrl, participants, lang]
       properties:
         id:
           type: string
@@ -541,6 +595,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Participant"
+        lang:
+          description: The language of the record's text.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+
 
     EraDetail:
       type: object
@@ -570,7 +629,7 @@ components:
     MomentSummary:
       description: What a moment shows on a card, enough to choose it, not to explore it.
       type: object
-      required: [id, regionCode, region, place, period, startYear, endYear, focusYear, hook, art, governedBy, storyCards, cast, featured]
+      required: [id, regionCode, region, place, period, startYear, endYear, focusYear, hook, art, governedBy, storyCards, cast, featured, lang]
       properties:
         id:
           type: string
@@ -617,11 +676,16 @@ components:
         featured:
           description: Shown first on the start page.
           type: boolean
+        lang:
+          description: The language of the record's text.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+
 
     Door:
       description: A way out of a story into another moment, e.g. "Meanwhile, elsewhere".
       type: object
-      required: [kind, text, target, faces]
+      required: [kind, text, target, faces, lang]
       properties:
         kind:
           type: string
@@ -634,6 +698,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Person"
+        lang:
+          description: The language of the record's text.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+
 
     MomentDetail:
       description: >-
@@ -698,7 +767,7 @@ components:
     StoryCard:
       description: One screen of a moment's story. Person, life and event cards carry the record they are about.
       type: object
-      required: [type, kicker, title, text, year, person, life, event, art]
+      required: [type, kicker, title, text, year, person, life, event, art, lang]
       properties:
         type:
           $ref: "#/components/schemas/CardType"
@@ -737,6 +806,11 @@ components:
           allOf:
             - $ref: "#/components/schemas/Artwork"
           nullable: true
+        lang:
+          description: The language of the record's text.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+
 
     Story:
       type: object
@@ -782,7 +856,7 @@ components:
     LifeLine:
       description: One line of "their life in their time", a dated change around them or a story told about them, with their age.
       type: object
-      required: [year, age, kind, text, role, era, source]
+      required: [year, age, kind, text, role, era, source, lang]
       properties:
         year:
           type: integer
@@ -810,11 +884,16 @@ components:
           allOf:
             - $ref: "#/components/schemas/AnecdoteSource"
           nullable: true
+        lang:
+          description: The language of the record's text.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+
 
     Connection:
       description: Someone a person was linked to, how (a pair like "tea master and lord", or their role in a shared event), when, and the source.
       type: object
-      required: [person, kind, year, text, sourceUrl]
+      required: [person, kind, year, text, sourceUrl, lang]
       properties:
         person:
           $ref: "#/components/schemas/Person"
@@ -827,10 +906,15 @@ components:
           type: string
         sourceUrl:
           type: string
+        lang:
+          description: The language of the record's text.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+
 
     PersonDetail:
       type: object
-      required: [person, about, wikipediaUrl, year, age, world, worldMoment, lifeline, connections, aroundPeople, aroundLives, elsewhere, moments]
+      required: [person, about, wikipediaUrl, year, age, world, worldMoment, lifeline, connections, aroundPeople, aroundLives, elsewhere, moments, aboutLang]
       properties:
         person:
           $ref: "#/components/schemas/Person"
@@ -884,6 +968,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MomentSummary"
+        aboutLang:
+          description: The language of `about` and the article `wikipediaUrl` leads to.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+
 
     SearchResults:
       type: object

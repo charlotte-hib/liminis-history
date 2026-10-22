@@ -46,6 +46,41 @@ class PersonApiTests(@Autowired private val mockMvc: MockMvc) {
     }
 
     @Test
+    fun `in French, a person written in French comes back in French, their connections and events too`() {
+        mockMvc.get("/api/people/emile-zola?year=1875&lang=fr").andExpect {
+            status { isOk() }
+            jsonPath("$.person.lang") { value("fr") }
+            jsonPath("$.person.occupations[0]") { value("romancier") }
+            jsonPath("$.person.bioShort") { value("Il bâtit les vingt romans des Rougon-Macquart au fil des années 1870 et 1880.") }
+            jsonPath("$.person.bioLang") { value("fr") }
+            jsonPath("$.person.region") { value("France") }
+            jsonPath("$.connections[?(@.person.slug == 'paul-cezanne')].kind") { value("amis d’école") }
+            jsonPath("$.connections[?(@.person.slug == 'paul-cezanne')].lang") { value("fr") }
+            jsonPath("$.connections[?(@.person.slug == 'edouard-manet')].lang") { value("en") }
+            jsonPath("$.lifeline[?(@.kind == 'BIRTH')].era.label") { value("Monarchie de Juillet") }
+            jsonPath("$.worldMoment.period") { value("années 1870") }
+        }
+        // Someone with no French in the release keeps their English name, with their French article's intro.
+        mockMvc.get("/api/people/ada-lovelace?lang=fr").andExpect {
+            jsonPath("$.person.lang") { value("en") }
+            jsonPath("$.person.occupations[0]") { value("mathematician") }
+            jsonPath("$.aboutLang") { value("fr") }
+            jsonPath("$.wikipediaUrl") { value(org.hamcrest.Matchers.startsWith("https://fr.wikipedia.org/")) }
+        }
+        mockMvc.get("/api/people/ada-lovelace").andExpect {
+            jsonPath("$.aboutLang") { value("en") }
+            jsonPath("$.wikipediaUrl") { value(org.hamcrest.Matchers.startsWith("https://en.wikipedia.org/")) }
+        }
+    }
+
+    @Test
+    fun `in French, moments are searched in French`() {
+        mockMvc.get("/api/search?q=années 1870&lang=fr").andExpect {
+            jsonPath("$.moments[0].id") { value("paris-1870s") }
+        }
+    }
+
+    @Test
     fun `without a year a person is shown in their prime`() {
         mockMvc.get("/api/people/emile-zola?year=1950").andExpect {
             jsonPath("$.year") { value(1875) }

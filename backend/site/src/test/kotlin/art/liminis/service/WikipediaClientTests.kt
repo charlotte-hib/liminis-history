@@ -46,6 +46,15 @@ class WikipediaClientTests(
     }
 
     @Test
+    fun `reads an article of the French Wikipedia`() {
+        server.expect(requestTo("https://fr.wikipedia.org/api/rest_v1/page/summary/%C3%89mile_Zola"))
+            .andRespond(withSuccess(ZOLA, MediaType.APPLICATION_JSON))
+
+        assertEquals("Émile Zola was a French novelist.", wikipedia.summary("Émile_Zola", "fr")?.extract)
+        server.verify()
+    }
+
+    @Test
     fun `waits as long as Wikipedia asks when rate limited, then tries again`() {
         server.expect(requestTo(summaryUrl))
             .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS).header(HttpHeaders.RETRY_AFTER, "0"))
