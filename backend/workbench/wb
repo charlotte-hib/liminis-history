@@ -34,6 +34,8 @@ Usage: wb <command>
                   then their classes
   draft <moment>  draft a moment's story cards and header with Claude, for review in curate; an approved header is
                   kept (needs ANTHROPIC_API_KEY where the workbench runs)
+  translate       draft in French with Claude every record of the data repository's main with no French yet, or
+                  whose English changed, for review in curate (needs ANTHROPIC_API_KEY where the workbench runs)
   runs [id]       the runs since the workbench started, or one of them
   queues          how many claims wait for review, by type and flag
 
@@ -173,6 +175,7 @@ case "${1:-}" in
     [[ -n "${2:-}" ]] || { usage >&2; exit 2; }
     start "{\"kind\": \"STORY_DRAFT\", \"moment\": \"$2\"}"
     ;;
+  translate) start '{"kind": "TRANSLATIONS"}' ;;
   runs)
     sign_in
     if [[ -n "${2:-}" ]]; then

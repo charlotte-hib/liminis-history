@@ -39,13 +39,14 @@ object ClaimRules {
         is OccupationDomain -> ClaimType.OCCUPATION_DOMAIN
         is Story -> ClaimType.STORY
         is MomentPage -> ClaimType.MOMENT_PAGE
+        is Translation -> ClaimType.TRANSLATION
     }
 
     /**
      * A claim's id, from what it is about, so the same thing proposed again lands on the same claim:
      * `person-facts:Q535`, `connection:Q296|Q535:friends`, `event:FR:-52:vercingetorix-surrenders-at-alesia`,
      * `anecdote:Q535:1851:` and the start of the text's SHA-256, `occupation:Q1028181`, `story:paris-1870s`,
-     * `moment-page:paris-1870s`.
+     * `moment-page:paris-1870s`, `translation:moment:paris-1870s`.
      */
     fun idOf(payload: Payload): String = when (payload) {
         is PersonFacts -> factsId(payload.person)
@@ -55,6 +56,7 @@ object ClaimRules {
         is OccupationDomain -> occupationId(payload.occupation)
         is Story -> storyId(payload.moment)
         is MomentPage -> pageId(payload.moment)
+        is Translation -> translationId(payload.record)
     }
 
     /** The id of the claim on [person]'s facts. */
@@ -68,6 +70,9 @@ object ClaimRules {
 
     /** The id of the claim on the text of [moment]'s page. */
     fun pageId(moment: String) = "moment-page:$moment"
+
+    /** The id of the claim on the French of [record], a record of `data/` by kind and id: `moment:paris-1870s`. */
+    fun translationId(record: String) = "translation:$record"
 
     /**
      * The cards of [story] showing a fetched person, named by Q-id, by their number: the site holds them only once its
@@ -87,6 +92,7 @@ object ClaimRules {
         is OccupationDomain -> payload.occupation
         is Story -> payload.moment
         is MomentPage -> payload.moment
+        is Translation -> payload.record
     }
 
     /**
@@ -98,6 +104,7 @@ object ClaimRules {
         if (claim.payload is OccupationDomain) invalid("Occupations are proposed from the dataset, not added by hand")
         if (claim.payload is Story) invalid("Stories are drafted with Claude, not added by hand")
         if (claim.payload is MomentPage) invalid("A moment's page is written on the moment's page, from the release's text")
+        if (claim.payload is Translation) invalid("Translations are drafted from the data repository's records, not added by hand")
         check(claim.payload)
         claim.sources.forEach(::check)
         return if (claim.sources.size == 1) listOf(ONE_SOURCE) else emptyList()
@@ -113,8 +120,11 @@ object ClaimRules {
             if (typeOf(payload) != typeOf(state.payload) || subjectOf(payload) != subjectOf(state.payload)) {
                 invalid("An edit must stay a ${typeOf(state.payload)} about ${subjectOf(state.payload)}")
             }
+            if (payload is Translation && payload.texts.map { it.path to it.en } != (state.payload as Translation).texts.map { it.path to it.en }) {
+                invalid("An edit of a translation changes its French, not its English")
+            }
             check(payload)
-        } else if (decision.verdict == Verdict.APPROVE && (payload is Story || payload is MomentPage)) {
+        } else if (decision.verdict == Verdict.APPROVE && (payload is Story || payload is MomentPage || payload is Translation)) {
             // A draft is checked by the validator, which only flags: approved as drafted, it must still hold together.
             check(payload)
         }
@@ -152,6 +162,7 @@ object ClaimRules {
         if (state.proposal == proposal.payload) return state.copy(flags = flags)
         val refreshed = state.copy(proposal = proposal.payload)
         if (proposal.payload is Story || proposal.payload is MomentPage) return redraft(refreshed, state, flags)
+        if (proposal.payload is Translation) return retranslated(refreshed, state, flags)
         return when {
             state.status == ClaimStatus.REJECTED -> refreshed.copy(flags = flags)
             state.status == ClaimStatus.APPROVED ->
@@ -180,6 +191,16 @@ object ClaimRules {
         )
     }
 
+    /**
+     * A record translated again, because its English changed since: the new French waits for review, in place of the
+     * old, which was of another English. It keeps the curator's French of the texts whose English stayed the same (the
+     * run drafts only the others). One approved is flagged.
+     */
+    private fun retranslated(refreshed: ClaimState, state: ClaimState, flags: List<FlagReason>): ClaimState {
+        val conflict = CHANGED_SINCE_APPROVED.takeIf { state.status == ClaimStatus.APPROVED }
+        return refreshed.copy(status = ClaimStatus.CANDIDATE, payload = refreshed.proposal, flags = (flags + listOfNotNull(conflict)).distinct())
+    }
+
     /** The flags a claim's proposal brought, without the conflicts refreshes found. */
     private fun fetchedFlags(flags: List<FlagReason>) = flags - setOf(CHANGED_SINCE_APPROVED, CHANGED_SINCE_EDITED)
 
@@ -196,6 +217,7 @@ object ClaimRules {
             is OccupationDomain -> emptyList()
             is Story -> payload.cards.mapNotNull { it.year }
             is MomentPage -> emptyList()
+            is Translation -> emptyList()
         }
         if (0 in years) invalid("There is no year 0: 1 BCE is followed by 1 CE")
         if (payload is Connection && payload.people.distinct().size != 2) invalid("A connection links two different people")
@@ -205,6 +227,7 @@ object ClaimRules {
             if (lines.any { it.text.isBlank() }) invalid("Write the hook and every line of the world around")
             if (payload.art?.credit?.isBlank() == true) invalid("The moment's painting needs a credit")
         }
+        if (payload is Translation && payload.texts.any { it.fr.isBlank() }) invalid("Write every text in French")
     }
 
     private fun check(number: Int, card: StoryCard) {

@@ -30,8 +30,10 @@ tags:
     description: The release's moments, everyone alive in each, and their stories, drafted with Claude.
   - name: paintings
     description: The images on Wikimedia Commons a story card or a moment can show.
+  - name: translations
+    description: The records of `data/` in French, drafted with Claude.
   - name: runs
-    description: Imports, mappings, proposals and drafts, one at a time, in the background.
+    description: Imports, mappings, proposals, drafts and translations, one at a time, in the background.
   - name: publication
     description: The approved claims, written into the private data repository through a pull request.
 
@@ -674,6 +676,50 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /api/translations/run:
+    get:
+      tags: [translations]
+      operationId: getTranslationRun
+      security:
+        - auth: ["curation:read"]
+      summary: The last translation run
+      description: The last run that drafted translations, since the workbench started. 404 when there is none.
+      responses:
+        "200":
+          description: The run.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [translations]
+      operationId: translate
+      security:
+        - auth: ["curation:write"]
+      summary: Translate what has no French yet
+      description: |
+        Starts the run that drafts in French with Claude every record of the data repository's `main` with no French
+        yet, or whose English changed since, and proposes each as a `TRANSLATION` claim, as `wb translate` does.
+      responses:
+        "202":
+          description: The run, started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/moments/{id}/holder:
     put:
       tags: [moments]
@@ -1277,7 +1323,8 @@ components:
         `OCCUPATION_DOMAIN`: the domain of the people who hold an occupation, one claim per occupation or class.
         `STORY`: a moment's story cards, drafted with Claude, one claim per moment. `MOMENT_PAGE`: the hook and the world
         around at the top of a moment's page, drafted with Claude or written from the release's, one claim per moment.
-      enum: [PERSON_FACTS, CONNECTION, EVENT, ANECDOTE, OCCUPATION_DOMAIN, STORY, MOMENT_PAGE]
+        `TRANSLATION`: a record of `data/` in French, drafted with Claude, one claim per record.
+      enum: [PERSON_FACTS, CONNECTION, EVENT, ANECDOTE, OCCUPATION_DOMAIN, STORY, MOMENT_PAGE, TRANSLATION]
 
     ClaimStatus:
       type: string
@@ -1430,6 +1477,7 @@ components:
         - $ref: "#/components/schemas/OccupationDomain"
         - $ref: "#/components/schemas/Story"
         - $ref: "#/components/schemas/MomentPage"
+        - $ref: "#/components/schemas/Translation"
       discriminator:
         propertyName: type
         mapping:
@@ -1440,6 +1488,7 @@ components:
           OCCUPATION_DOMAIN: "#/components/schemas/OccupationDomain"
           STORY: "#/components/schemas/Story"
           MOMENT_PAGE: "#/components/schemas/MomentPage"
+          TRANSLATION: "#/components/schemas/Translation"
 
     PersonFacts:
       type: object
@@ -1655,6 +1704,49 @@ components:
           description: The moment's painting, behind its header and every card without one of its own.
           allOf:
             - $ref: "#/components/schemas/Painting"
+
+    Translation:
+      type: object
+      description: |
+        A record of `data/` in French: each of its texts by its path in the record, beside its English as the record
+        had it when translated. Publishing writes the French beside the English in the record's file, while the English
+        is still the same. An edit changes the French only.
+      required: [type, record, label, texts]
+      properties:
+        type:
+          type: string
+        record:
+          type: string
+          description: The record, by kind and id.
+          example: moment:paris-1870s
+          pattern: "^(region|era|person|life|event|connection|anecdote|moment):.+$"
+          maxLength: 300
+        label:
+          type: string
+          description: What the record is, in English.
+          example: Paris, 1870s
+          maxLength: 300
+        texts:
+          type: array
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/TranslatedText"
+
+    TranslatedText:
+      type: object
+      required: [path, en, fr]
+      properties:
+        path:
+          type: string
+          description: Where the text is in the record.
+          example: cards[2].text
+          maxLength: 100
+        en:
+          type: string
+          maxLength: 4000
+        fr:
+          type: string
+          maxLength: 4000
 
     MomentPageText:
       type: object
@@ -2383,8 +2475,10 @@ components:
         `backend/dataset-export/`. `PERSON_FACTS_CLAIMS` proposes the facts of the people of the release's moments.
         `OCCUPATION_CLAIMS` proposes a domain claim for every occupation the dataset's people hold, and their classes:
         those most held as a first occupation first, then the classes nobody holds directly. `STORY_DRAFT` drafts a moment's story with Claude and proposes it as the
-        moment's `STORY` claim; its result says what the draft cost.
-      enum: [WIKIDATA_IMPORT, DATASET_MAPPING, DATASET_EXPORT, PERSON_FACTS_CLAIMS, OCCUPATION_CLAIMS, STORY_DRAFT]
+        moment's `STORY` claim; its result says what the draft cost. `TRANSLATIONS` drafts in French with Claude every
+        record of the data repository's `main` with no French yet, or whose English changed since, and proposes each as
+        a `TRANSLATION` claim; its result says what it cost.
+      enum: [WIKIDATA_IMPORT, DATASET_MAPPING, DATASET_EXPORT, PERSON_FACTS_CLAIMS, OCCUPATION_CLAIMS, STORY_DRAFT, TRANSLATIONS]
 
     Run:
       type: object
@@ -2501,7 +2595,7 @@ components:
 
     Publication:
       type: object
-      required: [base, files, people, occupations, anecdotes, moments, withoutEffect, heldBack, maxAge]
+      required: [base, files, people, occupations, anecdotes, moments, translations, withoutEffect, heldBack, maxAge]
       properties:
         base:
           type: string
@@ -2532,6 +2626,11 @@ components:
           description: The moments whose header or story changes, by id.
           items:
             $ref: "#/components/schemas/MomentChange"
+        translations:
+          type: array
+          description: The records whose French changes, by key.
+          items:
+            $ref: "#/components/schemas/TranslationChange"
         pullRequest:
           $ref: "#/components/schemas/PullRequest"
         withoutEffect:
@@ -2541,7 +2640,7 @@ components:
             $ref: "#/components/schemas/Qid"
         heldBack:
           type: array
-          description: Approved stories, moment pages and anecdotes not published, and why.
+          description: Approved stories, moment pages, anecdotes and translations not published, and why.
           items:
             $ref: "#/components/schemas/HeldBack"
         maxAge:
@@ -2770,13 +2869,49 @@ components:
         after:
           type: string
 
+    TranslationChange:
+      type: object
+      description: |
+        A record whose French changes: `ADDED` when it had none, `REMOVED` when its French goes, its English having
+        changed since it was translated, else `CHANGED`; with each text whose French changes.
+      required: [record, label, change, texts]
+      properties:
+        record:
+          type: string
+          example: moment:paris-1870s
+        label:
+          type: string
+          example: Paris, 1870s
+        change:
+          $ref: "#/components/schemas/Change"
+        texts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TranslatedTextChange"
+
+    TranslatedTextChange:
+      type: object
+      required: [path, en]
+      properties:
+        path:
+          type: string
+          example: hook
+        en:
+          type: string
+        before:
+          type: string
+          description: Its French on `main`. None when it had none.
+        after:
+          type: string
+          description: Its French once published. None when it goes.
+
     HeldBack:
       type: object
       required: [id, reason]
       properties:
         id:
           type: string
-          description: The moment's id, for its story or page, or the anecdote's claim id.
+          description: The moment's id, for its story or page, the anecdote's claim id, or the translated record's key.
           example: edo-1830s
         reason:
           type: string
