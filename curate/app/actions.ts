@@ -7,6 +7,8 @@ import {
   outcome,
   workbench,
   type CardSubject,
+  type FoundOccupation,
+  type FoundPlace,
   type Holds,
   type NewClaim,
   type NewDecision,
@@ -84,11 +86,30 @@ export async function translate(): Promise<Outcome<{ id: number }>> {
 }
 
 /**
- * The person as the site would show them, looked at from [moment] if given, with the years and occupations being edited.
+ * The person as the site would show them, looked at from [moment] if given, with the facts being edited: their
+ * birthplace's Q-id and English article's title empty for none.
  */
-export async function previewPerson(qid: string, moment: string | undefined, facts: { born?: number; died?: number; occupation: string[] }): Promise<Outcome<PersonPreview>> {
-  const query = { moment, born: facts.born, died: facts.died, occupation: facts.occupation.slice(0, 50) };
+export async function previewPerson(
+  qid: string,
+  moment: string | undefined,
+  facts: { born?: number; died?: number; occupation: string[]; birthplace?: string; enwiki?: string },
+): Promise<Outcome<PersonPreview>> {
+  const query = { moment, born: facts.born, died: facts.died, occupation: facts.occupation.slice(0, 50), birthplace: facts.birthplace, enwiki: facts.enwiki?.slice(0, 255) };
   return outcome(workbench.GET("/api/people/{qid}/preview", { params: { path: { qid }, query } }));
+}
+
+/** The places of the dataset a person's may be, by name or Q-id, those of the most people first. */
+export async function findPlaces(q: string): Promise<FoundPlace[]> {
+  if (q.trim().length < 2) return [];
+  const { data } = await workbench.GET("/api/places", { params: { query: { q: q.trim().slice(0, 100), limit: 10 } } });
+  return data ?? [];
+}
+
+/** The occupations of the dataset, by name or Q-id, those the most people hold first. */
+export async function findOccupations(q: string): Promise<FoundOccupation[]> {
+  if (q.trim().length < 2) return [];
+  const { data } = await workbench.GET("/api/occupations", { params: { query: { q: q.trim().slice(0, 100), limit: 10 } } });
+  return data ?? [];
 }
 
 export async function findPeople(q: string): Promise<PersonSummary[]> {

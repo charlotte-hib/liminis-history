@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
-import { addClaim, decide, previewPerson, proposeFacts, undo } from "@/app/actions";
+import { addClaim, decide, findOccupations, findPlaces, previewPerson, proposeFacts, undo } from "@/app/actions";
 import { AnecdoteSource, AnecdoteText, AnecdoteYear, useAnecdoteDraft } from "@/components/anecdote-fields";
 import { History } from "@/components/claim-parts";
+import { DatasetSearch, type Found } from "@/components/dataset-search";
 import { KeyButton, ProblemBanner, UndoBar, VERDICTS } from "@/components/decision-parts";
-import { input, Labelled, parseYear, PRECISIONS } from "@/components/edit-forms";
+import { parseYear, PRECISIONS } from "@/components/edit-forms";
 import { HolderBar } from "@/components/holder-bar";
 import { Intros } from "@/components/intros";
 import { useLastDecision } from "@/components/last-decision";
@@ -25,12 +26,16 @@ type ReviewNeighbours = components["schemas"]["ReviewNeighbours"];
 type Statement = components["schemas"]["Statement"];
 type FlagReason = components["schemas"]["FlagReason"];
 type Action = components["schemas"]["NewDecision"]["action"];
+type Place = PersonFacts["places"][number];
+type FoundPlace = components["schemas"]["FoundPlace"];
+type FoundOccupation = components["schemas"]["FoundOccupation"];
 
+/** A person's places by role, in the dataset's order; work places and residences have the years they were there. */
 const PLACES = [
-  { role: "BIRTH", field: "BIRTHPLACE", name: "Birthplace" },
-  { role: "DEATH", field: "DEATHPLACE", name: "Death place" },
-  { role: "WORK", field: "WORKPLACE", name: "Work place" },
-  { role: "RESIDENCE", field: "RESIDENCE", name: "Residence" },
+  { role: "BIRTH", field: "BIRTHPLACE", name: "Birthplace", add: "Add a birthplace", years: false },
+  { role: "DEATH", field: "DEATHPLACE", name: "Death place", add: "Add a death place", years: false },
+  { role: "WORK", field: "WORKPLACE", name: "Work places", add: "Add a work place", years: true },
+  { role: "RESIDENCE", field: "RESIDENCE", name: "Residences", add: "Add a residence", years: true },
 ] as const;
 
 /** How many occupations the site's person panel shows (the release's MAX_OCCUPATIONS). */
@@ -38,6 +43,22 @@ const SHOWN_OCCUPATIONS = 3;
 
 /** How long the preview waits after the last key before asking the workbench again. */
 const PREVIEW_DELAY_MS = 300;
+
+/** A year of death known to the year, when an estimated one becomes known again. */
+const YEAR_PRECISION = 9;
+
+// The fields as board 17 draws them: underlined, in the story's serif; gold once edited.
+const field = "min-w-0 border-0 border-b bg-transparent py-1.5 font-serif text-[19px] outline-none focus:border-lamp disabled:opacity-60";
+const edge = (edited: boolean) => (edited ? "border-lamp" : "border-edge");
+
+const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
+// The searches as the dataset boxes list them: a place by the country it lies in, an occupation by how many hold it.
+const placesFound = async (q: string) =>
+  (await findPlaces(q)).map((p: FoundPlace) => ({ ...p, id: p.place, detail: [p.labelFr !== p.label && p.labelFr, p.country, people(p.people)].filter(Boolean).join(" · ") }));
+const occupationsFound = async (q: string) =>
+  (await findOccupations(q)).map((o: FoundOccupation) => ({ ...o, id: o.occupation, detail: [o.labelFr, people(o.people)].filter(Boolean).join(" · ") }));
+
+const birthplaceOf = (facts: PersonFacts) => facts.places.find((p) => p.role === "BIRTH")?.place ?? "";
 
 type Props = {
   review: Review;
@@ -49,9 +70,10 @@ type Props = {
 };
 
 /**
- * A person's facts, edited in place beside the person as the site would show them, and the decision on them. Keys,
- * outside a field: A approves (with the changes), R rejects, N keeps for later, J or → the next person, K or ← the one
- * before, U undoes the last decision; anywhere, ⌘⏎ approves and Esc drops the changes.
+ * A person's facts in English, edited in place beside the person as the site would show them, and the decision on
+ * them; their French name and article are on the Français tab. Keys, outside a field: A approves (with the changes),
+ * R rejects, N keeps for later, J or → the next person, K or ← the one before, U undoes the last decision; anywhere,
+ * ⌘⏎ approves and Esc drops the changes.
  */
 export function PersonDesk({ review, preview: first, neighbours, scope, moment, viewer }: Props) {
   const router = useRouter();
@@ -75,8 +97,15 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
 
   const bornYear = parseYear(born);
   const diedYear = parseYear(died);
+  const placeYears = facts.places.flatMap((p) => [p.startYear, p.endYear]).filter((y) => y !== undefined);
   const invalid =
-    bornYear === null || diedYear === null ? "Years are whole numbers, negative for BCE, never 0." : bornYear > diedYear ? "Born after the death." : null;
+    bornYear === null || diedYear === null || placeYears.some((y) => !Number.isInteger(y) || y === 0)
+      ? "Years are whole numbers, negative for BCE, never 0."
+      : bornYear > diedYear
+        ? "Born after the death."
+        : facts.places.some((p) => p.startYear !== undefined && p.endYear !== undefined && p.startYear > p.endYear)
+          ? "A place's years run backwards."
+          : null;
   const edited: PersonFacts = { ...facts, born: bornYear ?? proposed.born, died: diedYear ?? proposed.died };
   const changed = JSON.stringify(edited) !== JSON.stringify(proposed) || born.trim() !== String(proposed.born) || died.trim() !== String(proposed.died);
 
@@ -88,21 +117,25 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
   // As the release names them: distinct labels, in order.
   const shownOccupations = [...new Set(facts.occupations.map((o) => o.label))];
   const occupationFlags = flagsOf(claim.flags, "occupation");
+  const occupationsEdited = JSON.stringify(facts.occupations) !== JSON.stringify(proposed.occupations);
 
-  // The preview follows the years and occupations being edited, a little after the last key.
+  // The preview follows the years, occupations, birthplace and English article being edited, a little after the last
+  // key; the birthplace and the article only once changed, as the workbench fetches another article from Wikipedia.
   const occupations = facts.occupations.map((o) => o.occupation).join(" ");
+  const birthplace = birthplaceOf(facts) !== birthplaceOf(proposed) ? birthplaceOf(facts) : undefined;
+  const enwiki = (facts.enwiki ?? "") !== (proposed.enwiki ?? "") ? (facts.enwiki ?? "") : undefined;
   useEffect(() => {
     if (bornYear === null || diedYear === null || bornYear > diedYear) return;
     let current = true;
     const timer = setTimeout(async () => {
-      const result = await previewPerson(qid, scope.moment, { born: bornYear, died: diedYear, occupation: occupations ? occupations.split(" ") : [] });
+      const result = await previewPerson(qid, scope.moment, { born: bornYear, died: diedYear, occupation: occupations ? occupations.split(" ") : [], birthplace, enwiki });
       if (current && result.ok) setPreview(result.data);
     }, PREVIEW_DELAY_MS);
     return () => {
       current = false;
       clearTimeout(timer);
     };
-  }, [qid, scope.moment, bornYear, diedYear, occupations, anecdotes]);
+  }, [qid, scope.moment, bornYear, diedYear, occupations, birthplace, enwiki, anecdotes]);
 
   // Moving away drops the edits not approved: ask first.
   const leaving = () => !changed || window.confirm("Leave this person without approving your changes?");
@@ -145,7 +178,8 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
         event.preventDefault();
         return decideOn("APPROVE", note);
       }
-      if (event.key === "Escape" && !target.closest("[data-anecdote]")) return discard();
+      // Esc in a search closes its list, not the edits.
+      if (event.key === "Escape" && !target.closest("[data-anecdote], [data-search]")) return discard();
       if (event.metaKey || event.ctrlKey || event.altKey || target.closest("input, textarea, select")) return;
       const action: Record<string, () => void> = {
         j: () => leave(next),
@@ -171,7 +205,22 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
     moved.splice(to, 0, occupation);
     setFacts({ ...facts, occupations: moved });
   };
+  const setPlaces = (places: Place[]) => setFacts({ ...facts, places });
+  const placeYear = (place: Place, end: "startYear" | "endYear", text: string) => {
+    const value = text.trim() === "" ? undefined : Number(text);
+    setPlaces(facts.places.map((p) => (p === place ? { ...p, [end]: value } : p)));
+  };
+  // An estimated year of death has no precision; known again, it is known to the year unless Wikidata said better.
+  const estimate = (estimated: boolean) =>
+    setFacts({ ...facts, diedEstimated: estimated, diedPrecision: estimated ? undefined : (proposed.diedPrecision ?? YEAR_PRECISION) });
   const filter = filterOf(scope.filter);
+  const bornEdited = born.trim() !== String(proposed.born) || facts.bornPrecision !== proposed.bornPrecision;
+  const diedEdited =
+    died.trim() !== String(proposed.died) ||
+    facts.diedEstimated !== proposed.diedEstimated ||
+    facts.diedPrecision !== proposed.diedPrecision ||
+    facts.datesApproximate !== proposed.datesApproximate;
+  const articleEdited = (facts.enwiki ?? "") !== (proposed.enwiki ?? "");
 
   return (
     <div className="flex flex-1 flex-col">
@@ -224,67 +273,68 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
             </div>
           ))}
 
-          <fieldset disabled={pending || locked} aria-label="Their facts" className="flex flex-col gap-6 disabled:opacity-80">
-            <Section title="Name and dates">
-              <div className="grid grid-cols-2 gap-4">
-                <Labelled name="Label, English">
-                  <input className={input} value={facts.label} onChange={(e) => setFacts({ ...facts, label: e.target.value })} />
-                </Labelled>
-                <Labelled name="Label, French">
-                  <input className={input} value={facts.labelFr ?? ""} onChange={(e) => setFacts({ ...facts, labelFr: e.target.value || undefined })} />
-                </Labelled>
+          <fieldset disabled={pending || locked} aria-label="Their facts" className="grid grid-cols-[9rem_minmax(0,1fr)] gap-x-5 gap-y-6 disabled:opacity-80">
+            <Row name="Name">
+              <input aria-label="Name" className={`${field} ${edge(facts.label !== proposed.label)}`} value={facts.label} onChange={(e) => setFacts({ ...facts, label: e.target.value })} />
+              <Note edited={facts.label !== proposed.label} was={proposed.label}>
+                From Wikidata&apos;s English label
+              </Note>
+            </Row>
+
+            <Row name="Born">
+              <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
+                <input aria-label="Born" inputMode="numeric" className={`${field} w-24 font-mono text-base ${edge(bornEdited)}`} value={born} onChange={(e) => setBorn(e.target.value)} />
+                <Precision label="Birth known to the" value={facts.bornPrecision} edited={facts.bornPrecision !== proposed.bornPrecision} onChange={(p) => setFacts({ ...facts, bornPrecision: p })} />
               </div>
-              <div className="grid grid-cols-[140px_160px_140px_minmax(0,1fr)] items-end gap-4">
-                <Labelled name="Born" was={born.trim() !== String(proposed.born) ? year(proposed.born) : undefined}>
-                  <input className={`${input} font-mono`} inputMode="numeric" value={born} onChange={(e) => setBorn(e.target.value)} />
-                </Labelled>
-                <Labelled name="Precision">
-                  <select className={input} value={facts.bornPrecision} onChange={(e) => setFacts({ ...facts, bornPrecision: Number(e.target.value) })}>
-                    {PRECISIONS.map((p) => (
-                      <option key={p.value} value={p.value}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </Labelled>
-                <Labelled name="Died" was={died.trim() !== String(proposed.died) ? year(proposed.died) : undefined}>
-                  <input className={`${input} font-mono`} inputMode="numeric" value={died} onChange={(e) => setDied(e.target.value)} />
-                </Labelled>
-                <label className="flex items-center gap-2 pb-2.5">
+              <Note edited={bornEdited} was={`${year(proposed.born)}, known to the ${precisionName(proposed.bornPrecision)}`} />
+              <FieldNotes name="Born" said={said("BORN")} flags={flagsOf(claim.flags, "born")} />
+            </Row>
+
+            <Row name="Died">
+              <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
+                <input aria-label="Died" inputMode="numeric" className={`${field} w-24 font-mono text-base ${edge(diedEdited)}`} value={died} onChange={(e) => setDied(e.target.value)} />
+                {!facts.diedEstimated && (
+                  <Precision
+                    label="Death known to the"
+                    value={facts.diedPrecision ?? YEAR_PRECISION}
+                    edited={facts.diedPrecision !== proposed.diedPrecision}
+                    onChange={(p) => setFacts({ ...facts, diedPrecision: p })}
+                  />
+                )}
+                <label className="flex items-center gap-2 pb-2">
+                  <input type="checkbox" checked={facts.diedEstimated} onChange={(e) => estimate(e.target.checked)} />
+                  estimated
+                </label>
+                <label className="flex items-center gap-2 pb-2">
                   <input type="checkbox" checked={facts.datesApproximate} onChange={(e) => setFacts({ ...facts, datesApproximate: e.target.checked })} />
-                  Dates approximate
+                  both dates approximate
                 </label>
               </div>
-              <FieldNotes name="Born" said={said("BORN")} flags={flagsOf(claim.flags, "born")} />
-              <FieldNotes
-                name="Died"
-                said={proposed.diedEstimated ? ["none: the year is estimated", ...said("DIED")] : said("DIED")}
-                flags={flagsOf(claim.flags, "died")}
-              />
+              <Note edited={diedEdited} was={proposed.diedEstimated ? `${year(proposed.died)}, estimated` : `${year(proposed.died)}, known to the ${precisionName(proposed.diedPrecision)}`} />
+              <FieldNotes name="Died" said={proposed.diedEstimated ? ["none: the year is estimated", ...said("DIED")] : said("DIED")} flags={flagsOf(claim.flags, "died")} />
               {invalid && (
                 <p role="alert" className="text-conflict">
                   {invalid}
                 </p>
               )}
-            </Section>
+            </Row>
 
-            <Section title="Occupations">
+            <Row name="Occupations">
               {/* The site shows the first few, and the first alone on story cards: a line, edited on demand. Held by
                   someone else, the whole list is read instead, its buttons disabled with the rest. */}
               {!editingOccupations && !locked ? (
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span className="font-serif text-[17px]">
-                    {shownOccupations.slice(0, SHOWN_OCCUPATIONS).join(", ") || "None"}
-                  </span>
+                <div className={`flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b py-1.5 ${edge(occupationsEdited)}`}>
+                  <span className="font-serif text-[19px]">{shownOccupations.slice(0, SHOWN_OCCUPATIONS).join(", ") || "None"}</span>
                   {shownOccupations.length > SHOWN_OCCUPATIONS && <span className="text-muted">(+{shownOccupations.length - SHOWN_OCCUPATIONS})</span>}
                   <button type="button" aria-label="Edit the occupations" onClick={() => setEditingOccupations(true)} className="text-lamp underline-offset-4 hover:underline">
                     Edit
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col border-t border-line">
+                <div className="flex flex-col">
                   {facts.occupations.map((occupation, i) => (
-                    <div key={occupation.occupation} className="flex items-center gap-3 border-b border-line py-2">
+                    // Wikidata may state an occupation twice.
+                    <div key={`${occupation.occupation} ${i}`} className="flex items-center gap-3 border-b border-edge py-1.5">
                       <span className="w-5 font-mono text-xs text-quiet">{i + 1}</span>
                       <span className="flex-1">
                         <span className="font-serif text-[17px]">{occupation.label}</span>{" "}
@@ -305,53 +355,129 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
                   ))}
                   {!facts.occupations.length && <span className="py-2 text-muted">None</span>}
                   {!locked && (
-                    <button type="button" aria-label="Done with the occupations" onClick={() => setEditingOccupations(false)} className="button-small mt-2 self-start">
-                      Done
-                    </button>
+                    <div className="mt-3 flex flex-wrap items-start gap-3">
+                      <Adding
+                        label="Add an occupation"
+                        placeholder="An occupation, in English or French, or a Q-id"
+                        find={occupationsFound}
+                        onChoose={(o) =>
+                          !facts.occupations.some((held) => held.occupation === o.occupation) &&
+                          setFacts({ ...facts, occupations: [...facts.occupations, { occupation: o.occupation, label: o.label, labelFr: o.labelFr }] })
+                        }
+                      />
+                      <button type="button" aria-label="Done with the occupations" onClick={() => setEditingOccupations(false)} className="button-small">
+                        Done
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
+              <span className="text-[13px] text-muted">The site shows the first three, the first alone on story cards</span>
+              <Note edited={occupationsEdited} />
               {/* Wikidata's statements with the full list, or beside a flag they explain. */}
-              <FieldNotes
-                name="Occupation"
-                said={editingOccupations || locked || occupationFlags.length ? said("OCCUPATION") : []}
-                flags={occupationFlags}
+              <FieldNotes name="Occupation" said={editingOccupations || locked || occupationFlags.length ? said("OCCUPATION") : []} flags={occupationFlags} />
+            </Row>
+
+            {PLACES.map(({ role, field: statementField, name, add, years: withYears }) => {
+              const places = facts.places.filter((p) => p.role === role);
+              const before = proposed.places.filter((p) => p.role === role);
+              const placesEdited = JSON.stringify(places) !== JSON.stringify(before);
+              return (
+                <Row key={role} name={name}>
+                  {places.map((place, i) => {
+                    const added = !before.some((p) => p.place === place.place);
+                    return (
+                      // Wikidata may state a place twice in a role: a residence at two times.
+                      <div key={`${place.place} ${i}`} className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-b py-1 ${edge(added)}`}>
+                        <span className="font-serif text-[19px]">{place.label}</span>
+                        {place.country && <span className="text-[13px] text-muted">lies in {place.country} today</span>}
+                        <span className="ml-auto flex items-center gap-2 text-muted">
+                          {withYears && (
+                            <>
+                              <label className="flex items-center gap-1.5">
+                                from
+                                <input
+                                  aria-label={`${place.label}: from`}
+                                  inputMode="numeric"
+                                  className={`${field} w-16 border-edge font-mono text-[13px] text-ink`}
+                                  value={place.startYear ?? ""}
+                                  onChange={(e) => placeYear(place, "startYear", e.target.value)}
+                                />
+                              </label>
+                              <label className="flex items-center gap-1.5">
+                                until
+                                <input
+                                  aria-label={`${place.label}: until`}
+                                  inputMode="numeric"
+                                  className={`${field} w-16 border-edge font-mono text-[13px] text-ink`}
+                                  value={place.endYear ?? ""}
+                                  onChange={(e) => placeYear(place, "endYear", e.target.value)}
+                                />
+                              </label>
+                            </>
+                          )}
+                          <button type="button" aria-label={`Remove ${place.label}`} onClick={() => setPlaces(facts.places.filter((p) => p !== place))} className="size-9 rounded-full border border-edge">
+                            ×
+                          </button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {!places.length && <span className="pt-1.5 text-[13px] text-muted">None</span>}
+                  <Note edited={placesEdited} was={before.map((p) => p.label).join(", ") || "none"} />
+                  {!locked && (
+                    <Adding
+                      label={add}
+                      placeholder="A place, in English or French, or a Q-id"
+                      find={placesFound}
+                      onChoose={(found) => !places.some((p) => p.place === found.place) && setPlaces([...facts.places, { role, place: found.place, label: found.label, country: found.country }])}
+                    />
+                  )}
+                  <FieldNotes name={name} said={said(statementField)} flags={flagsOf(claim.flags, role as Field)} />
+                </Row>
+              );
+            })}
+
+            <Row name="Article">
+              <input
+                aria-label="English Wikipedia"
+                placeholder="The English Wikipedia article's title"
+                className={`${field} ${edge(articleEdited)}`}
+                value={facts.enwiki ?? ""}
+                onChange={(e) => setFacts({ ...facts, enwiki: e.target.value || undefined })}
               />
-            </Section>
+              <span className="text-[13px] text-muted">
+                English Wikipedia: its intro and portrait show on the site
+                {facts.enwiki && (
+                  <>
+                    {" · "}
+                    <a href={`https://en.wikipedia.org/wiki/${encodeURIComponent(facts.enwiki.replaceAll(" ", "_"))}`} target="_blank" rel="noreferrer" className="text-lamp">
+                      open it
+                    </a>
+                  </>
+                )}
+                {" · "}empty for none
+              </span>
+              <Note edited={articleEdited} was={proposed.enwiki || "none"} />
+              <FieldNotes name="Articles" said={[]} flags={flagsOf(claim.flags, "articles")} />
+            </Row>
           </fieldset>
 
-          <Section title="Places and articles">
-            <dl className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-3">
-              {PLACES.map(({ role, field, name }) => {
-                const places = proposed.places.filter((p) => p.role === role);
-                const sources = said(field);
-                const raised = flagsOf(claim.flags, role as Field);
-                if (!places.length && !sources.length && !raised.length) return null;
-                return (
-                  <div key={role} className="contents">
-                    <dt className="text-muted">{name}</dt>
-                    <dd className="flex flex-col gap-1">
-                      <span className="font-serif text-[17px]">
-                        {places.map((p) => [p.label, p.country && `lies in ${p.country} today`].filter(Boolean).join(" · ")).join(", ") || "none"}
-                      </span>
-                      <FieldNotes name={name} said={sources} flags={raised} />
-                    </dd>
-                  </div>
-                );
-              })}
-              <dt className="text-muted">Articles</dt>
-              <dd className="flex flex-col gap-1">
-                <span>{[proposed.enwiki && `en: ${proposed.enwiki}`, proposed.frwiki && `fr: ${proposed.frwiki}`].filter(Boolean).join(" · ") || "none"}</span>
-                <FieldNotes name="Articles" said={[]} flags={flagsOf(claim.flags, "articles")} />
-              </dd>
-            </dl>
-          </Section>
-
-          <div className="flex flex-col gap-6 border-t border-edge pt-5">
-            <NewAnecdote qid={qid} onAdded={() => setAnecdotes((n) => n + 1)} />
-            <Labelled name="Why, for the log (optional)">
-              <input className={input} value={note} maxLength={2000} disabled={locked} onChange={(e) => setNote(e.target.value)} />
-            </Labelled>
+          <div className="grid grid-cols-[9rem_minmax(0,1fr)] gap-x-5 gap-y-6 border-t border-line pt-5">
+            <Row name="Anecdotes">
+              <NewAnecdote qid={qid} onAdded={() => setAnecdotes((n) => n + 1)} />
+            </Row>
+            <Row name="For the log">
+              <input
+                aria-label="Why, for the log (optional)"
+                placeholder="Why, optional"
+                className={`${field} border-edge text-base`}
+                value={note}
+                maxLength={2000}
+                disabled={locked}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            </Row>
           </div>
           {/* The preview shows what the site keeps of it; the whole intro is there to check against. */}
           {evidence && <Intros articles={evidence.articles} folded />}
@@ -422,13 +548,61 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  // A rule above each, so the page reads as its parts.
+const precisionName = (value: number | undefined) => PRECISIONS.find((p) => p.value === value)?.name ?? "year";
+
+/** A fact's row: its name in the left column, the field and what is said of it on the right. */
+function Row({ name, children }: { name: string; children: ReactNode }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-3.5 border-t border-edge pt-5">
-      <h2 className="label">{title}</h2>
-      {children}
-    </section>
+    <>
+      <span className="label pt-3">{name}</span>
+      <div className="flex min-w-0 flex-col gap-1.5">{children}</div>
+    </>
+  );
+}
+
+/** Under a field: where it comes from, or, once edited, what it was. */
+function Note({ edited, was, children }: { edited: boolean; was?: string; children?: ReactNode }) {
+  if (edited) return <span className="text-[13px] text-lamp">Edited by you{was !== undefined && ` · was ${was}`}</span>;
+  return children ? <span className="text-[13px] text-muted">{children}</span> : null;
+}
+
+function Precision({ label, value, edited, onChange }: { label: string; value: number; edited: boolean; onChange: (precision: number) => void }) {
+  return (
+    <label className="flex items-center gap-2 text-muted">
+      known to the
+      <select aria-label={label} className={`${field} text-base text-ink ${edge(edited)}`} value={value} onChange={(e) => onChange(Number(e.target.value))}>
+        {PRECISIONS.map((p) => (
+          <option key={p.value} value={p.value}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** "+ Add a …": a button opening the dataset's search, folded again once a result is chosen or the search is left. */
+function Adding<T extends Found>(props: { label: string; placeholder: string; find: (q: string) => Promise<T[]>; onChoose: (found: T) => void }) {
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="button-small self-start border-dashed">
+        + {props.label}
+      </button>
+    );
+  }
+  return (
+    <div className="w-full max-w-md">
+      <DatasetSearch
+        {...props}
+        autoFocus
+        onChoose={(found) => {
+          props.onChoose(found);
+          setOpen(false);
+        }}
+        onLeave={() => setOpen(false)}
+      />
+    </div>
   );
 }
 
@@ -507,8 +681,8 @@ function NewAnecdote({ qid, onAdded }: { qid: string; onAdded: () => void }) {
 
   if (!open) {
     return (
-      <div className="flex flex-wrap items-center gap-3">
-        <button ref={toggle} type="button" onClick={() => setOpen(true)} className="button-small">
+      <div className="flex flex-wrap items-center gap-3 pt-1">
+        <button ref={toggle} type="button" onClick={() => setOpen(true)} className="button-small border-dashed">
           + Add an anecdote
         </button>
         {addedNote}

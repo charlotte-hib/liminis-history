@@ -30,16 +30,23 @@ export function frenchStanding(french: French): { text: string; tone: string } {
   return record.texts.some((text) => text.fr) ? { text: "written by hand", tone: "text-ok" } : { text: "none yet", tone: "text-quiet" };
 }
 
-type Props = { english: string; french: string; open: "en" | "fr"; englishStanding?: string; frenchState: French };
+/**
+ * A record's French ([frenchState]), or, for a fetched person, who has no record of their own, where their French
+ * name and article stand ([frenchStanding]).
+ */
+type Props = { english: string; french: string; open: "en" | "fr"; englishStanding?: string } & (
+  | { frenchState: French; frenchStanding?: never }
+  | { frenchState?: never; frenchStanding: { text: string; tone: string } }
+);
 
 /**
  * A page's two languages: the English as it is reviewed, and its French beside it, each with where it stands. On the
  * English tab, a French behind the English says so: French visitors read the French of the English before until the
  * update is approved. The warning is curate's alone: the site never shows it.
  */
-export function LanguageTabs({ english, french, open, englishStanding, frenchState }: Props) {
-  const standing = frenchStanding(frenchState);
-  const running = frenchState.record.run?.status === "RUNNING";
+export function LanguageTabs({ english, french, open, englishStanding, frenchState, frenchStanding: given }: Props) {
+  const standing = frenchState ? frenchStanding(frenchState) : given!;
+  const running = frenchState?.record.run?.status === "RUNNING";
   const tab = "inline-flex min-h-11 items-center gap-1.5 border-b-2 px-4 text-muted hover:text-ink aria-[current]:border-lamp aria-[current]:font-medium aria-[current]:text-ink";
   return (
     <div className="flex flex-col gap-3">
@@ -51,7 +58,7 @@ export function LanguageTabs({ english, french, open, englishStanding, frenchSta
           Français <span className={`text-xs ${standing.tone}`} lang="en">· {standing.text}</span>
         </Link>
       </nav>
-      {open === "en" && frenchBehind(frenchState) && (
+      {open === "en" && frenchState && frenchBehind(frenchState) && (
         <div role="note" className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded bg-lamp-soft px-4 py-2.5">
           <span>
             Its English changed since its French was approved.{" "}

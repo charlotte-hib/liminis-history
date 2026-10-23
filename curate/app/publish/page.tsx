@@ -32,6 +32,12 @@ const FACTS: Record<PersonChange["facts"][number]["fact"], string> = {
   DIED: "Died",
   DATES_APPROXIMATE: "Dates approximate",
   OCCUPATIONS: "Occupations",
+  BIRTHPLACE: "Birthplace",
+  DEATHPLACE: "Death place",
+  WORK_PLACES: "Work places",
+  RESIDENCES: "Residences",
+  WIKIPEDIA: "English Wikipedia",
+  WIKIPEDIA_FR: "French Wikipedia",
 };
 
 // As the moment page names them.

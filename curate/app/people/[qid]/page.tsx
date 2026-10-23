@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { FrenchDesk } from "@/components/french-desk";
 import { LanguageTabs } from "@/components/language-tabs";
 import { PersonDesk, ProposeFacts } from "@/components/person-desk";
+import { PersonFrench } from "@/components/person-french";
 import { frenchOf } from "@/lib/french";
 import { STATUS } from "@/lib/labels";
 import { momentChoices, neighboursOf } from "@/lib/people";
@@ -50,17 +51,36 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     );
   }
   const href = personHref(qid, scope);
-  const tabs = french && (
+  const frenchHref = `${href}${href.includes("?") ? "&" : "?"}lang=fr`;
+  // A fetched person's French is their French name and article, in their facts' claim: it stands as the claim does.
+  const tabs = (
     <div className="px-10 pt-4">
-      <LanguageTabs
-        english={href}
-        french={`${href}${href.includes("?") ? "&" : "?"}lang=fr`}
-        open={lang}
-        englishStanding={STATUS[current.claim.status]}
-        frenchState={french}
-      />
+      {french ? (
+        <LanguageTabs english={href} french={frenchHref} open={lang} englishStanding={STATUS[current.claim.status]} frenchState={french} />
+      ) : (
+        <LanguageTabs
+          english={href}
+          french={frenchHref}
+          open={lang}
+          englishStanding={STATUS[current.claim.status]}
+          frenchStanding={{ text: STATUS[current.claim.status], tone: current.claim.status === "APPROVED" ? "text-ok" : "text-lamp" }}
+        />
+      )}
     </div>
   );
+  if (lang === "fr" && !french) {
+    return (
+      <div className="flex flex-1 flex-col">
+        {tabs}
+        <div className="flex flex-wrap items-baseline gap-x-4 px-10 pt-6">
+          <Link href={listHref(scope)}>← People to review</Link>
+          <h1 className="page-title">{(current.claim.payload as { label: string }).label}</h1>
+          <span className="text-muted">in French</span>
+        </div>
+        <PersonFrench key={`${qid} ${current.version}`} review={current} english={href} viewer={who} />
+      </div>
+    );
+  }
   if (lang === "fr" && french) {
     return (
       <div className="flex flex-1 flex-col">

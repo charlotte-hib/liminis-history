@@ -64,7 +64,7 @@ test("a person's facts are edited beside their preview, then approved as edited"
   const born = page.getByLabel("Born", { exact: true });
   const proposed = Number(await born.inputValue());
   await born.fill(String(proposed - 1));
-  await expect(page.getByText(/^was /)).toBeVisible();
+  await expect(page.getByText(/^Edited by you · was /)).toBeVisible();
   // Born a year earlier: their life's first line moves with it.
   await expect(lifeline(page).getByRole("listitem").first()).toContainText(String(proposed - 1));
 
@@ -120,4 +120,67 @@ test("a decision on facts that changed meanwhile is refused", async ({ page, con
 
   await other.keyboard.press("u");
   await expect(other.getByRole("heading", { level: 1, name })).toBeVisible();
+});
+
+// Places, occupations and articles are chosen from the dataset; the preview follows the birthplace and the article.
+test("a person's places, occupations and articles are edited, then approved as edited", async ({ page }) => {
+  await page.goto("/people/Q535");
+  await expect(page.getByRole("heading", { level: 1, name: "Victor Hugo" })).toBeVisible();
+  await expect(preview(page).getByText(/France/)).toBeVisible();
+
+  // Born in Brussels instead: the preview moves to Belgium.
+  await page.getByRole("button", { name: "Remove Besançon" }).click();
+  await page.getByRole("button", { name: "+ Add a birthplace" }).click();
+  await page.getByLabel("Add a birthplace").fill("Brussels");
+  await page.getByRole("option", { name: /^Brussels/ }).first().click();
+  await expect(page.getByText("Edited by you · was Besançon")).toBeVisible();
+  await expect(preview(page).getByText(/Belgium/)).toBeVisible();
+
+  // A residence with its years: a second search on the same page.
+  await page.getByRole("button", { name: "+ Add a residence" }).click();
+  await page.getByLabel("Add a residence").fill("Guernsey");
+  await page.getByRole("option", { name: /^Guernsey/ }).first().click();
+  await page.getByLabel("Guernsey: from").fill("1855");
+  await page.getByLabel("Guernsey: until").fill("1870");
+
+  // An occupation added at the end of the list, found by its French name.
+  await page.getByRole("button", { name: "Edit the occupations" }).click();
+  await page.getByRole("button", { name: "+ Add an occupation" }).click();
+  await page.getByLabel("Add an occupation").fill("lithographe");
+  await page.getByRole("option", { name: /^lithographer/ }).first().click();
+  await expect(page.getByRole("button", { name: "Remove lithographer" })).toBeVisible();
+
+  // The death estimated: its precision goes.
+  await page.getByLabel("estimated").check();
+  await expect(page.getByLabel("Death known to the")).toBeHidden();
+
+  // No English article: the preview has no intro left.
+  await page.getByLabel("English Wikipedia").fill("");
+  await expect(preview(page).getByText(/Victor Hugo was/)).toBeHidden();
+
+  await page.getByRole("button", { name: /^Approve with my changes/ }).click();
+  await expect(page.getByRole("status")).toContainText("Approved: Victor Hugo");
+  await expect(page.getByRole("heading", { level: 1, name: "Victor Hugo" })).toBeHidden();
+
+  // Undone, its facts wait as Wikidata states them.
+  await page.keyboard.press("u");
+  await expect(page.getByRole("heading", { level: 1, name: "Victor Hugo" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Besançon" })).toBeVisible();
+});
+
+// A fetched person's French name and article are on their Français tab, approved with their facts.
+test("a fetched person's French name and article are edited on the Français tab", async ({ page }) => {
+  await page.goto("/people/Q692");
+  await expect(page.getByRole("heading", { level: 1, name: "William Shakespeare" })).toBeVisible();
+  // The English view holds no French.
+  await expect(page.getByLabel("Label, French")).toHaveCount(0);
+  await page.getByRole("navigation", { name: "Language" }).getByRole("link", { name: /Français/ }).click();
+  await expect(page.getByText("in French")).toBeVisible();
+
+  const name = page.getByLabel("Name in French");
+  const before = await name.inputValue();
+  await name.fill(`${before} (test ${Date.now()})`);
+  await expect(page.getByText(/^Edited by you · was /)).toBeVisible();
+  await page.getByRole("button", { name: "Discard my changes" }).click();
+  await expect(name).toHaveValue(before);
 });
