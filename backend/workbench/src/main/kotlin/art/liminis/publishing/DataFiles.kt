@@ -46,8 +46,8 @@ data class ApprovedAnecdote(val id: String, val anecdote: Anecdote, val source: 
  * people's facts, and the anecdotes publishing does not hold back. A correction holds only the fields approved
  * otherwise than Wikidata proposed them; facts approved as proposed need none. Corrections for people written by hand
  * in `people.jsonl` are written too, though the release gives them no effect: they are the curator's decisions all the
- * same. A French name or an article removed in curate is cleared; a date's precision, which the release does not use,
- * is not published.
+ * same. A French name, an article or the death's precision removed in curate is cleared. The dates' precisions are
+ * published though the site does not show them: they are the curator's decisions too.
  */
 @Component
 class DataFiles(private val claims: ClaimRepository, private val sources: ClaimSources, jsonMapper: JsonMapper) {
@@ -119,7 +119,7 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
     /** The fields of [approved] that differ from what Wikidata [proposed], or nothing when none does. */
     private fun correction(approved: PersonFacts, proposed: PersonFacts): CorrectionRecord? {
         fun <T> changed(field: (PersonFacts) -> T): T? = field(approved).takeIf { it != field(proposed) }
-        fun cleared(field: (PersonFacts) -> String?, name: ClearedField) = name.takeIf { field(approved) == null && field(proposed) != null }
+        fun cleared(field: (PersonFacts) -> Any?, name: ClearedField) = name.takeIf { field(approved) == null && field(proposed) != null }
         val occupations: (PersonFacts) -> List<String> = { facts -> facts.occupations.map { it.occupation } }
         val places: (PersonFacts) -> List<CorrectionPlaceRecord> = { facts ->
             facts.places.map { CorrectionPlaceRecord(PlaceKind.valueOf(it.role.name), it.place, it.startYear, it.endYear) }
@@ -129,7 +129,10 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
             name = changed(PersonFacts::label),
             nameFr = changed(PersonFacts::labelFr),
             born = changed(PersonFacts::born),
+            bornPrecision = changed(PersonFacts::bornPrecision),
             died = changed(PersonFacts::died),
+            diedPrecision = changed(PersonFacts::diedPrecision),
+            diedEstimated = changed(PersonFacts::diedEstimated),
             approximate = changed(PersonFacts::datesApproximate),
             occupations = changed(occupations),
             places = changed(places),
@@ -137,6 +140,7 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
             wikipediaFr = changed(PersonFacts::frwiki),
             cleared = setOfNotNull(
                 cleared(PersonFacts::labelFr, ClearedField.NAME_FR),
+                cleared(PersonFacts::diedPrecision, ClearedField.DIED_PRECISION),
                 cleared(PersonFacts::enwiki, ClearedField.WIKIPEDIA),
                 cleared(PersonFacts::frwiki, ClearedField.WIKIPEDIA_FR),
             ).ifEmpty { null },

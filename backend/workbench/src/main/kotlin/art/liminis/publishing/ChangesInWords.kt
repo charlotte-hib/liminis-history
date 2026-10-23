@@ -30,7 +30,7 @@ data class PersonChange(val person: String, val name: String, val change: Change
 
 data class FactChange(val fact: Fact, val before: String?, val after: String?)
 
-enum class Fact { NAME, FRENCH_NAME, BORN, DIED, DATES_APPROXIMATE, OCCUPATIONS, BIRTHPLACE, DEATHPLACE, WORK_PLACES, RESIDENCES, WIKIPEDIA, WIKIPEDIA_FR }
+enum class Fact { NAME, FRENCH_NAME, BORN, BORN_PRECISION, DIED, DIED_PRECISION, DIED_ESTIMATED, DATES_APPROXIMATE, OCCUPATIONS, BIRTHPLACE, DEATHPLACE, WORK_PLACES, RESIDENCES, WIKIPEDIA, WIKIPEDIA_FR }
 
 /** An occupation whose domain changes: [before] none when main does not map it, [after] none when it no longer is. */
 data class OccupationChange(val occupation: String, val label: String, val change: Change, val before: OccupationChoice?, val after: OccupationChoice?)
@@ -128,7 +128,10 @@ class ChangesInWords(
                     fact(Fact.NAME, CorrectionRecord::name, PersonFacts::label) { it },
                     fact(Fact.FRENCH_NAME, CorrectionRecord::nameFr, PersonFacts::labelFr, ClearedField.NAME_FR) { it },
                     fact(Fact.BORN, CorrectionRecord::born, PersonFacts::born, words = ::year),
+                    fact(Fact.BORN_PRECISION, CorrectionRecord::bornPrecision, PersonFacts::bornPrecision, words = ::precision),
                     fact(Fact.DIED, CorrectionRecord::died, PersonFacts::died, words = ::year),
+                    fact(Fact.DIED_PRECISION, CorrectionRecord::diedPrecision, PersonFacts::diedPrecision, ClearedField.DIED_PRECISION, ::precision),
+                    fact(Fact.DIED_ESTIMATED, CorrectionRecord::diedEstimated, PersonFacts::diedEstimated) { if (it) "yes" else "no" },
                     fact(Fact.DATES_APPROXIMATE, CorrectionRecord::approximate, PersonFacts::datesApproximate) { if (it) "yes" else "no" },
                     fact(Fact.OCCUPATIONS, CorrectionRecord::occupations, { facts -> facts.occupations.map { it.occupation } }) { ids ->
                         ids.joinToString(", ") { labels[it] ?: it }
@@ -404,6 +407,7 @@ class ChangesInWords(
         val FACTS = mapOf(
             Fact.NAME to "name", Fact.FRENCH_NAME to "French name", Fact.BORN to "born", Fact.DIED to "died",
             Fact.DATES_APPROXIMATE to "dates approximate", Fact.OCCUPATIONS to "occupations",
+            Fact.BORN_PRECISION to "birth known to the", Fact.DIED_PRECISION to "death known to the", Fact.DIED_ESTIMATED to "death estimated",
             Fact.BIRTHPLACE to "birthplace", Fact.DEATHPLACE to "death place", Fact.WORK_PLACES to "work places",
             Fact.RESIDENCES to "residences", Fact.WIKIPEDIA to "English Wikipedia", Fact.WIKIPEDIA_FR to "French Wikipedia",
         )
@@ -417,6 +421,11 @@ class ChangesInWords(
             CardField.KICKER to "kicker", CardField.TITLE to "title", CardField.TEXT to "what visitors read", CardField.YEAR to "year",
             CardField.PAINTING to "painting",
         )
+
+        /** Wikidata's precision of a date in words: "day", "decade". */
+        fun precision(precision: Int) = PRECISIONS[precision] ?: "precision $precision"
+
+        private val PRECISIONS = mapOf(11 to "day", 10 to "month", 9 to "year", 8 to "decade", 7 to "century")
 
         /** A year in words: BCE for the negative ones. */
         fun year(year: Int) = if (year < 0) "${-year} BCE" else "$year"

@@ -210,7 +210,12 @@ data class CorrectionRecord(
     /** The French name, for the French site: the English one compiles without it. */
     val nameFr: String? = null,
     val born: Int? = null,
+    /** Wikidata's precision of the year of birth: 9 a year, 8 a decade, 7 a century, 10 and 11 a month and a day. */
+    val bornPrecision: Int? = null,
     val died: Int? = null,
+    val diedPrecision: Int? = null,
+    /** The year of death is estimated: it then has no precision. */
+    val diedEstimated: Boolean? = null,
     val approximate: Boolean? = null,
     /** Q-ids, in the order the site takes them: the first mapped one gives the domain. */
     val occupations: List<String>? = null,
@@ -227,7 +232,7 @@ data class CorrectionRecord(
 data class CorrectionPlaceRecord(val kind: PlaceKind, val place: String, val start: Int? = null, val end: Int? = null)
 
 /** The fields a correction can empty. */
-enum class ClearedField { NAME_FR, WIKIPEDIA, WIKIPEDIA_FR }
+enum class ClearedField { NAME_FR, DIED_PRECISION, WIKIPEDIA, WIKIPEDIA_FR }
 
 /** A release as read from its directory, before it is compiled. */
 data class Release(

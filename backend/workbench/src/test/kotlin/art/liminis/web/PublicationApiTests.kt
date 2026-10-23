@@ -229,26 +229,26 @@ class PublicationApiTests(
         val paris = Place(PlaceRole.BIRTH, "Q90", "Paris", "FR")
         val besancon = Place(PlaceRole.BIRTH, "Q37776", "Besançon", "FR")
         val guernsey = Place(PlaceRole.RESIDENCE, "Q25230", "Guernsey", "GG", startYear = 1855, endYear = 1870)
-        val wikidata = facts("Q504", "Émile Zola", 1840, 1902).copy(labelFr = "Émile Zola", enwiki = "Émile Zola", frwiki = "Émile Zola", places = listOf(paris))
-        approve(wikidata, wikidata.copy(labelFr = null, enwiki = "Emile Zola (novelist)", frwiki = null, places = listOf(besancon, guernsey)))
+        val wikidata = facts("Q504", "Émile Zola", 1840, 1902).copy(diedPrecision = 9, labelFr = "Émile Zola", enwiki = "Émile Zola", frwiki = "Émile Zola", places = listOf(paris))
+        approve(wikidata, wikidata.copy(labelFr = null, enwiki = "Emile Zola (novelist)", frwiki = null, places = listOf(besancon, guernsey), diedPrecision = null, diedEstimated = true))
 
         mockMvc.get("/api/publication") { signedIn() }.andExpect {
             status { isOk() }
             jsonPath("$.files[1].changes[1].after") {
                 value(
-                    """{"id":"Q504","places":[{"kind":"BIRTH","place":"Q37776"},{"kind":"RESIDENCE","place":"Q25230","start":1855,"end":1870}],""" +
-                        """"wikipedia":"Emile Zola (novelist)","cleared":["NAME_FR","WIKIPEDIA_FR"]}""",
+                    """{"id":"Q504","diedEstimated":true,"places":[{"kind":"BIRTH","place":"Q37776"},{"kind":"RESIDENCE","place":"Q25230","start":1855,"end":1870}],""" +
+                        """"wikipedia":"Emile Zola (novelist)","cleared":["NAME_FR","DIED_PRECISION","WIKIPEDIA_FR"]}""",
                 )
             }
             jsonPath("$.people[0].name") { value("Émile Zola") }
-            jsonPath("$.people[0].facts[*].fact") { value(contains("FRENCH_NAME", "BIRTHPLACE", "RESIDENCES", "WIKIPEDIA", "WIKIPEDIA_FR")) }
+            jsonPath("$.people[0].facts[*].fact") { value(contains("FRENCH_NAME", "DIED_PRECISION", "DIED_ESTIMATED", "BIRTHPLACE", "RESIDENCES", "WIKIPEDIA", "WIKIPEDIA_FR")) }
             jsonPath("$.people[0].facts[0].before") { value("Émile Zola") }
             jsonPath("$.people[0].facts[0].after") { doesNotExist() }
-            jsonPath("$.people[0].facts[1].before") { value("Paris") }
-            jsonPath("$.people[0].facts[1].after") { value("Besançon") }
-            jsonPath("$.people[0].facts[2].before") { value("none") }
-            jsonPath("$.people[0].facts[2].after") { value("Guernsey (1855–1870)") }
-            jsonPath("$.people[0].facts[3].after") { value("Emile Zola (novelist)") }
+            jsonPath("$.people[0].facts[1].before") { value("year") }
+            jsonPath("$.people[0].facts[1].after") { doesNotExist() }
+            jsonPath("$.people[0].facts[3].before") { value("Paris") }
+            jsonPath("$.people[0].facts[3].after") { value("Besançon") }
+            jsonPath("$.people[0].facts[4].after") { value("Guernsey (1855–1870)") }
         }
     }
 

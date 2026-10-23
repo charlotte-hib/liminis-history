@@ -3033,7 +3033,7 @@ components:
       properties:
         fact:
           type: string
-          enum: [NAME, FRENCH_NAME, BORN, DIED, DATES_APPROXIMATE, OCCUPATIONS, BIRTHPLACE, DEATHPLACE, WORK_PLACES, RESIDENCES, WIKIPEDIA, WIKIPEDIA_FR]
+          enum: [NAME, FRENCH_NAME, BORN, BORN_PRECISION, DIED, DIED_PRECISION, DIED_ESTIMATED, DATES_APPROXIMATE, OCCUPATIONS, BIRTHPLACE, DEATHPLACE, WORK_PLACES, RESIDENCES, WIKIPEDIA, WIKIPEDIA_FR]
         before:
           type: string
           description: None when there is none.

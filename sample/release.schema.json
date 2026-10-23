@@ -135,7 +135,7 @@
     },
     "ClearedField" : {
       "type" : "string",
-      "enum" : [ "NAME_FR", "WIKIPEDIA", "WIKIPEDIA_FR" ]
+      "enum" : [ "NAME_FR", "DIED_PRECISION", "WIKIPEDIA", "WIKIPEDIA_FR" ]
     },
     "ConnectionFrenchRecord" : {
       "type" : "object",
@@ -206,6 +206,9 @@
         "born" : {
           "type" : "integer"
         },
+        "bornPrecision" : {
+          "type" : "integer"
+        },
         "cleared" : {
           "type" : "array",
           "items" : {
@@ -213,6 +216,12 @@
           }
         },
         "died" : {
+          "type" : "integer"
+        },
+        "diedEstimated" : {
+          "type" : "boolean"
+        },
+        "diedPrecision" : {
           "type" : "integer"
         },
         "id" : {
