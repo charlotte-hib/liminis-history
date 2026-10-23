@@ -14,8 +14,6 @@ class FactEdits(private val dataset: DatasetStore) {
     fun checked(facts: PersonFacts): PersonFacts {
         val places = dataset.foundPlaces(facts.places.map { it.place }.distinct()).associateBy { it.place }
         val occupations = dataset.foundOccupations(facts.occupations.map { it.occupation }.distinct()).associateBy { it.occupation }
-        if (facts.occupations.distinctBy { it.occupation }.size != facts.occupations.size) invalid("An occupation is there twice")
-        if (facts.places.distinctBy { it.role to it.place }.size != facts.places.size) invalid("A place is there twice in the same role")
         return facts.copy(
             labelFr = facts.labelFr?.trim()?.ifEmpty { null },
             enwiki = facts.enwiki?.trim()?.ifEmpty { null },
