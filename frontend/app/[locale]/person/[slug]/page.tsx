@@ -16,7 +16,6 @@ import { SiteHeader } from "@/components/site-header";
 import { WorldAround } from "@/components/world-around";
 import { Link } from "@/i18n/navigation";
 import { getPerson } from "@/lib/api";
-import { CONTENT_LANG } from "@/lib/content";
 import { hasStory } from "@/lib/moments";
 import { preview } from "@/lib/site";
 import { parseYear, yearWords } from "@/lib/years";
@@ -68,7 +67,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/[
               </>
             }
           >
-            <div lang={CONTENT_LANG} className="rounded-2xl border bg-card/40 p-5">
+            <div lang={detail.world.lang} className="rounded-2xl border bg-card/40 p-5">
               <WorldAround world={detail.world} compact />
             </div>
           </Section>
@@ -107,7 +106,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/[
               {detail.moments.map((moment) => (
                 <DoorCard
                   key={moment.id}
-                  door={{ kind: hasStory(moment) ? common("story") : common("moment"), text: moment.hook, target: moment, faces: [] }}
+                  door={{ kind: hasStory(moment) ? common("story") : common("moment"), text: moment.hook, target: moment, faces: [], lang: moment.lang }}
                   kindLang={null}
                 />
               ))}

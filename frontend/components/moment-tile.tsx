@@ -3,7 +3,6 @@ import { ArtworkImage } from "@/components/artwork-image";
 import { PersonAvatar } from "@/components/person-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "@/i18n/navigation";
-import { CONTENT_LANG } from "@/lib/content";
 import { hasStory, momentHref, titleOf } from "@/lib/moments";
 import type { MomentSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -25,12 +24,12 @@ export function MomentTile({ moment, size = "large" }: { moment: MomentSummary; 
         {hasStory(moment) ? t("story", { count: moment.storyCards }) : t("explore")}
       </Badge>
       <div className="relative grid gap-1.5 p-4">
-        <span lang={CONTENT_LANG} className="text-[11px] font-medium tracking-widest text-lamp uppercase">
+        <span className="text-[11px] font-medium tracking-widest text-lamp uppercase">
           {moment.region}
           {moment.governedBy && ` · ${moment.governedBy}`}
         </span>
-        <h3 lang={CONTENT_LANG} className={cn("font-story leading-none font-medium", size === "large" ? "text-3xl" : "text-2xl")}>{titleOf(moment)}</h3>
-        <p lang={CONTENT_LANG} className="text-sm text-muted-foreground">{moment.hook}</p>
+        <h3 lang={moment.lang} className={cn("font-story leading-none font-medium", size === "large" ? "text-3xl" : "text-2xl")}>{titleOf(moment)}</h3>
+        <p lang={moment.lang} className="text-sm text-muted-foreground">{moment.hook}</p>
         {size === "large" && moment.cast.length > 0 && (
           <span className="mt-1 flex -space-x-1.5">
             {moment.cast.map((person) => (

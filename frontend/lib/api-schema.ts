@@ -246,6 +246,12 @@ export interface components {
             instance?: string;
         };
         /**
+         * @description A language the site is read in.
+         * @default en
+         * @enum {string}
+         */
+        Language: "en" | "fr";
+        /**
          * @description What a person is known for.
          * @enum {string}
          */
@@ -269,6 +275,8 @@ export interface components {
             everyday: string;
             arts: string;
             meanwhile: string;
+            /** @description The language of the record's text. */
+            lang: components["schemas"]["Language"];
         };
         /** @description A region at a time span, named after who governed it. Both years are inclusive. */
         Era: {
@@ -281,6 +289,8 @@ export interface components {
             startYear: number;
             /** Format: int32 */
             endYear: number;
+            /** @description The language of the record's text. */
+            lang: components["schemas"]["Language"];
         };
         Person: {
             slug: string;
@@ -299,6 +309,10 @@ export interface components {
             /** @description One or two sentences, hand-written or the lead of the Wikipedia article. */
             bioShort: string | null;
             portraitUrl: string | null;
+            /** @description The language of their name and occupations. */
+            lang: components["schemas"]["Language"];
+            /** @description The language of their bio, which can differ from their name's. */
+            bioLang: components["schemas"]["Language"];
         };
         /** @description A typical existence in an era, shown as representative of the period rather than as a real person. Drawn with its art, else its icon, else a generic one. */
         Life: {
@@ -311,6 +325,8 @@ export interface components {
             endYear: number;
             art: components["schemas"]["LifeArt"] | null;
             icon: (string & components["schemas"]["LifeIcon"]) | null;
+            /** @description The language of the record's text. */
+            lang: components["schemas"]["Language"];
         };
         /** @description A public-domain image of a typical life, with its credit, the page it comes from, and how to frame it in a circle. */
         LifeArt: {
@@ -334,7 +350,7 @@ export interface components {
          * @enum {string}
          */
         LifeIcon: "AMPHORA" | "BRIEFCASE" | "CAR" | "COINS" | "CONCIERGE_BELL" | "FACTORY" | "FISH" | "HAMMER" | "LEAF" | "PICKAXE" | "SHELL" | "SHIELD" | "SHIRT" | "SHOVEL" | "SPOOL" | "SPROUT" | "WHEAT";
-        /** @description Someone in an event, with their part in it, e.g. "author". */
+        /** @description Someone in an event, with their part in it, e.g. "author", in the event's language. */
         Participant: {
             person: components["schemas"]["Person"];
             role: string;
@@ -348,6 +364,8 @@ export interface components {
             description: string;
             sourceUrl: string;
             participants: components["schemas"]["Participant"][];
+            /** @description The language of the record's text. */
+            lang: components["schemas"]["Language"];
         };
         EraDetail: {
             era: components["schemas"]["Era"];
@@ -390,6 +408,8 @@ export interface components {
             cast: components["schemas"]["Person"][];
             /** @description Shown first on the start page. */
             featured: boolean;
+            /** @description The language of the record's text. */
+            lang: components["schemas"]["Language"];
         };
         /** @description A way out of a story into another moment, e.g. "Meanwhile, elsewhere". */
         Door: {
@@ -398,6 +418,8 @@ export interface components {
             target: components["schemas"]["MomentSummary"];
             /** @description People to show on the door, when it follows someone. */
             faces: components["schemas"]["Person"][];
+            /** @description The language of the record's text. */
+            lang: components["schemas"]["Language"];
         };
         /** @description Everything the moment page needs to open on its focus year. Its people for other years come from `/api/moments/{id}/people`. */
         MomentDetail: {
@@ -444,6 +466,8 @@ export interface components {
             event: components["schemas"]["Event"] | null;
             /** @description Replaces the moment's artwork while this card is shown. */
             art: components["schemas"]["Artwork"] | null;
+            /** @description The language of the record's text. */
+            lang: components["schemas"]["Language"];
         };
         Story: {
             moment: components["schemas"]["MomentSummary"];
@@ -476,6 +500,8 @@ export interface components {
             era: components["schemas"]["Era"] | null;
             /** @description Where an ANECDOTE line comes from; none on other lines. */
             source: components["schemas"]["AnecdoteSource"] | null;
+            /** @description The language of the record's text. */
+            lang: components["schemas"]["Language"];
         };
         /** @description Someone a person was linked to, how (a pair like "tea master and lord", or their role in a shared event), when, and the source. */
         Connection: {
@@ -485,6 +511,8 @@ export interface components {
             year: number;
             text: string;
             sourceUrl: string;
+            /** @description The language of the record's text. */
+            lang: components["schemas"]["Language"];
         };
         PersonDetail: {
             person: components["schemas"]["Person"];
@@ -508,6 +536,8 @@ export interface components {
             aroundLives: components["schemas"]["Life"][];
             elsewhere: components["schemas"]["Person"][];
             moments: components["schemas"]["MomentSummary"][];
+            /** @description The language of `about` and the article `wikipediaUrl` leads to. */
+            aboutLang: components["schemas"]["Language"];
         };
         SearchResults: {
             people: components["schemas"]["Person"][];
@@ -562,6 +592,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description The language to read the records in, where the release has them in it. */
+        Language: components["schemas"]["Language"];
         /** @description The moment's id, e.g. `paris-1870s`. */
         MomentId: string;
     };
@@ -573,7 +605,10 @@ export type $defs = Record<string, never>;
 export interface operations {
     listMoments: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The language to read the records in, where the release has them in it. */
+                lang?: components["parameters"]["Language"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -593,7 +628,10 @@ export interface operations {
     };
     getMoment: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The language to read the records in, where the release has them in it. */
+                lang?: components["parameters"]["Language"];
+            };
             header?: never;
             path: {
                 /** @description The moment's id, e.g. `paris-1870s`. */
@@ -618,6 +656,8 @@ export interface operations {
     listMomentPeople: {
         parameters: {
             query: {
+                /** @description The language to read the records in, where the release has them in it. */
+                lang?: components["parameters"]["Language"];
                 year: number;
                 /** @description Which draw, from 0. Draws past the last start over. */
                 draw?: number;
@@ -646,7 +686,10 @@ export interface operations {
     };
     getStory: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The language to read the records in, where the release has them in it. */
+                lang?: components["parameters"]["Language"];
+            };
             header?: never;
             path: {
                 /** @description The moment's id, e.g. `paris-1870s`. */
@@ -671,6 +714,8 @@ export interface operations {
     getPerson: {
         parameters: {
             query?: {
+                /** @description The language to read the records in, where the release has them in it. */
+                lang?: components["parameters"]["Language"];
                 /** @description The year to look at them in. */
                 year?: number;
             };
@@ -698,6 +743,8 @@ export interface operations {
     listAliveElsewhere: {
         parameters: {
             query: {
+                /** @description The language to read the records in, where the release has them in it. */
+                lang?: components["parameters"]["Language"];
                 /** @description The code of the region to leave out, e.g. `FR`. */
                 exclude: string;
                 /** @description How many people per region. */
@@ -726,6 +773,8 @@ export interface operations {
     search: {
         parameters: {
             query: {
+                /** @description The language to read the records in, where the release has them in it. */
+                lang?: components["parameters"]["Language"];
                 /** @description What to look for. Under two characters, once trimmed, it finds nothing. */
                 q: string;
             };
@@ -749,7 +798,10 @@ export interface operations {
     };
     listRegions: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The language to read the records in, where the release has them in it. */
+                lang?: components["parameters"]["Language"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -769,7 +821,10 @@ export interface operations {
     };
     listEras: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The language to read the records in, where the release has them in it. */
+                lang?: components["parameters"]["Language"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -789,7 +844,10 @@ export interface operations {
     };
     getEra: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The language to read the records in, where the release has them in it. */
+                lang?: components["parameters"]["Language"];
+            };
             header?: never;
             path: {
                 /** @description The era's id, e.g. `fr-third-republic`. */

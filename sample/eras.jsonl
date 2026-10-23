@@ -16,22 +16,22 @@
 {"id":"cn-warring-states-period","region":"CN","label":"Warring States period","start":-475,"end":-221}
 {"id":"cn-western-zhou","region":"CN","label":"Western Zhou","start":-1046,"end":-771}
 {"id":"cn-yuan-dynasty","region":"CN","label":"Yuan dynasty","start":1279,"end":1368}
-{"id":"fr-bourbon-restoration","region":"FR","label":"Bourbon Restoration","start":1814,"end":1830}
-{"id":"fr-celtic-gaul","region":"FR","label":"Celtic Gaul","start":-500,"end":-51}
-{"id":"fr-fifth-republic","region":"FR","label":"Fifth Republic","start":1958}
-{"id":"fr-first-empire","region":"FR","label":"First Empire","start":1804,"end":1814}
-{"id":"fr-first-republic","region":"FR","label":"First Republic","start":1792,"end":1804}
-{"id":"fr-fourth-republic","region":"FR","label":"Fourth Republic","start":1946,"end":1958}
-{"id":"fr-frankish-kingdoms","region":"FR","label":"Frankish kingdoms","start":486,"end":843}
-{"id":"fr-july-monarchy","region":"FR","label":"July Monarchy","start":1830,"end":1848}
-{"id":"fr-kingdom-of-france","region":"FR","label":"Kingdom of France","start":987,"end":1792}
-{"id":"fr-provisional-government","region":"FR","label":"Provisional Government","start":1944,"end":1946}
-{"id":"fr-roman-gaul","region":"FR","label":"Roman Gaul","start":-51,"end":486}
-{"id":"fr-second-empire","region":"FR","label":"Second Empire","start":1852,"end":1870}
-{"id":"fr-second-republic","region":"FR","label":"Second Republic","start":1848,"end":1852}
-{"id":"fr-third-republic","region":"FR","label":"Third Republic","start":1870,"end":1940}
-{"id":"fr-vichy-regime","region":"FR","label":"Vichy regime","governedBy":"Vichy regime, under German occupation","start":1940,"end":1944}
-{"id":"fr-west-francia","region":"FR","label":"West Francia","start":843,"end":987}
+{"id":"fr-bourbon-restoration","region":"FR","label":"Bourbon Restoration","start":1814,"end":1830,"fr":{"label":"Restauration"}}
+{"id":"fr-celtic-gaul","region":"FR","label":"Celtic Gaul","start":-500,"end":-51,"fr":{"label":"Gaule celtique"}}
+{"id":"fr-fifth-republic","region":"FR","label":"Fifth Republic","start":1958,"fr":{"label":"Cinquième République"}}
+{"id":"fr-first-empire","region":"FR","label":"First Empire","start":1804,"end":1814,"fr":{"label":"Premier Empire"}}
+{"id":"fr-first-republic","region":"FR","label":"First Republic","start":1792,"end":1804,"fr":{"label":"Première République"}}
+{"id":"fr-fourth-republic","region":"FR","label":"Fourth Republic","start":1946,"end":1958,"fr":{"label":"Quatrième République"}}
+{"id":"fr-frankish-kingdoms","region":"FR","label":"Frankish kingdoms","start":486,"end":843,"fr":{"label":"Royaumes francs"}}
+{"id":"fr-july-monarchy","region":"FR","label":"July Monarchy","start":1830,"end":1848,"fr":{"label":"Monarchie de Juillet"}}
+{"id":"fr-kingdom-of-france","region":"FR","label":"Kingdom of France","start":987,"end":1792,"fr":{"label":"Royaume de France"}}
+{"id":"fr-provisional-government","region":"FR","label":"Provisional Government","start":1944,"end":1946,"fr":{"label":"Gouvernement provisoire"}}
+{"id":"fr-roman-gaul","region":"FR","label":"Roman Gaul","start":-51,"end":486,"fr":{"label":"Gaule romaine"}}
+{"id":"fr-second-empire","region":"FR","label":"Second Empire","start":1852,"end":1870,"fr":{"label":"Second Empire"}}
+{"id":"fr-second-republic","region":"FR","label":"Second Republic","start":1848,"end":1852,"fr":{"label":"Deuxième République"}}
+{"id":"fr-third-republic","region":"FR","label":"Third Republic","start":1870,"end":1940,"fr":{"label":"Troisième République"}}
+{"id":"fr-vichy-regime","region":"FR","label":"Vichy regime","governedBy":"Vichy regime, under German occupation","start":1940,"end":1944,"fr":{"label":"Régime de Vichy","governedBy":"Régime de Vichy, sous l’occupation allemande"}}
+{"id":"fr-west-francia","region":"FR","label":"West Francia","start":843,"end":987,"fr":{"label":"Francie occidentale"}}
 {"id":"gb-anglo-saxon-kingdoms","region":"GB","label":"Anglo-Saxon kingdoms","start":410,"end":927}
 {"id":"gb-iron-age-britain","region":"GB","label":"Iron Age Britain","start":-800,"end":43}
 {"id":"gb-kingdom-of-england","region":"GB","label":"Kingdom of England","start":927,"end":1707}

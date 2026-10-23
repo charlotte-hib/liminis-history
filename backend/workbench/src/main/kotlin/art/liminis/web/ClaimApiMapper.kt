@@ -25,6 +25,7 @@ import art.liminis.curation.Queue
 import art.liminis.curation.MomentPage
 import art.liminis.curation.Painting
 import art.liminis.curation.Story
+import art.liminis.curation.Translation
 import art.liminis.workbench.api.model.AnecdoteDto
 import art.liminis.workbench.api.model.ClaimDetailDto
 import art.liminis.workbench.api.model.ClaimDto
@@ -45,6 +46,7 @@ import art.liminis.workbench.api.model.HolderCountDto
 import art.liminis.workbench.api.model.HoldsDto
 import art.liminis.workbench.api.model.QueueDto
 import art.liminis.workbench.api.model.StoryDto
+import art.liminis.workbench.api.model.TranslationDto
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
@@ -88,6 +90,7 @@ abstract class ClaimApiMapper {
     @SubclassMapping(source = OccupationDomain::class, target = OccupationDomainDto::class)
     @SubclassMapping(source = Story::class, target = StoryDto::class)
     @SubclassMapping(source = MomentPage::class, target = MomentPageDto::class)
+    @SubclassMapping(source = Translation::class, target = TranslationDto::class)
     abstract fun toDto(payload: Payload): PayloadDto
 
     @Mapping(target = "type", constant = "PERSON_FACTS")
@@ -111,6 +114,9 @@ abstract class ClaimApiMapper {
     @Mapping(target = "type", constant = "MOMENT_PAGE")
     abstract fun toDto(page: MomentPage): MomentPageDto
 
+    @Mapping(target = "type", constant = "TRANSLATION")
+    abstract fun toDto(translation: Translation): TranslationDto
+
     abstract fun toModel(claim: NewClaimDto): NewClaim
 
     @Mapping(target = "verdict", source = "action")
@@ -123,6 +129,7 @@ abstract class ClaimApiMapper {
     @SubclassMapping(source = OccupationDomainDto::class, target = OccupationDomain::class)
     @SubclassMapping(source = StoryDto::class, target = Story::class)
     @SubclassMapping(source = MomentPageDto::class, target = MomentPage::class)
+    @SubclassMapping(source = TranslationDto::class, target = Translation::class)
     abstract fun toModel(payload: PayloadDto): Payload
 
     abstract fun toModel(painting: PaintingDto): Painting

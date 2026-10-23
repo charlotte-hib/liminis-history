@@ -452,6 +452,26 @@ class DatasetStore(dataSource: DataSource, private val mapper: DatasetPersonMapp
         )
 
     /** The person's Wikipedia articles, by language. */
+    /** The titles of the French Wikipedia articles of those of [qids] who have one, by Q-id. */
+    fun frenchArticles(qids: Collection<String>): Map<String, String> =
+        jdbc.query(
+            "select qid, frwiki from dataset.person where qid = any (?) and frwiki is not null",
+            { rs, _ -> rs.getString("qid") to rs.getString("frwiki") },
+            qids.toTypedArray(),
+        ).toMap()
+
+    /** The French labels of those of [qids], people or places, that have one, by Q-id. */
+    fun frenchLabels(qids: Collection<String>): Map<String, String> =
+        jdbc.query(
+            """
+            select qid, label_fr from dataset.person where qid = any (?) and label_fr is not null
+            union all
+            select qid, label_fr from dataset.place where qid = any (?) and label_fr is not null
+            """.trimIndent(),
+            { rs, _ -> rs.getString("qid") to rs.getString("label_fr") },
+            qids.toTypedArray(), qids.toTypedArray(),
+        ).toMap()
+
     fun articles(person: String): List<ArticleRow> =
         jdbc.query(
             "select person, language, title, url, extract, thumbnail_url, image from dataset.person_article where person = ? order by language",

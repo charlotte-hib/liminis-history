@@ -49,6 +49,7 @@ class PeopleCompilerTests {
         articles: List<ArticleRow> = emptyList(),
         mapped: List<OccupationRecord> = emptyList(),
         corrections: List<CorrectionRecord> = emptyList(),
+        articlesFr: List<ArticleRow> = emptyList(),
     ) = Release(
         regions = listOf(RegionRecord("FR", "France")),
         eras = emptyList(),
@@ -61,6 +62,7 @@ class PeopleCompilerTests {
             articles.associateBy { it.person },
             listOf(paris, rome, atlantis).associateBy { it.qid },
             occupations.associateBy { it.qid },
+            articlesFr.associateBy { it.person },
         ),
         lives = emptyList(),
         events = emptyList(),
@@ -164,6 +166,17 @@ class PeopleCompilerTests {
         // The French article is not the English one's business.
         val french = compiled(CorrectionRecord("Q762", wikipediaFr = "Léonard de Vinci"))
         assertEquals("Leonardo da Vinci", french.wikipediaTitle)
+        assertEquals("Léonard_de_Vinci", french.wikipediaTitleFr)
+    }
+
+    @Test
+    fun `another French article drops the dataset's French intro for its title`() {
+        val fr = ArticleRow("Q762", "fr", "Léonard de Vinci", "https://fr.wikipedia.org/wiki/L%C3%A9onard_de_Vinci", "Léonard est un peintre.", null, null)
+        val corrections = listOf(CorrectionRecord("Q762", wikipediaFr = "Léonard de Vinci (peintre)"))
+        val person = ReleaseCompiler.compile(release(listOf(zola, leonardo), articlesFr = listOf(fr), corrections = corrections)).people.single { it.id == "Q762" }
+
+        assertEquals("Léonard_de_Vinci_(peintre)", person.wikipediaTitleFr)
+        assertEquals(listOf(null, null, null), listOf(person.bioShortFr, person.aboutFr, person.wikipediaUrlFr))
     }
 
     @Test

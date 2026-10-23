@@ -2,6 +2,7 @@ package art.liminis.service
 
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import art.liminis.domain.Language
 import art.liminis.domain.Person
 import art.liminis.repository.PersonRepository
 import art.liminis.support.foldForSearch
@@ -12,7 +13,8 @@ private const val MAX_PEOPLE = 6
 private const val MAX_MOMENTS = 4
 
 /**
- * Accent-insensitive search over names and moments, so "zola" finds Émile Zola and "kyoto" finds Kyoto, 1590s.
+ * Accent-insensitive search over names and moments, so "zola" finds Émile Zola and "kyoto" finds Kyoto, 1590s. Names
+ * are searched in English and French whatever the language asked for; moments in the language they are shown in.
  * People are searched in Postgres; names with a typo only fill the list when too few names contain the query, as
  * typo matching is slow on short, common queries. Moments, few and curated, are searched in memory.
  */
@@ -23,14 +25,14 @@ class SearchService(
     private val momentService: MomentService,
     private val mapper: ApiMapper,
 ) {
-    fun search(query: String): SearchResultsDto {
+    fun search(query: String, language: Language): SearchResultsDto {
         val trimmed = query.trim()
         val q = foldForSearch(trimmed)
         if (q.length < 2) return SearchResultsDto(emptyList(), emptyList())
 
         return SearchResultsDto(
-            people = findPeople(trimmed).map(mapper::toDto),
-            moments = momentService.list()
+            people = findPeople(trimmed).map { mapper.toDto(it, language) },
+            moments = momentService.list(language)
                 .filter { foldForSearch("${it.place} ${it.region} ${it.period}").contains(q) }
                 .take(MAX_MOMENTS),
         )

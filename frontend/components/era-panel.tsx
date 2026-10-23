@@ -1,29 +1,29 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState } from "react";
 import { DetailPanel } from "@/components/detail-panel";
 import { DoorCard } from "@/components/door-card";
 import { PersonChip } from "@/components/person-chip";
 import { Section } from "@/components/section";
 import { fetchEra } from "@/lib/api-browser";
-import { CONTENT_LANG } from "@/lib/content";
 import { DOMAIN_ORDER } from "@/lib/domains";
 import { hasStory } from "@/lib/moments";
-import type { Era, EraDetail } from "@/lib/types";
+import type { Era, EraDetail, Language } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useYears } from "@/lib/years";
 
 /** The details of an era, fetched the first time its panel opens. */
 function useEraDetail(id: string, open: boolean) {
+  const lang = useLocale() as Language;
   const [detail, setDetail] = useState<EraDetail | null>(null);
   const loaded = detail?.era.id === id;
   useEffect(() => {
     if (!open || loaded) return;
     const controller = new AbortController();
-    fetchEra(id, controller.signal).then(setDetail).catch(() => { /* aborted or offline */ });
+    fetchEra(id, lang, controller.signal).then(setDetail).catch(() => { /* aborted or offline */ });
     return () => controller.abort();
-  }, [id, open, loaded]);
+  }, [id, lang, open, loaded]);
   return loaded ? detail : null;
 }
 
@@ -53,15 +53,15 @@ export function EraButton({ era, momentId, children, className }: Props) {
         onClick={() => setOpen(true)}
         className={cn("text-foreground underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-lamp", className)}
       >
-        {children ?? <span lang={CONTENT_LANG}>{era.label}</span>}
+        {children ?? <span lang={era.lang}>{era.label}</span>}
       </button>
       <DetailPanel open={open} onOpenChange={setOpen} kicker={world("governs")}>
         <article className="grid gap-8">
           <div>
-            <h2 lang={CONTENT_LANG} className="font-story text-3xl leading-tight font-medium">{era.label}</h2>
+            <h2 lang={era.lang} className="font-story text-3xl leading-tight font-medium">{era.label}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              <span lang={CONTENT_LANG}>{era.region}</span> · {years.year(era.startYear)}–{years.year(era.endYear)}
-              {era.governedBy !== era.label && <span lang={CONTENT_LANG}> · {era.governedBy}</span>}
+              <span>{era.region}</span> · {years.year(era.startYear)}–{years.year(era.endYear)}
+              {era.governedBy !== era.label && <span lang={era.lang}> · {era.governedBy}</span>}
             </p>
           </div>
 
@@ -83,6 +83,7 @@ export function EraButton({ era, momentId, children, className }: Props) {
                           text: moment.hook,
                           target: moment,
                           faces: moment.cast,
+                          lang: moment.lang,
                         }}
                         kindLang={null}
                       />

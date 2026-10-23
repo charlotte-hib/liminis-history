@@ -18,6 +18,7 @@ import art.liminis.domain.CardType
     JsonSubTypes.Type(OccupationDomain::class, name = "OCCUPATION_DOMAIN"),
     JsonSubTypes.Type(Story::class, name = "STORY"),
     JsonSubTypes.Type(MomentPage::class, name = "MOMENT_PAGE"),
+    JsonSubTypes.Type(Translation::class, name = "TRANSLATION"),
 )
 sealed interface Payload
 
@@ -132,6 +133,20 @@ data class Painting(val url: String, val credit: String, val source: String, val
 
 /** The licences a painting may have: none asks for attribution. */
 enum class PaintingLicence { PUBLIC_DOMAIN, CC0 }
+
+/**
+ * A record of `data/` in French: each of its texts, by its [TranslatedText.path] in the record, beside its English as
+ * the record had it when it was translated. [record] names it by kind and id (`moment:paris-1870s`,
+ * `event:carmen-premiere`, `connection:claude-monet|georges-clemenceau:friends`); [label] says what it is, in English,
+ * for reading. Publishing writes the French beside the English, while the English is still the same.
+ */
+data class Translation(val record: String, val label: String, val texts: List<TranslatedText>) : Payload
+
+/**
+ * One text of a record: where it is (`hook`, `world.governs`, `cards[2].text`, `participants[0].role`), its English and
+ * its French.
+ */
+data class TranslatedText(val path: String, val en: String, val fr: String)
 
 /** A passage copied from the text [source] (`person:Q535`, `event:carmen-premiere`), titled [title]. */
 data class Citation(val source: String, val title: String, val quote: String)

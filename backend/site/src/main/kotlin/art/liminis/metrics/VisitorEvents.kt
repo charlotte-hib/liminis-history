@@ -6,6 +6,7 @@ import io.micrometer.core.instrument.Tags
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
+import art.liminis.domain.Language
 import art.liminis.service.MomentService
 
 /**
@@ -76,7 +77,7 @@ class VisitorEvents(private val registry: MeterRegistry, private val momentServi
     private fun counter(count: Count) = registry.counter(count.metric, Tags.of(count.tags.map { (key, value) -> Tag.of(key, value) }))
 
     private fun moments(): Map<String, Int> =
-        storyCards.ifEmpty { momentService.list().associate { it.id to it.storyCards }.also { storyCards = it } }
+        storyCards.ifEmpty { momentService.list(Language.EN).associate { it.id to it.storyCards }.also { storyCards = it } }
 
     companion object {
         const val PAGE_VIEWS = "visitor.page.views"

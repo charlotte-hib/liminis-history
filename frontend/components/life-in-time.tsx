@@ -2,7 +2,6 @@ import { useLocale, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { EraButton } from "@/components/era-panel";
 import { sourceLabel } from "@/components/event-details";
-import { CONTENT_LANG } from "@/lib/content";
 import type { AnecdoteSource, LifeLine } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useYears } from "@/lib/years";
@@ -33,7 +32,7 @@ function Anecdote({ line }: { line: LifeLine }) {
   return (
     <span className="grid gap-1">
       <span className="text-[11px] font-semibold tracking-wider text-lamp uppercase">{t("anecdote")}</span>
-      <span lang={CONTENT_LANG} className={TEXT_STYLE.ANECDOTE}>{line.text}</span>
+      <span lang={line.lang} className={TEXT_STYLE.ANECDOTE}>{line.text}</span>
       {source &&
         (line.source?.url ? (
           <a href={line.source.url} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:underline">
@@ -48,17 +47,18 @@ function Anecdote({ line }: { line: LifeLine }) {
 
 /**
  * What a line says. The API words births, new regimes and deaths in English; other languages word them here, around
- * the regime's name. Events' lines are the release's own text.
+ * the regime's name, in the language the API gave it. Events' lines are the release's own text, in theirs.
  */
 function LineText({ line }: { line: LifeLine }) {
   const locale = useLocale();
   const t = useTranslations("lifeInTime");
-  if (locale === CONTENT_LANG || (line.kind !== "BIRTH" && line.kind !== "ERA" && line.kind !== "DEATH")) {
-    return <span lang={CONTENT_LANG}>{line.text}</span>;
+  if (locale === "en" || (line.kind !== "BIRTH" && line.kind !== "ERA" && line.kind !== "DEATH")) {
+    return <span lang={line.lang}>{line.text}</span>;
   }
   if (line.kind === "DEATH") return t("death");
-  if (!line.era) return line.kind === "BIRTH" ? t("birth") : <span lang={CONTENT_LANG}>{line.text}</span>;
-  const values = { label: line.era.label, era: (label: ReactNode) => <span lang={CONTENT_LANG}>{label}</span> };
+  if (!line.era) return line.kind === "BIRTH" ? t("birth") : <span lang={line.lang}>{line.text}</span>;
+  const { era } = line;
+  const values = { label: era.label, era: (label: ReactNode) => <span lang={era.lang}>{label}</span> };
   return line.kind === "BIRTH" ? t.rich("birthUnder", values) : t.rich("era", values);
 }
 
@@ -91,7 +91,7 @@ export function LifeInTime({ lines }: { lines: LifeLine[] }) {
             ) : (
               <span className={cn(TEXT_STYLE[line.kind])}>
                 {line.era ? <EraButton era={line.era} className="text-left text-inherit"><LineText line={line} /></EraButton> : <LineText line={line} />}
-                {line.role && <span lang={CONTENT_LANG} className="block text-xs font-normal text-arts">{line.role}</span>}
+                {line.role && <span lang={line.lang} className="block text-xs font-normal text-arts">{line.role}</span>}
               </span>
             )}
           </li>

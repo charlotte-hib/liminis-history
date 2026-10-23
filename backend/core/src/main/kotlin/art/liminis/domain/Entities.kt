@@ -1,5 +1,6 @@
 package art.liminis.domain
 
+import jakarta.persistence.AttributeOverride
 import jakarta.persistence.CascadeType
 import jakarta.persistence.CollectionTable
 import jakarta.persistence.Column
@@ -27,6 +28,12 @@ enum class Domain { POWER, ARTS, EVERYDAY }
 /** Column length for prose and URLs, which outgrow the 255-character default. */
 const val LONG_TEXT = 2000
 
+/** The languages the site is read in. A record's text is in English, and in French when translated. */
+enum class Language { EN, FR }
+
+// A record's French, beside its English: in columns of their own, suffixed _fr, all null where there is none, and
+// embedded when the record has several texts. Each record has every one of its texts in French, or none.
+
 /**
  * A place, seen through today's borders, e.g. "FR" for France. Who governed it changes over time: see [Era]. Only
  * regions whose eras are written have pages; the others hold the people born there.
@@ -35,6 +42,7 @@ const val LONG_TEXT = 2000
 class Region @Default constructor(
     @Id val code: String,
     val name: String,
+    val nameFr: String? = null,
 )
 
 /** A region at a time span, named after who governed it. Never a bare year. Both years are inclusive. */
@@ -46,6 +54,13 @@ class Era @Default constructor(
     val governedBy: String,
     val startYear: Int,
     val endYear: Int,
+    @Embedded val fr: EraFrench? = null,
+)
+
+@Embeddable
+data class EraFrench @Default constructor(
+    @Column(name = "label_fr") val label: String,
+    @Column(name = "governed_by_fr") val governedBy: String,
 )
 
 /**
@@ -80,6 +95,14 @@ class Person @Default constructor(
     @Column(length = LONG_TEXT) var about: String? = null,
     @Column(length = LONG_TEXT) var wikipediaUrl: String? = null,
     @Column(length = LONG_TEXT) var portraitUrl: String? = null,
+    /** Their name as French writes it, when it is written. */
+    val nameFr: String? = null,
+    @JdbcTypeCode(SqlTypes.ARRAY) val occupationsFr: List<String>? = null,
+    /** The French Wikipedia article's, filled like the English ones: hand-written, or by the job. */
+    val wikipediaTitleFr: String? = null,
+    @Column(length = LONG_TEXT) var bioShortFr: String? = null,
+    @Column(length = LONG_TEXT) var aboutFr: String? = null,
+    @Column(length = LONG_TEXT) var wikipediaUrlFr: String? = null,
 ) {
     /** Where they were born, died, worked and lived, in that order: they tie them to moments beyond their own region. */
     @ElementCollection
@@ -114,6 +137,13 @@ class Life @Default constructor(
     @Embedded val art: LifeArt? = null,
     /** Drawn when there is no [art]. */
     @Enumerated(EnumType.STRING) val icon: LifeIcon? = null,
+    @Embedded val fr: LifeFrench? = null,
+)
+
+@Embeddable
+data class LifeFrench @Default constructor(
+    @Column(name = "label_fr") val label: String,
+    @Column(name = "description_fr", length = LONG_TEXT) val description: String,
 )
 
 /** A public-domain image of a typical life, and how to frame it in a circle. */
@@ -145,16 +175,24 @@ class Event @Default constructor(
     @Column(name = "event_year") val year: Int,
     @Column(length = LONG_TEXT) val description: String,
     @Column(length = LONG_TEXT) val sourceUrl: String,
+    @Embedded val fr: EventFrench? = null,
 ) {
     /** In the order they were stored. */
     @OneToMany(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true)
     @OrderBy("id")
     val participants: MutableList<EventParticipant> = mutableListOf()
 
-    fun participant(person: Person, role: String) = apply {
-        participants += EventParticipant(event = this, person = person, role = role)
+    fun participant(person: Person, role: String, roleFr: String? = null) = apply {
+        participants += EventParticipant(event = this, person = person, role = role, roleFr = roleFr)
     }
 }
+
+/** An event's title and description in French; its participants' roles are beside them. */
+@Embeddable
+data class EventFrench @Default constructor(
+    @Column(name = "title_fr") val title: String,
+    @Column(name = "description_fr", length = LONG_TEXT) val description: String,
+)
 
 @Entity
 class EventParticipant(
@@ -163,6 +201,8 @@ class EventParticipant(
     @ManyToOne(fetch = FetchType.LAZY) val person: Person,
     /** Specific role in the event, e.g. "author", "placed 1st". */
     val role: String,
+    /** The role in French, in an event translated. */
+    val roleFr: String? = null,
 )
 
 /**
@@ -179,10 +219,17 @@ class Connection @Default constructor(
     @Column(name = "connection_year") val year: Int,
     @Column(length = LONG_TEXT) val text: String,
     @Column(length = LONG_TEXT) val sourceUrl: String,
+    @Embedded val fr: ConnectionFrench? = null,
 ) {
     /** The person on the other side of the link from [person]. */
     fun other(person: Person) = if (first.slug == person.slug) second else first
 }
+
+@Embeddable
+data class ConnectionFrench @Default constructor(
+    @Column(name = "kind_fr") val kind: String,
+    @Column(name = "text_fr", length = LONG_TEXT) val text: String,
+)
 
 /** A short story about a person, in a year, approved by the curator, with where it was read or heard. */
 @Entity
@@ -192,6 +239,7 @@ class Anecdote @Default constructor(
     @Column(name = "anecdote_year") val year: Int,
     @Column(length = LONG_TEXT) val text: String,
     @Embedded val source: AnecdoteSource,
+    @Column(length = LONG_TEXT) val textFr: String? = null,
 )
 
 /** A book (title, page), a podcast, a video or a documentary (title, episode, minute), or a web page (url). */
@@ -245,6 +293,7 @@ class Moment @Default constructor(
     @Enumerated(EnumType.STRING) var status: PublicationStatus,
     /** Shown first on the start page. */
     var featured: Boolean = false,
+    @Embedded val fr: MomentFrench? = null,
 ) {
     @OneToMany(mappedBy = "moment", cascade = [CascadeType.ALL], orphanRemoval = true)
     @OrderBy("position")
@@ -254,6 +303,20 @@ class Moment @Default constructor(
     @OrderBy("position")
     val doors: MutableList<Door> = mutableListOf()
 }
+
+/** The top of a moment's page in French; its cards and doors have theirs. */
+@Embeddable
+data class MomentFrench @Default constructor(
+    @Column(name = "place_fr") val place: String,
+    @Column(name = "period_fr") val period: String,
+    @Column(name = "hook_fr", length = LONG_TEXT) val hook: String,
+    @Embedded
+    @AttributeOverride(name = "governs", column = Column(name = "governs_fr", length = LONG_TEXT))
+    @AttributeOverride(name = "everyday", column = Column(name = "everyday_fr", length = LONG_TEXT))
+    @AttributeOverride(name = "arts", column = Column(name = "arts_fr", length = LONG_TEXT))
+    @AttributeOverride(name = "meanwhile", column = Column(name = "meanwhile_fr", length = LONG_TEXT))
+    val world: WorldAround?,
+)
 
 enum class CardType { SCENE, PERSON, LIFE, EVENT }
 
@@ -274,6 +337,15 @@ class StoryCard @Default constructor(
     @ManyToOne(fetch = FetchType.LAZY) val event: Event? = null,
     /** Replaces the moment's artwork while this card is shown. */
     @Embedded val art: Artwork? = null,
+    /** In French, with the texts the card has in English: a card with none, showing only its record, has no French. */
+    @Embedded val fr: CardFrench? = null,
+)
+
+@Embeddable
+data class CardFrench @Default constructor(
+    @Column(name = "kicker_fr") val kicker: String?,
+    @Column(name = "title_fr") val title: String?,
+    @Column(name = "text_fr", length = LONG_TEXT) val text: String?,
 )
 
 /** A curated way out of a moment's story into another moment, e.g. "Meanwhile, elsewhere". */
@@ -290,4 +362,11 @@ class Door @Default constructor(
     @JoinTable(name = "door_face")
     @OrderColumn(name = "position")
     val faces: List<Person> = emptyList(),
+    @Embedded val fr: DoorFrench? = null,
+)
+
+@Embeddable
+data class DoorFrench @Default constructor(
+    @Column(name = "kind_fr") val kind: String,
+    @Column(name = "text_fr") val text: String,
 )

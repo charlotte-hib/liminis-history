@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/", name: "Inbox", also: "/review" },
   { href: "/moments", name: "Moments" },
   { href: "/people", name: "People" },
+  { href: "/translations", name: "Translations" },
   { href: "/add", name: "Add an anecdote" },
   { href: "/publish", name: "Publish" },
 ];

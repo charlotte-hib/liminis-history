@@ -63,6 +63,8 @@ import art.liminis.curation.Story
 import art.liminis.curation.StoryCard
 import art.liminis.curation.StoryLine
 import art.liminis.curation.StoryWorld
+import art.liminis.curation.TranslatedText
+import art.liminis.curation.Translation
 import art.liminis.dataset.DatasetStore
 import art.liminis.domain.CardType
 import art.liminis.publishing.GitHub
@@ -603,5 +605,127 @@ class PublicationApiTests(
                 .withRequestBody(matchingJsonPath("$.body", containing("- Victor Hugo (Q535), 1802: removed")))
                 .withRequestBody(matchingJsonPath("$.body", containing("- Victor Hugo (Q535), 1851: text changed"))),
         )
+    }
+
+    private fun translated(record: String, label: String, vararg texts: Triple<String, String, String>) =
+        claims.save(
+            Claim.candidate(Translation(record, label, texts.map { (path, en, fr) -> TranslatedText(path, en, fr) }), Origin.CLAUDE, emptyList())
+                .apply { status = ClaimStatus.APPROVED },
+        )
+
+    @Test
+    fun `writes approved French beside the English, and holds back one whose English changed, its old French kept`() {
+        file(
+            "data/eras.jsonl",
+            """{"id":"fr-second-empire","region":"FR","label":"Second Empire","start":1852,"end":1870,"fr":{"label":"Second Empire"}}""" + "\n" +
+                """{"id":"fr-third-republic","region":"FR","label":"Third Republic","start":1870,"end":1940}""" + "\n",
+        )
+        file("data/people.jsonl", """{"id":"victor-hugo","qid":"Q535","name":"Victor Hugo","occupation":"novelist"}""" + "\n")
+        jdbc.update("insert into dataset.person (qid, label, sitelinks, born, born_precision, died, died_precision, died_estimated, dates_approximate, frwiki) values ('Q535', 'Victor Hugo', 1, 1802, 9, 1885, 9, false, false, 'Victor Hugo') on conflict (qid) do update set frwiki = 'Victor Hugo'")
+        val paris = """{
+  "id": "paris-1870s",
+  "place": "Paris",
+  "period": "1870s",
+  "hook": "Old hook.",
+  "cards": [
+    {
+      "type": "SCENE",
+      "title": "A republic",
+      "art": {
+        "url": "u",
+        "credit": "c",
+        "source": "s"
+      }
+    }
+  ]
+}
+"""
+        file("data/moments/paris-1870s.json", paris)
+        translated("era:fr-third-republic", "Third Republic", Triple("label", "Third Republic", "Troisième République"))
+        // Translated when the label was something else.
+        translated("era:fr-second-empire", "Second Empire", Triple("label", "The Second Empire", "Le Second Empire"))
+        translated("person:victor-hugo", "Victor Hugo", Triple("name", "Victor Hugo", "Victor Hugo"), Triple("occupation", "novelist", "romancier"))
+        translated(
+            "moment:paris-1870s", "Paris, 1870s",
+            Triple("place", "Paris", "Paris"), Triple("period", "1870s", "années 1870"), Triple("hook", "Old hook.", "Ancienne accroche."),
+            Triple("cards[0].title", "A republic", "Une république"),
+        )
+
+        mockMvc.get("/api/publication") { signedIn() }.andExpect {
+            status { isOk() }
+            jsonPath("$.files[3].path") { value("data/eras.jsonl") }
+            jsonPath("$.files[3].changes.length()") { value(1) }
+            jsonPath("$.files[3].changes[0].id") { value("era:fr-third-republic") }
+            jsonPath("$.files[3].changes[0].after") {
+                value("""{"id":"fr-third-republic","region":"FR","label":"Third Republic","start":1870,"end":1940,"fr":{"label":"Troisième République"}}""")
+            }
+            jsonPath("$.files[4].path") { value("data/people.jsonl") }
+            jsonPath("$.files[4].changes[0].after") {
+                value("""{"id":"victor-hugo","qid":"Q535","name":"Victor Hugo","occupation":"novelist","fr":{"name":"Victor Hugo","occupation":"romancier","wikipedia":"Victor_Hugo"}}""")
+            }
+            jsonPath("$.files[5].path") { value("data/moments/paris-1870s.json") }
+            jsonPath("$.moments.length()") { value(0) }
+            jsonPath("$.translations.length()") { value(3) }
+            jsonPath("$.translations[0].record") { value("era:fr-third-republic") }
+            jsonPath("$.translations[1].record") { value("moment:paris-1870s") }
+            jsonPath("$.translations[0].change") { value("ADDED") }
+            jsonPath("$.translations[1].texts[1].path") { value("period") }
+            jsonPath("$.translations[1].texts[1].after") { value("années 1870") }
+            jsonPath("$.heldBack[0].id") { value("era:fr-second-empire") }
+            jsonPath("$.heldBack[0].reason") { value(containsString("read the French of the English before")) }
+        }
+
+        stubWrites()
+        publish().andExpect { status { isOk() } }
+        val tree = github.findAll(postRequestedFor(urlPathEqualTo("$repo/git/trees"))).single().bodyAsString
+        assertTrue("""\"title\": \"A republic\",\n      \"art\"""" in tree && """\"fr\": {\n        \"title\": \"Une république\"""" in tree, tree)
+        val body = github.findAll(postRequestedFor(urlPathEqualTo("$repo/pulls"))).single().bodyAsString
+        assertTrue("**French** (3)" in body && "Paris, 1870s (moment:paris-1870s): translated" in body, body)
+    }
+
+    @Test
+    fun `French stays while a new one waits for review, an anecdote's French on main is no change, a new story keeps its cards' French`() {
+        file("data/people.jsonl", """{"id":"katsushika-hokusai","qid":"Q5586","name":"Katsushika Hokusai"}""" + "\n")
+        file("data/eras.jsonl", """{"id":"fr-third-republic","region":"FR","label":"The Republic","start":1870,"end":1940,"fr":{"label":"Troisième République"}}""" + "\n")
+        // Translated again since the label changed: waiting for review.
+        claims.save(
+            Claim.candidate(Translation("era:fr-third-republic", "The Republic", listOf(TranslatedText("label", "The Republic", "La République"))), Origin.CLAUDE, emptyList()),
+        )
+        val daruma = approveAnecdote(Anecdote("Q5586", 1804, "He paints Daruma."), refs = listOf(SourceRef(SourceKind.WEB, url = "https://example.org/daruma")))
+        file(
+            "data/anecdotes.jsonl",
+            """{"id":"$daruma","person":"Q5586","year":1804,"text":"He paints Daruma.","source":{"url":"https://example.org/daruma"},"fr":{"text":"Il peint Daruma."}}""" + "\n",
+        )
+        translated("anecdote:$daruma", "He paints Daruma.", Triple("text", "He paints Daruma.", "Il peint Daruma."))
+        file(
+            "data/moments/paris-1870s.json",
+            """{
+  "id": "paris-1870s",
+  "hook": "Old hook.",
+  "cards": [
+    {
+      "type": "PERSON",
+      "text": "Old text.",
+      "year": 1875,
+      "person": "victor-hugo",
+      "fr": {
+        "text": "Ancien texte."
+      }
+    }
+  ]
+}
+""",
+        )
+        // The story's card, the same person, gets new English.
+        claims.save(Claim.candidate(story("paris-1870s", "victor-hugo"), Origin.CLAUDE, emptyList()).apply { status = ClaimStatus.APPROVED })
+
+        mockMvc.get("/api/publication") { signedIn() }.andExpect {
+            status { isOk() }
+            jsonPath("$.translations.length()") { value(0) }
+            jsonPath("$.heldBack.length()") { value(0) }
+            jsonPath("$.files[2].changes.length()") { value(0) }
+            jsonPath("$.files[3].path") { value("data/moments/paris-1870s.json") }
+            jsonPath("$.files[3].changes[0].after") { value(containsString(""""text":"Someone there.","year":1875,"person":"victor-hugo","fr":{"text":"Ancien texte."}""")) }
+        }
     }
 }

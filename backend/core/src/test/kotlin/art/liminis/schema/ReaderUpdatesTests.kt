@@ -24,10 +24,13 @@ import kotlin.test.assertFailsWith
 class ReaderUpdatesTests(@Autowired private val people: PersonRepository) {
 
     @Test
-    fun `the reader saves a person's bio and portrait`() {
+    fun `the reader saves a person's bio and portrait, in English and French`() {
         val zola = people.findBySlug("emile-zola")!!
         zola.bioShort = "Novelist."
         zola.portraitUrl = "https://example.org/zola.jpg"
+        zola.bioShortFr = "Romancier."
+        zola.aboutFr = "Émile Zola est un romancier."
+        zola.wikipediaUrlFr = "https://fr.wikipedia.org/wiki/%C3%89mile_Zola"
         people.saveAndFlush(zola)
     }
 

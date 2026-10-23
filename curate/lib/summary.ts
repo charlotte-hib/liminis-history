@@ -9,6 +9,18 @@ type Flag = components["schemas"]["Flag"];
 /** A claim as the queue's list shows it. */
 export type ClaimSummary = { id: string; title: string; detail: string; flags: Flag[] };
 
+/** The kinds of records translated, by the start of their key. */
+export const KINDS: Record<string, string> = {
+  region: "Region",
+  era: "Era",
+  person: "Person",
+  life: "Everyday life",
+  event: "Event",
+  connection: "Connection",
+  anecdote: "Anecdote",
+  moment: "Moment",
+};
+
 export function titleOf(payload: Payload): { title: string; detail: string } {
   switch (payload.type) {
     case "PERSON_FACTS":
@@ -25,6 +37,8 @@ export function titleOf(payload: Payload): { title: string; detail: string } {
       return { title: payload.moment, detail: `${payload.cards.length} cards` };
     case "MOMENT_PAGE":
       return { title: payload.moment, detail: payload.hook.text };
+    case "TRANSLATION":
+      return { title: payload.label, detail: `${KINDS[payload.record.split(":")[0]] ?? payload.record} · ${payload.texts.length} texts` };
   }
 }
 

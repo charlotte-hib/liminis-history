@@ -1,14 +1,30 @@
 import { expect, test } from "@playwright/test";
 
-// English stays at the site's addresses, French is under /fr. The release's own text stays English for now, marked
-// as such, inside French pages.
+// English stays at the site's addresses, French is under /fr. The release's text is in French where it is translated
+// (in the sample: Paris in the 1870s, France's eras, their people), else in English, marked as such.
 
-test("the home page in French, its stories still in English", async ({ page }) => {
+test("the home page in French, its featured story translated", async ({ page }) => {
   await page.goto("/fr");
   await expect(page.locator("html")).toHaveAttribute("lang", "fr");
   await expect(page.getByRole("heading", { name: "Où sont les récits" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Lire le récit" })).toHaveAttribute("href", /^\/fr\/moment\/[^/]+\/story$/);
-  await expect(page.locator("#featured-title")).toHaveAttribute("lang", "en");
+  await expect(page.locator("#featured-title")).toHaveAttribute("lang", "fr");
+  await expect(page.locator("#featured-title")).toContainText("années 1870");
+});
+
+test("a moment not translated yet stays in English inside a French page, marked as such", async ({ page }) => {
+  await page.goto("/fr/moment/tokyo-1870s");
+  await expect(page.locator("html")).toHaveAttribute("lang", "fr");
+  await expect(page.locator("main h1")).toHaveAttribute("lang", "en");
+  await expect(page.locator("main h1")).toHaveText("Tokyo, 1870s");
+});
+
+test("a translated story reads in French, card by card", async ({ page }) => {
+  await page.goto("/fr/moment/paris-1870s");
+  await expect(page.locator("main h1")).toHaveText("Paris, années 1870");
+  await expect(page.getByText("Une république née de la défaite, et des peintres que le Salon refuse sans cesse.").first()).toBeVisible();
+  await page.goto("/fr/moment/paris-1870s/story");
+  await expect(page.getByRole("heading", { name: "Une république née de la défaite" })).toBeVisible();
 });
 
 test("the header switches to the same page in the other language", async ({ page }) => {
@@ -74,10 +90,10 @@ test("a person opens in a French panel over a French moment", async ({ page }) =
   await expect(panel.getByText("Quelqu’un qui l’a vécu")).toBeVisible();
   await expect(panel.getByRole("heading", { name: "Émile Zola" })).toBeVisible();
   await expect(page).toHaveURL(/\/fr\/person\/emile-zola\?year=\d+$/);
-  await expect(panel.getByRole("link", { name: "Ouvrir la page entière" })).toHaveAttribute("href", /^\/fr\/person\/emile-zola\?year=\d+$/);
+  await expect(panel.getByRole("link", { name: "Agrandir" })).toHaveAttribute("href", /^\/fr\/person\/emile-zola\?year=\d+$/);
 });
 
 test("years before the common era read in French", async ({ page }) => {
   await page.goto("/fr");
-  await expect(page.getByText("3000 av. n. è.", { exact: true })).toBeAttached();
+  await expect(page.getByText("3000 av. J.-C.", { exact: true })).toBeAttached();
 });

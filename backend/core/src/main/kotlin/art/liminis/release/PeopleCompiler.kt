@@ -12,6 +12,7 @@ import art.liminis.domain.LONG_TEXT
 import art.liminis.domain.Person
 import art.liminis.domain.PersonPlace
 import art.liminis.domain.PlaceKind
+import art.liminis.domain.Region
 import art.liminis.support.cleanExtract
 import art.liminis.support.dropHatnote
 import art.liminis.support.leadSentences
@@ -49,9 +50,15 @@ internal class PeopleCompiler(private val release: Release) {
         .map { row -> corrections[row.qid]?.let { row.corrected(it) } ?: row }
         .mapNotNull { row -> homeRegion(row)?.let { row to it } }
 
-    /** The regions fetched people come from that `regions.jsonl` does not list, named in English. They have no eras. */
-    fun otherRegions(listed: Set<String>): Map<String, String> =
-        fetched.map { it.second }.filter { it !in listed }.toSortedSet().associateWith { Locale.of("", it).getDisplayCountry(Locale.ENGLISH) }
+    /**
+     * The regions fetched people come from that `regions.jsonl` does not list, named in English and French after their
+     * country code. They have no eras.
+     */
+    fun otherRegions(listed: Set<String>): List<Region> =
+        fetched.map { it.second }.filter { it !in listed }.toSortedSet().map {
+            val country = Locale.of("", it)
+            Region(it, country.getDisplayCountry(Locale.ENGLISH), country.getDisplayCountry(Locale.FRENCH))
+        }
 
     fun compile(references: References): List<Person> {
         val fame = fame(
@@ -75,6 +82,9 @@ internal class PeopleCompiler(private val release: Release) {
     private fun writtenPerson(record: PersonRecord, row: PersonRow?, fame: Int, references: References): Person {
         val article = row?.let { dataset!!.articles[it.qid] }
         val text = article?.let(::intro)
+        val articleFr = row?.let { dataset!!.articlesFr[it.qid] }
+        val textFr = articleFr?.let(::intro)
+        record.fr?.let { ReleaseCompiler.french(references, "bio", record.bio, it.bio) }
         return Person(
             id = record.id,
             qid = record.qid,
@@ -94,14 +104,26 @@ internal class PeopleCompiler(private val release: Release) {
             about = text?.let(::about),
             wikipediaUrl = article?.url,
             portraitUrl = article?.thumbnailUrl,
+            // In French only as written: a person by hand keeps their record, in both languages.
+            nameFr = record.fr?.name,
+            occupationsFr = record.fr?.occupation?.let(::listOf),
+            wikipediaTitleFr = articleFr?.title ?: record.fr?.wikipedia,
+            bioShortFr = record.fr?.bio ?: textFr?.let(::leadSentences),
+            aboutFr = textFr?.let(::about),
+            wikipediaUrlFr = articleFr?.url,
         ).apply { row?.let { places += places(it) } }
     }
 
     private fun fetchedPerson(row: PersonRow, region: String, slug: String, fame: Int, references: References): Person {
-        // Another English article than Wikidata's: WikipediaJob fills in its intro and portrait from its title.
-        val retitled = corrections[row.qid]?.let { it.wikipedia != null || ClearedField.WIKIPEDIA in it.cleared.orEmpty() } == true
+        // Another article than Wikidata's: WikipediaJob fills in its intro (and the English one's portrait) from its title.
+        val correction = corrections[row.qid]
+        val retitled = correction?.let { it.wikipedia != null || ClearedField.WIKIPEDIA in it.cleared.orEmpty() } == true
+        val retitledFr = correction?.let { it.wikipediaFr != null || ClearedField.WIKIPEDIA_FR in it.cleared.orEmpty() } == true
         val article = dataset!!.articles[row.qid]?.takeUnless { retitled }
         val text = article?.let(::intro)
+        val articleFr = dataset.articlesFr[row.qid]?.takeUnless { retitledFr }
+        val textFr = articleFr?.let(::intro)
+        val occupations = row.occupations.mapNotNull { dataset.occupations[it.occupation] }.distinctBy { it.label }.take(MAX_OCCUPATIONS)
         return Person(
             id = row.qid,
             qid = row.qid,
@@ -112,7 +134,7 @@ internal class PeopleCompiler(private val release: Release) {
             datesApproximate = row.datesApproximate,
             region = references.region(region),
             domain = row.occupations.firstNotNullOfOrNull { domains.of(it.occupation) } ?: Domain.EVERYDAY,
-            occupations = row.occupations.mapNotNull { dataset.occupations[it.occupation]?.label }.distinct().take(MAX_OCCUPATIONS),
+            occupations = occupations.map { it.label },
             sitelinks = row.sitelinks,
             fame = fame,
             wikipediaTitle = article?.title ?: row.enwiki?.takeIf { retitled }?.replace(' ', '_'),
@@ -120,6 +142,13 @@ internal class PeopleCompiler(private val release: Release) {
             about = text?.let(::about),
             wikipediaUrl = article?.url,
             portraitUrl = article?.thumbnailUrl,
+            nameFr = row.labelFr,
+            // In French when every one of them is, else left in English with the rest of the person.
+            occupationsFr = occupations.map { (if (row.gender == FEMALE) it.femaleLabelFr else null) ?: it.labelFr }.takeIf { null !in it }?.filterNotNull(),
+            wikipediaTitleFr = articleFr?.title ?: row.frwiki?.takeIf { retitledFr }?.replace(' ', '_'),
+            bioShortFr = textFr?.let(::leadSentences),
+            aboutFr = textFr?.let(::about),
+            wikipediaUrlFr = articleFr?.url,
         ).apply { places += places(row) }
     }
 
@@ -212,6 +241,9 @@ internal class PeopleCompiler(private val release: Release) {
 
     private companion object {
         const val MAX_OCCUPATIONS = 3
+
+        /** Wikidata's "female" (P21), for the French feminine forms of occupations. */
+        const val FEMALE = "Q6581072"
 
         fun intro(article: ArticleRow): String? = dropHatnote(article.extract).takeIf { it.isNotBlank() }
 

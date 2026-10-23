@@ -1,7 +1,6 @@
 import { useTranslations } from "next-intl";
 import { PersonAvatar } from "@/components/person-avatar";
 import { Badge } from "@/components/ui/badge";
-import { CONTENT_LANG } from "@/lib/content";
 import { DOMAINS } from "@/lib/domains";
 import type { PersonDetail } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -20,7 +19,8 @@ export function PersonHeader({ detail, className }: { detail: PersonDetail; clas
         <h1 className="font-story text-4xl leading-tight font-medium">{person.name}</h1>
         <p className="text-sm text-muted-foreground">
           {years.lifespan(person.birthYear, person.deathYear)}
-          {[person.occupations.join(", "), person.region].filter(Boolean).map((part) => <span key={part} lang={CONTENT_LANG}> · {part}</span>)}
+          {person.occupations.length > 0 && <span lang={person.lang}> · {person.occupations.join(", ")}</span>}
+          {person.region && <span> · {person.region}</span>}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary" className={cn(domain.soft, domain.text)}>{domains(person.domain)}</Badge>
@@ -40,7 +40,7 @@ export function PersonAbout({ detail }: { detail: PersonDetail }) {
   if (!about) return null;
   return (
     <div>
-      <p lang={CONTENT_LANG} className="font-story text-lg leading-relaxed text-foreground/90">{about}</p>
+      <p lang={detail.about ? detail.aboutLang : detail.person.bioLang} className="font-story text-lg leading-relaxed text-foreground/90">{about}</p>
       {detail.wikipediaUrl && (
         <a href={detail.wikipediaUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-muted-foreground underline">
           {t("readMore")}

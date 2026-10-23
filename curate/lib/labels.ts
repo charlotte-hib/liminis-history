@@ -14,6 +14,7 @@ export const QUEUES: { type: ClaimType; name: string; hint: string; slug: string
   { type: "OCCUPATION_DOMAIN", name: "Occupations to map", hint: "The domain of the people who hold each occupation", slug: "occupations" },
   { type: "STORY", name: "Stories", hint: "A moment's story, drafted with Claude", slug: "stories" },
   { type: "MOMENT_PAGE", name: "Moment headers", hint: "A moment's hook and world around, drafted with Claude", slug: "moment-headers" },
+  { type: "TRANSLATION", name: "Translations", hint: "A record in French, drafted with Claude, beside its English", slug: "translations" },
 ];
 
 /** Where a claim stands, in words. */
@@ -98,6 +99,11 @@ const STORY_REASONS: Record<string, string> = {
   CHANGED_SINCE_EDITED: "Claude drafted it again since you edited it: your edits are shown",
 };
 
+/** What a new translation did to one already approved. */
+const TRANSLATION_REASONS: Record<string, string> = {
+  CHANGED_SINCE_APPROVED: "Its English changed since you approved its French: the texts that changed are translated again, the others kept",
+};
+
 /**
  * A reason in words: the workbench's codes translated, for the claim's [type] when it says otherwise, and its
  * sentences (a story's findings) as they are.
@@ -105,6 +111,7 @@ const STORY_REASONS: Record<string, string> = {
 export function describe(reason: string, type?: ClaimType): string {
   if (reason.includes(" ")) return reason;
   if ((type === "STORY" || type === "MOMENT_PAGE") && STORY_REASONS[reason]) return STORY_REASONS[reason];
+  if (type === "TRANSLATION" && TRANSLATION_REASONS[reason]) return TRANSLATION_REASONS[reason];
   const place = reason.match(/^P\d+_(.+)$/);
   return REASONS[place ? place[1] : reason] ?? reason.toLowerCase().replaceAll("_", " ");
 }

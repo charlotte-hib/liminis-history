@@ -10,6 +10,7 @@ import art.liminis.curation.Story
 import art.liminis.release.AnecdoteRecord
 import art.liminis.support.StaleException
 import art.liminis.support.UnavailableException
+import art.liminis.translating.RecordKind
 
 /** How a record of a file publishing writes would change. */
 enum class Change { ADDED, CHANGED, REMOVED }
@@ -20,14 +21,18 @@ data class RecordChange(val id: String, val change: Change, val before: String?,
 /** The changes to the file at [path]: its records', or a moment's page and story, under the moment's id. */
 data class FileChanges(val path: String, val changes: List<RecordChange>)
 
-/** An approved story, page or anecdote publishing leaves out, under its moment's id or the anecdote's, and why. */
+/**
+ * An approved story, page, anecdote or translation publishing leaves out, under its moment's id, the anecdote's or the
+ * translated record's, and why.
+ */
 data class HeldBack(val id: String, val reason: String)
 
 /**
- * What publishing makes of the data repository's [base] commit: the changes to each [DataFile] and to the moments'
- * files the approved pages and stories go into, the same in words ([people], [occupations], [anecdotes], [moments]), the
+ * What publishing makes of the data repository's [base] commit: the changes to each [DataFile], to the files of records
+ * written by hand that approved translations go into, and to the moments' files the approved pages, stories and
+ * translations go into, the same in words ([people], [occupations], [anecdotes], [moments], [translations]), the
  * publish pull request open, if any, the people written by hand whom a correction would not change, and the approved
- * stories and anecdotes left out.
+ * stories, anecdotes and translations left out.
  */
 data class Publication(
     val base: String,
@@ -36,6 +41,7 @@ data class Publication(
     val occupations: List<OccupationChange>,
     val anecdotes: List<AnecdoteChange>,
     val moments: List<MomentChange>,
+    val translations: List<TranslationChange>,
     val pullRequest: PullRequest?,
     val withoutEffect: List<String>,
     val heldBack: List<HeldBack>,
@@ -53,6 +59,7 @@ data class Publication(
 class Publishing(
     private val dataFiles: DataFiles,
     private val momentFiles: MomentFiles,
+    private val translationFiles: TranslationFiles,
     private val words: ChangesInWords,
     private val claims: ClaimRepository,
     private val github: GitHub,
@@ -99,18 +106,40 @@ class Publishing(
         val published = anecdotes.filter { anecdote -> anecdotesHeldBack.none { it.id == anecdote.id } }
             .map { AnecdoteRecord(it.id, it.anecdote.person, it.anecdote.year, it.anecdote.text, it.source!!) }
 
-        val files = dataFiles.build(published)
+        val french = translationFiles.claims()
+        val heldBack = mutableListOf<HeldBack>()
+        val translations = mutableListOf<TranslationChange>()
+
+        // The anecdotes are written whole from their claims, then their French goes beside them.
+        val files = dataFiles.build(published).mapValues { (file, lines) ->
+            if (file != DataFile.ANECDOTES) return@mapValues lines
+            val translated = translationFiles.lines(RecordKind.ANECDOTE, lines.text(), french, github.file(file.path, base))
+            translations += translated.changes
+            heldBack += translated.heldBack
+            translated.lines.mapKeys { (key, _) -> key.removePrefix("${RecordKind.ANECDOTE.key}:") }.toSortedMap()
+        }
         val changes = files.map { (file, lines) -> FileChanges(file.path, changes(dataFiles.read(file.path, github.file(file.path, base)), lines)) }
         val changesOf = { file: DataFile -> changes.single { it.path == file.path }.changes }
         val withoutEffect = files.getValue(DataFile.CORRECTIONS).keys.filter { it in byHand }
-        val texts = files.entries.associate { (file, lines) -> file.path to lines.text() }
+        val texts = files.entries.associate { (file, lines) -> file.path to lines.text() }.toMutableMap()
 
-        val heldBack = mutableListOf<HeldBack>()
+        // The files written by hand: only their records' French changes, those with a translation approved. Listed
+        // when they change.
+        val byHandFiles = WRITTEN_BY_HAND.filter { kind -> french.keys.any { it.startsWith("${kind.key}:") } }.map { kind ->
+            val before = github.file(kind.path, base)
+            val translated = translationFiles.lines(kind, before, french)
+            translations += translated.changes
+            heldBack += translated.heldBack
+            texts[kind.path] = translated.lines.text()
+            FileChanges(kind.path, changes(translationFiles.lines(kind, before, emptyMap()).lines, translated.lines))
+        }.filter { it.changes.isNotEmpty() }
+
         val moments = mutableListOf<Pair<FileChanges, String>>()
         val momentsInWords = mutableListOf<MomentChange>()
         val pages = approved<MomentPage>(ClaimType.MOMENT_PAGE).associateBy { it.moment }
         val stories = approved<Story>(ClaimType.STORY).associateBy { it.moment }
-        for (moment in (pages.keys + stories.keys).sorted()) {
+        val translated = french.keys.filter { it.startsWith("${RecordKind.MOMENT.key}:") }.map { it.removePrefix("${RecordKind.MOMENT.key}:") }
+        for (moment in (pages.keys + stories.keys + translated).sorted()) {
             val path = momentFiles.path(moment)
             val before = github.file(path, base)
             if (before == null) {
@@ -122,16 +151,26 @@ class Publishing(
             if (reason != null) heldBack += HeldBack(moment, reason)
             val story = stories[moment].takeIf { reason == null }
             val page = pages[moment]
-            if (page == null && story == null) continue
-            val after = momentFiles.write(before, page, story)
-            val change = RecordChange(moment, Change.CHANGED, momentFiles.momentText(before), momentFiles.momentText(after)).takeIf { before != after }
+            val english = if (page == null && story == null) before else momentFiles.write(before, page, story)
+            var translation: TranslationChange? = null
+            val after = momentFiles.edit(english) { written ->
+                val (node, change, held) = translationFiles.moment(moment, momentFiles.node(before), written, french)
+                translation = change
+                held?.let { heldBack += it }
+                node
+            }
+            translation?.let { translations += it }
+            val change = RecordChange(moment, Change.CHANGED, momentFiles.momentText(before), momentFiles.momentText(after))
+                .takeIf { it.before != it.after }
             moments += FileChanges(path, listOfNotNull(change)) to after
-            if (change != null) momentsInWords += words.moment(moment, before, after, story)
+            if (momentFiles.momentText(before, french = false) != momentFiles.momentText(after, french = false)) {
+                momentsInWords += words.moment(moment, before, after, story)
+            }
         }
         val publication = Publication(
-            base, changes + moments.map { it.first },
+            base, changes + byHandFiles + moments.map { it.first },
             words.people(changesOf(DataFile.CORRECTIONS)), words.occupations(changesOf(DataFile.OCCUPATIONS)),
-            words.anecdotes(changesOf(DataFile.ANECDOTES), byHand), momentsInWords,
+            words.anecdotes(changesOf(DataFile.ANECDOTES), byHand), momentsInWords, translations.sortedBy { it.record },
             github.openPullRequest(properties.branch), withoutEffect, heldBack + anecdotesHeldBack,
         )
         return publication to texts + moments.associate { (file, text) -> file.path to text }
@@ -193,9 +232,12 @@ class Publishing(
 
     /** The changes in words, for the commit and the pull request. */
     private fun summary(publication: Publication): String =
-        words.summary(publication.people, publication.occupations, publication.anecdotes, publication.moments)
+        words.summary(publication.people, publication.occupations, publication.anecdotes, publication.moments, publication.translations)
 
     private companion object {
+        /** The files of records written by hand that publishing writes only the French of. */
+        val WRITTEN_BY_HAND = listOf(RecordKind.REGION, RecordKind.ERA, RecordKind.PERSON, RecordKind.LIFE, RecordKind.EVENT, RecordKind.CONNECTION)
+
         const val PEOPLE = "data/people.jsonl"
         const val TITLE = "feat: publish the curator's decisions"
         const val ABOUT = "Opened by the workbench when the curator published from curate. Each file is written whole from " +

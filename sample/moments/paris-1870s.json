@@ -26,25 +26,41 @@
       "type": "SCENE",
       "kicker": "Setting the scene · Paris, 1870s",
       "title": "A republic born out of defeat",
-      "text": "France lost its war with Prussia in 1871. The new Third Republic is fragile, and most French people still live and work in the countryside."
+      "text": "France lost its war with Prussia in 1871. The new Third Republic is fragile, and most French people still live and work in the countryside.",
+      "fr": {
+        "kicker": "Le décor · Paris, années 1870",
+        "title": "Une république née de la défaite",
+        "text": "La France a perdu sa guerre contre la Prusse en 1871. La jeune Troisième République est fragile, et la plupart des Français vivent et travaillent encore à la campagne."
+      }
     },
     {
       "type": "SCENE",
       "kicker": "Setting the scene · the arts",
       "title": "Painting outside the Salon",
-      "text": "Painters the official Salon keeps rejecting decide to show their work on their own, in a photographer's former studio on the Boulevard des Capucines."
+      "text": "Painters the official Salon keeps rejecting decide to show their work on their own, in a photographer's former studio on the Boulevard des Capucines.",
+      "fr": {
+        "kicker": "Le décor · les arts",
+        "title": "Peindre hors du Salon",
+        "text": "Des peintres que le Salon officiel refuse sans cesse décident d’exposer par eux-mêmes, dans l’ancien atelier d’un photographe, boulevard des Capucines."
+      }
     },
     {
       "type": "PERSON",
       "text": "A doctor turned politician. Mayor of Montmartre during the siege of 1870, now a fierce critic of the government from the left.",
       "year": 1875,
-      "person": "georges-clemenceau"
+      "person": "georges-clemenceau",
+      "fr": {
+        "text": "Médecin devenu homme politique. Maire de Montmartre pendant le siège de 1870, il critique désormais durement le gouvernement depuis la gauche."
+      }
     },
     {
       "type": "PERSON",
       "text": "One of the few women at the centre of the new painting. She shows her work at the first independent exhibition.",
       "year": 1874,
-      "person": "berthe-morisot"
+      "person": "berthe-morisot",
+      "fr": {
+        "text": "L’une des rares femmes au cœur de la nouvelle peinture. Elle expose à la première exposition indépendante."
+      }
     },
     {
       "type": "LIFE",
@@ -54,7 +70,10 @@
     {
       "type": "EVENT",
       "text": "A critic mocks Monet's Impression, Sunrise, and gives the movement its name.",
-      "event": "first-impressionist-exhibition"
+      "event": "first-impressionist-exhibition",
+      "fr": {
+        "text": "Un critique se moque d’Impression, soleil levant de Monet, et donne son nom au mouvement."
+      }
     },
     {
       "type": "EVENT",
@@ -65,7 +84,11 @@
     {
       "to": "tokyo-1870s",
       "kind": "Meanwhile, elsewhere",
-      "text": "Japan opens up to the world"
+      "text": "Japan opens up to the world",
+      "fr": {
+        "kind": "Pendant ce temps, ailleurs",
+        "text": "Le Japon s’ouvre au monde"
+      }
     },
     {
       "to": "paris-1890s",
@@ -74,12 +97,31 @@
       "faces": [
         "emile-zola",
         "georges-clemenceau"
-      ]
+      ],
+      "fr": {
+        "kind": "Suivre Zola et Clemenceau",
+        "text": "Vingt ans plus tard : l’affaire Dreyfus"
+      }
     },
     {
       "to": "kyoto-1590s",
       "kind": "Long before, far away",
-      "text": "Tea and power in Kyoto"
+      "text": "Tea and power in Kyoto",
+      "fr": {
+        "kind": "Bien avant, très loin",
+        "text": "Le thé et le pouvoir à Kyoto"
+      }
     }
-  ]
+  ],
+  "fr": {
+    "place": "Paris",
+    "period": "années 1870",
+    "hook": "Une république née de la défaite, et des peintres que le Salon refuse sans cesse.",
+    "world": {
+      "governs": "La Troisième République est jeune et fragile. Les monarchistes tiennent la Chambre jusqu’en 1877.",
+      "everyday": "La plupart des Français vivent encore à la campagne. Paris se reconstruit le long des grands boulevards d’Haussmann.",
+      "arts": "Les impressionnistes exposent hors du Salon officiel, et Zola écrit ses Rougon-Macquart.",
+      "meanwhile": "L’Allemagne vient de s’unifier autour de la Prusse, et le Japon se modernise à toute allure."
+    }
+  }
 }

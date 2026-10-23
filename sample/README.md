@@ -29,6 +29,7 @@ At startup the backend reads the directory in `app.release.dir`, checks it (`Rel
 - **Years are integers**, negative for BCE. There is no year 0.
 - **Optional fields are left out** rather than set to `null` or `false`.
 - **Strict**: an unknown field, a missing one, a duplicate id or a line out of order fails the start, with the file and line.
+- **French beside the English**: a record may have `fr`, its texts in French, each one its English has and no other (a region's `name`; an era's `label` and `governedBy`; a person's `name`, `occupation`, `bio`, and the title of their French Wikipedia article, `wikipedia`; a life's `label` and `description`; an event's `title` and `description`, with each participant's `role` in a `fr` of their own; a connection's `kind` and `text`; an anecdote's `text`; a moment's `place`, `period`, `hook` and `world`, with each card's `kicker`, `title` and `text` and each door's `kind` and `text` in theirs). The French site shows a record in French when it has one, else in English. The workbench's publish writes them from the translations the curator approved. Painting credits stay as they are.
 
 Consecutive eras share their boundary year; the one that starts later wins it. A person's `slug`, used in addresses, is their name without accents or punctuation; namesakes from the dataset add their year of birth, the one most written about keeping the name.
 
