@@ -1541,7 +1541,7 @@ export interface components {
         };
         FactChange: {
             /** @enum {string} */
-            fact: "NAME" | "FRENCH_NAME" | "BORN" | "DIED" | "DATES_APPROXIMATE" | "OCCUPATIONS" | "BIRTHPLACE" | "DEATHPLACE" | "WORK_PLACES" | "RESIDENCES" | "WIKIPEDIA" | "WIKIPEDIA_FR";
+            fact: "NAME" | "FRENCH_NAME" | "BORN" | "BORN_PRECISION" | "DIED" | "DIED_PRECISION" | "DIED_ESTIMATED" | "DATES_APPROXIMATE" | "OCCUPATIONS" | "BIRTHPLACE" | "DEATHPLACE" | "WORK_PLACES" | "RESIDENCES" | "WIKIPEDIA" | "WIKIPEDIA_FR";
             /**
              * @description None when there is none.
              * @example 1802
