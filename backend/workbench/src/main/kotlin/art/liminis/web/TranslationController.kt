@@ -3,6 +3,7 @@ package art.liminis.web
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import tools.jackson.databind.JsonNode
 import art.liminis.curation.ClaimRepository
 import art.liminis.curation.ClaimRules
 import art.liminis.curation.Claims
@@ -15,8 +16,11 @@ import art.liminis.translating.RecordTexts
 import art.liminis.translating.TranslationSources
 import art.liminis.web.WorkbenchSecurity.Companion.currentActor
 import art.liminis.workbench.api.TranslationsApi
+import art.liminis.workbench.api.model.CardTypeDto
 import art.liminis.workbench.api.model.ClaimDetailDto
 import art.liminis.workbench.api.model.NewFrenchDto
+import art.liminis.workbench.api.model.PaintingDto
+import art.liminis.workbench.api.model.RecordCardDto
 import art.liminis.workbench.api.model.RecordFrenchDto
 import art.liminis.workbench.api.model.RecordTextDto
 import art.liminis.workbench.api.model.RunDto
@@ -46,8 +50,21 @@ class TranslationController(
             texts = found.texts.map { (path, en) -> RecordTextDto(path, en, french[path]) },
             claim = claim,
             run = runs.lastTranslation(found.key),
+            art = found.node["art"]?.let(::painting),
+            cards = found.node["cards"]?.values()?.map { card ->
+                RecordCardDto(
+                    type = CardTypeDto.valueOf(card["type"].asString()),
+                    person = card["person"]?.asString(),
+                    life = card["life"]?.asString(),
+                    event = card["event"]?.asString(),
+                    year = card["year"]?.asInt(),
+                    art = card["art"]?.let(::painting),
+                )
+            },
         )
     }
+
+    private fun painting(art: JsonNode) = PaintingDto(art["url"].asString(), art["credit"].asString(), art["source"].asString())
 
     override fun translateRecord(record: String): RunDto = runs.start(RunKindDto.TRANSLATIONS, null, find(record).key)
 

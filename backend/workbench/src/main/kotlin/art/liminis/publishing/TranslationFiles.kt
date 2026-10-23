@@ -54,8 +54,10 @@ class TranslationFiles(private val claims: ClaimRepository, private val dataset:
         val was = records(kind, before).associateBy { it.key }
         val wikipedia = if (kind == RecordKind.PERSON) frenchArticles(records, translations) else emptyMap()
         val written = records.map { record ->
-            val carried = was[record.key]?.let { DataRecord(kind, RecordTexts.carry(kind, it.node, record.node)) } ?: record
-            translate(carried, translations[record.key], wikipedia[record.key])
+            val before = was[record.key]
+            val carried = before?.let { DataRecord(kind, RecordTexts.carry(kind, it.node, record.node)) } ?: record
+            val (translated, node, held) = translate(carried, translations[record.key], wikipedia[record.key])
+            Triple(translated, node, held ?: before?.let { lost(it, node) })
         }
         return Translated(
             written.associate { (record, node) -> record.key to mapper.writeValueAsString(node) },
@@ -72,7 +74,23 @@ class TranslationFiles(private val claims: ClaimRepository, private val dataset:
         val was = DataRecord(RecordKind.MOMENT, before, id)
         val moment = DataRecord(RecordKind.MOMENT, RecordTexts.carry(RecordKind.MOMENT, before, after), id)
         val (_, node, held) = translate(moment, translations[moment.key], null)
-        return Triple(node, change(was, node), held)
+        return Triple(node, change(was, node), held ?: lost(was, node))
+    }
+
+    /**
+     * Why a record that was in French ([before]) is now partly in English ([after]): a text added (a card, a line of the
+     * world around, a participant) has no French yet, or French that no longer fits the English had to go, as the
+     * release takes French that holds together with its English only.
+     */
+    private fun lost(before: DataRecord, after: ObjectNode): HeldBack? {
+        val had = RecordTexts.french(before.kind, before.node).orEmpty()
+        if (had.isEmpty()) return null
+        // Texts that were in English before stay out of it: only those that lost their French, or are new.
+        val wasEnglish = before.texts.map { it.first }.filter { it !in had }.toSet()
+        val french = RecordTexts.french(before.kind, after).orEmpty()
+        val untranslated = RecordTexts.english(before.kind, after).count { (path, _) -> path !in french && path !in wasEnglish }
+        return HeldBack(before.key, "$untranslated of its texts have no French that fits their English: French visitors read them in English until you approve its update")
+            .takeIf { untranslated > 0 }
     }
 
     private fun records(kind: RecordKind, text: String?): List<DataRecord> {

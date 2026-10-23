@@ -67,4 +67,37 @@ class RecordTextsTests {
         val french = RecordTexts.withFrench(RecordKind.PERSON, person, mapOf("name" to "Émile Zola", "occupation" to "romancier"), mapOf("wikipedia" to "Émile_Zola"))
         assertEquals("""{"name":"Émile Zola","occupation":"romancier","wikipedia":"Émile_Zola"}""", mapper.writeValueAsString(french["fr"]))
     }
+
+    @Test
+    fun `French carried to rewritten cards goes to the same card, same English first, a scene never by position alone`() {
+        val before = node(
+            """{"id":"m","place":"P","period":"1870s","hook":"H","fr":{"place":"P","period":"années 1870","hook":"H fr"},"cards":[
+            {"type":"SCENE","title":"One","fr":{"title":"Un"}},{"type":"SCENE","title":"Two","fr":{"title":"Deux"}},
+            {"type":"PERSON","person":"zola","text":"Old.","fr":{"text":"Ancien."}}]}""",
+        )
+        // A new scene first, the old two after it, Zola's text written again.
+        val after = node(
+            """{"id":"m","place":"P","period":"1870s","hook":"H","cards":[{"type":"SCENE","title":"New"},{"type":"SCENE","title":"One"},
+            {"type":"SCENE","title":"Two"},{"type":"PERSON","person":"zola","text":"New."}]}""",
+        )
+        val carried = RecordTexts.carry(RecordKind.MOMENT, before, after)
+
+        assertEquals(
+            mapOf("place" to "P", "period" to "années 1870", "hook" to "H fr", "cards[1].title" to "Un", "cards[2].title" to "Deux", "cards[3].text" to "Ancien."),
+            RecordTexts.french(RecordKind.MOMENT, carried),
+        )
+    }
+
+    @Test
+    fun `French that no longer holds together with its English goes, an event's with every role or none`() {
+        val card = node("""{"id":"m","place":"P","period":"p","hook":"h","cards":[{"type":"SCENE","title":"T","text":"Now a text.","fr":{"title":"T fr"}}]}""")
+        assertNull(RecordTexts.consistent(RecordKind.MOMENT, card)["cards"][0]["fr"])
+        val event = node(
+            """{"id":"e","title":"T","description":"D","fr":{"title":"T fr","description":"D fr"},
+            "participants":[{"person":"a","role":"r","fr":{"role":"r fr"}},{"person":"b","role":"new"}]}""",
+        )
+        assertNull(RecordTexts.french(RecordKind.EVENT, RecordTexts.consistent(RecordKind.EVENT, event)))
+        val person = node("""{"id":"p","name":"N","occupation":"o","fr":{"name":"N","occupation":"o fr","wikipedia":"N"}}""")
+        assertEquals(person, RecordTexts.consistent(RecordKind.PERSON, person))
+    }
 }

@@ -9,7 +9,8 @@ import { viewer } from "@/lib/viewer";
 /** A record curate shows no page of its own for (an era, a life, an event, a connection…): its French beside its English. */
 export default async function RecordFrenchPage({ params }: PageProps<"/translations/[record]">) {
   await connection();
-  const record = decodeURIComponent((await params).record);
+  // Next gives the parameter decoded.
+  const { record } = await params;
   const french = await frenchOf(record);
   if (!french) notFound();
 
@@ -22,7 +23,7 @@ export default async function RecordFrenchPage({ params }: PageProps<"/translati
         <h1 className="page-title">{french.record.label}</h1>
         <span className="text-muted">{KINDS[french.record.record.split(":")[0]]} in French</span>
       </div>
-      <FrenchDesk key={`${french.review?.claim.id} ${french.review?.version} ${french.record.run?.status}`} french={french} viewer={await viewer()} />
+      <FrenchDesk key={`${french.review?.claim.id} ${french.review?.version}`} french={french} viewer={await viewer()} />
     </main>
   );
 }

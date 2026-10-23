@@ -1,5 +1,8 @@
 package art.liminis.translating
 
+import com.anthropic.errors.NoCredentialsException
+import com.anthropic.errors.PermissionDeniedException
+import com.anthropic.errors.UnauthorizedException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import art.liminis.curation.Claim
@@ -69,6 +72,8 @@ class Translating(
                     if (asked.isEmpty()) emptyMap() else translator.translate(asked.map { it.toTranslate }, terms).also(cost::add).draft.records
                         .associate { it.record to it.texts.associate { text -> text.path to text.fr } }
                 } catch (e: Exception) {
+                    // No key, a refused key or a run asked to stop fails every batch: the run stops, saying why.
+                    if (e is UnauthorizedException || e is PermissionDeniedException || e is NoCredentialsException || Thread.currentThread().isInterrupted) throw e
                     log.warn("Could not translate {}", asked.joinToString { it.record.key }, e)
                     failed += asked.map { it.record.key }
                     continue

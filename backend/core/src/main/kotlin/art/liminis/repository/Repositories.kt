@@ -104,7 +104,7 @@ interface PersonRepository : JpaRepository<Person, String> {
         select p.* from {h-schema}person p
         where p.search_name like '%' || {h-schema}fold_for_search(:pattern) || '%' escape '\'
         order by ({h-schema}fold_for_search(p.name) like {h-schema}fold_for_search(:pattern) || '%' escape '\'
-            or {h-schema}fold_for_search(p.name_fr) like {h-schema}fold_for_search(:pattern) || '%' escape '\') desc,
+            or coalesce({h-schema}fold_for_search(p.name_fr) like {h-schema}fold_for_search(:pattern) || '%' escape '\', false)) desc,
             p.fame desc, p.birth_year, p.id
         limit :limit
         """,

@@ -783,6 +783,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /api/translations/{record}/run:
     post:
@@ -805,8 +807,12 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/Unavailable"
 
   /api/moments/{id}/holder:
     put:
@@ -1850,6 +1856,34 @@ components:
           example: translation:moment:paris-1870s
         run:
           $ref: "#/components/schemas/Run"
+        art:
+          description: A moment's painting, as publishing will write it.
+          allOf:
+            - $ref: "#/components/schemas/Painting"
+        cards:
+          type: array
+          description: A moment's story cards, as publishing will write them, in the order of the texts' `cards[n]`.
+          items:
+            $ref: "#/components/schemas/RecordCard"
+
+    RecordCard:
+      type: object
+      description: What a card of a moment's file shows, to preview its French.
+      required: [type]
+      properties:
+        type:
+          $ref: "#/components/schemas/CardType"
+        person:
+          type: string
+        life:
+          type: string
+        event:
+          type: string
+        year:
+          type: integer
+          format: int32
+        art:
+          $ref: "#/components/schemas/Painting"
 
     RecordText:
       type: object

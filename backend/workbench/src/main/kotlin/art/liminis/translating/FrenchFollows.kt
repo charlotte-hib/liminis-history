@@ -18,6 +18,8 @@ import art.liminis.workbench.api.model.RunKindDto
  * translation, Claude updates its French (only the texts whose English changed, from the French approved before), and
  * it waits for review under the record's Français tab. Meanwhile the site keeps the French written before. While another run runs, nothing starts: the tab says the English
  * changed, and "Translate again" does it. English changed by hand in `data/` waits for "Translate everything missing".
+ * Undoing the approval does not undo the update: its French then waits beside English publishing no longer writes,
+ * held back until it is translated again.
  */
 @Component
 class FrenchFollows(private val claims: ClaimRepository, private val runs: Runs) {
@@ -27,11 +29,20 @@ class FrenchFollows(private val claims: ClaimRepository, private val runs: Runs)
     @TransactionalEventListener(fallbackExecution = true)
     fun approved(event: Approved) {
         val record = recordOf(event) ?: return
-        if (!claims.existsById(ClaimRules.translationId(record))) return
+        val translated = try {
+            claims.existsById(ClaimRules.translationId(record))
+        } catch (e: Exception) {
+            log.warn("Could not tell whether {} has French", record, e)
+            false
+        }
+        if (!translated) return
+        // The approval is made: nothing here may fail it.
         try {
             runs.start(RunKindDto.TRANSLATIONS, null, record)
         } catch (e: ConflictException) {
             log.info("The French of {} waits: {}", record, e.message)
+        } catch (e: Exception) {
+            log.warn("Could not start updating the French of {}", record, e)
         }
     }
 

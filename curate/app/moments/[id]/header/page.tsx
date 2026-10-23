@@ -56,7 +56,7 @@ export default async function HeaderPage({ params, searchParams }: PageProps<"/m
         />
       )}
       {lang === "fr" && french ? (
-        <FrenchDesk key={`${french.review?.claim.id} ${french.review?.version} ${french.record.run?.status}`} french={french} viewer={await viewer()} />
+        <FrenchDesk key={`${french.review?.claim.id} ${french.review?.version}`} french={french} viewer={await viewer()} />
       ) : (
         <HeaderDesk
           moment={moment}

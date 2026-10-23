@@ -45,9 +45,14 @@ class TranslationSources(
 
     private fun records(base: String, kind: RecordKind): List<DataRecord> = when (kind) {
         RecordKind.MOMENT -> github.files(kind.path.removeSuffix("/"), base).filter { it.endsWith(".json") }.mapNotNull { moment(base, it.removeSuffix(".json")) }
-        RecordKind.ANECDOTE -> dataFiles.anecdotes().filter { it.source != null }.map { approved ->
-            val record = approved.anecdote
-            DataRecord(kind, jsonMapper.valueToTree(AnecdoteRecord(approved.id, record.person, record.year, record.text, approved.source!!)))
+        RecordKind.ANECDOTE -> {
+            // Rebuilt from their claims, as publishing writes them, with the French main has for them.
+            val published = lines(github.file(kind.path, base)).associateBy { it["id"]?.asString() }
+            dataFiles.anecdotes().filter { it.source != null }.map { approved ->
+                val record = approved.anecdote
+                val node = jsonMapper.valueToTree<ObjectNode>(AnecdoteRecord(approved.id, record.person, record.year, record.text, approved.source!!))
+                DataRecord(kind, published[approved.id]?.let { RecordTexts.carry(kind, it, node) } ?: node)
+            }
         }
         else -> lines(github.file(kind.path, base)).map { DataRecord(kind, it) }
     }
@@ -58,7 +63,10 @@ class TranslationSources(
         val page = approved<MomentPage>(ClaimType.MOMENT_PAGE).firstOrNull { it.moment == id }
         val story = approved<Story>(ClaimType.STORY).firstOrNull { it.moment == id }
         val written = if (page == null && story == null) text else momentFiles.write(text, page, story)
-        return DataRecord(RecordKind.MOMENT, momentFiles.node(written), id)
+        val node = momentFiles.node(written)
+        // French written for the English main has, not for an approved header or story's: none to build on.
+        val english = RecordTexts.english(RecordKind.MOMENT, node) == RecordTexts.english(RecordKind.MOMENT, momentFiles.node(text))
+        return DataRecord(RecordKind.MOMENT, if (english) node else RecordTexts.withFrench(RecordKind.MOMENT, node, null), id)
     }
 
     private inline fun <reified T> approved(type: ClaimType): List<T> =

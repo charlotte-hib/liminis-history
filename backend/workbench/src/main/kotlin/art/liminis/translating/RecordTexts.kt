@@ -114,21 +114,23 @@ object RecordTexts {
 
     /**
      * [record] with the French [from] had, where [record] has none: the record's own French, and each card's, door's or
-     * participant's from the one of [from] that shows the same (a card the same person, life or event, in order; a door
-     * the same moment; a participant the same person). For a record whose English was written again (a moment's new
-     * story, an anecdote rebuilt from its claim): its French stays until a new one is approved.
+     * participant's from the one of [from] it is: the item with the same English first, else, for an item that names
+     * whom or what it shows, the one showing the same (a card the same person, life or event, in order; a door the same
+     * moment; a participant the same person). A scene card, which names nothing, keeps French only with its English
+     * unchanged. For a record whose English was written again (a moment's new story, an anecdote rebuilt from its
+     * claim): its French stays until a new one is approved.
      */
     fun carry(kind: RecordKind, from: ObjectNode, record: ObjectNode): ObjectNode {
         val written = record.deepCopy()
         if (written[FR] == null) from[FR]?.let { written.set(FR, it.deepCopy()) }
-        for (list in kind.fields.mapNotNull { split(it).first }.distinct()) {
+        for ((list, inner) in kind.fields.mapNotNull { field -> split(field).first?.let { it to split(field).second } }.groupBy({ it.first }, { it.second })) {
+            val english = { item: JsonNode -> inner.map { at(item, it) } }
             val unused = from[list]?.values().orEmpty().filter { it[FR] != null }.toMutableList()
-            for (item in written[list]?.values().orEmpty().filterIsInstance<ObjectNode>()) {
-                if (item[FR] != null) continue
-                val same = unused.firstOrNull { shows(it) == shows(item) } ?: continue
-                unused.remove(same)
-                item.set(FR, same[FR].deepCopy())
-            }
+            val items = written[list]?.values().orEmpty().filterIsInstance<ObjectNode>().filter { it[FR] == null }
+            val matched = mutableMapOf<ObjectNode, JsonNode>()
+            for (item in items) unused.firstOrNull { english(it) == english(item) && shows(it) == shows(item) }?.let { unused.remove(it); matched[item] = it }
+            for (item in items.filter { it !in matched && named(it) }) unused.firstOrNull { shows(it) == shows(item) }?.let { unused.remove(it); matched[item] = it }
+            matched.forEach { (item, same) -> item.set(FR, same[FR].deepCopy()) }
         }
         return consistent(kind, written)
     }
@@ -166,6 +168,9 @@ object RecordTexts {
     /** What an item of a list shows, to match it with another: a card its type and record, a door its moment, a participant their person. */
     private fun shows(item: JsonNode): List<String?> =
         listOf("type", "person", "life", "event", "to").map { item[it]?.asString() }
+
+    /** Whether an item names whom or what it shows: not a scene card. */
+    private fun named(item: JsonNode) = listOf("person", "life", "event", "to").any { item[it] != null }
 
     /** The list item a path's French goes beside (`cards[2]`), or none for the record's own. */
     private fun containerOf(path: String): String? = ITEM.matchEntire(path)?.let { "${it.groupValues[1]}[${it.groupValues[2]}]" }

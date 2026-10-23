@@ -74,6 +74,14 @@ class PersonApiTests(@Autowired private val mockMvc: MockMvc) {
     }
 
     @Test
+    fun `a name starting with the query comes first, with or without a French name`() {
+        // Ada Lovelace has no French name in the sample; her name starts with the query.
+        mockMvc.get("/api/search?q=ada").andExpect {
+            jsonPath("$.people[0].slug") { value("ada-lovelace") }
+        }
+    }
+
+    @Test
     fun `in French, moments are searched in French`() {
         mockMvc.get("/api/search?q=années 1870&lang=fr").andExpect {
             jsonPath("$.moments[0].id") { value("paris-1870s") }

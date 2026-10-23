@@ -932,6 +932,20 @@ export interface components {
              */
             claim?: string;
             run?: components["schemas"]["Run"];
+            /** @description A moment's painting, as publishing will write it. */
+            art?: components["schemas"]["Painting"];
+            /** @description A moment's story cards, as publishing will write them, in the order of the texts' `cards[n]`. */
+            cards?: components["schemas"]["RecordCard"][];
+        };
+        /** @description What a card of a moment's file shows, to preview its French. */
+        RecordCard: {
+            type: components["schemas"]["CardType"];
+            person?: string;
+            life?: string;
+            event?: string;
+            /** Format: int32 */
+            year?: number;
+            art?: components["schemas"]["Painting"];
         };
         RecordText: {
             /** @example cards[2].text */
@@ -2342,6 +2356,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
         };
     };
     translateRecord: {
@@ -2367,7 +2382,9 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
         };
     };
     takeMoment: {

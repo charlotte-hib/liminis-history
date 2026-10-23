@@ -39,7 +39,8 @@ export default async function StoryPage({ params, searchParams }: PageProps<"/mo
 
   // Both the story under review and Claude's newer draft, if any: the curator may start from either.
   const stories = current ? ([current.claim.payload, current.claim.proposal as Story].filter((story) => story.type === "STORY") as Story[]) : [];
-  const cards: StoryCard[] = stories[0]?.cards ?? moment.storyCards;
+  // The French tab previews the cards as publishing will write them, the record's own.
+  const cards: StoryCard[] = lang === "fr" && french ? (french.record.cards ?? []).map((card) => ({ ...card, citations: [] })) : (stories[0]?.cards ?? moment.storyCards);
   const named = (field: "person" | "life" | "event") => [...new Set([...stories.flatMap((story) => story.cards), ...cards].flatMap((card) => card[field] ?? []))];
   const preview = async () => {
     const { data } = await workbench.GET("/api/moments/{id}/preview", {
@@ -62,10 +63,10 @@ export default async function StoryPage({ params, searchParams }: PageProps<"/mo
             <span className="text-muted">in French</span>
           </h1>
           <FrenchDesk
-            key={`${french.review?.claim.id} ${french.review?.version} ${french.record.run?.status}`}
+            key={`${french.review?.claim.id} ${french.review?.version}`}
             french={french}
             viewer={await viewer()}
-            story={{ cards, subjects: subjectsOf(shown), art: shown.art, title: `${moment.place}, ${moment.period}` }}
+            story={{ cards, subjects: subjectsOf(shown), art: french.record.art ?? shown.art, title: `${moment.place}, ${moment.period}` }}
           />
         </main>
       </div>

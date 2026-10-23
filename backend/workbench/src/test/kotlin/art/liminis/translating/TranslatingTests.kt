@@ -38,6 +38,7 @@ import art.liminis.curation.StoryCard
 import art.liminis.curation.Verdict
 import art.liminis.domain.CardType
 import art.liminis.runs.Runs
+import art.liminis.workbench.api.model.RunDto
 import art.liminis.curation.ClaimStatus
 import art.liminis.curation.CurationFixtures
 import art.liminis.curation.Flag
@@ -254,6 +255,9 @@ class TranslatingTests(
 
         val run = runs.lastTranslation("moment:paris-1870s")
         assertEquals("moment:paris-1870s", run?.record)
+        // Done before the next test clears the claims it writes.
+        val deadline = System.nanoTime() + 10_000_000_000
+        while (runs.find(run!!.id).status == RunDto.Status.RUNNING && System.nanoTime() < deadline) Thread.sleep(50)
     }
 
     companion object {

@@ -49,8 +49,11 @@ export function FrenchDesk({ french, viewer, story }: Props) {
   const running = record.run?.status === "RUNNING";
   const edited = values.some((value, i) => value !== initial[i]);
   const blank = values.some((value) => !value.trim());
-  // Translated from other English: the run translates the texts that changed again.
-  const stale = translation !== undefined && translation.texts.some((text, i) => text.path !== record.texts[i]?.path || text.en !== record.texts[i]?.en);
+  // Translated from other English: the run translates the texts that changed again, and only then can it be approved.
+  const stale =
+    translation !== undefined &&
+    (translation.texts.length !== record.texts.length || translation.texts.some((text, i) => text.path !== record.texts[i].path || text.en !== record.texts[i].en));
+  const cannotApprove = pending || locked || blank || stale || running || (claim?.status === "APPROVED" && !edited);
 
   useEffect(() => {
     if (!running) return;
@@ -58,12 +61,23 @@ export function FrenchDesk({ french, viewer, story }: Props) {
     return () => clearInterval(poll);
   }, [running, router]);
 
-  // Edits not approved are lost by leaving: the browser asks first.
+  // Edits not approved are lost by leaving, by a link in curate or the browser: both ask first.
   useEffect(() => {
     if (!edited) return;
     const ask = (event: BeforeUnloadEvent) => event.preventDefault();
+    const follow = (event: MouseEvent) => {
+      const link = (event.target as HTMLElement).closest("a[href]");
+      if (link && !window.confirm("Leave without approving your French? Your changes will be lost.")) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
     window.addEventListener("beforeunload", ask);
-    return () => window.removeEventListener("beforeunload", ask);
+    document.addEventListener("click", follow, true);
+    return () => {
+      window.removeEventListener("beforeunload", ask);
+      document.removeEventListener("click", follow, true);
+    };
   }, [edited]);
 
   const run = (call: () => Promise<{ ok: true } | { ok: false; status: number; detail: string }>) =>
@@ -76,10 +90,12 @@ export function FrenchDesk({ french, viewer, story }: Props) {
 
   const translate = () => run(() => translateRecord(record.record));
   const texts = () => record.texts.map((text, i) => ({ path: text.path, fr: values[i] }));
+  const index = new Map(record.texts.map((text, i) => [text.path, i]));
   const approve = () => {
-    if (blank) return;
+    if (cannotApprove) return;
     if (!claim || !french.review) return run(() => writeFrench(record.record, texts()));
-    const payload = edited && translation ? { ...translation, texts: translation.texts.map((text, i) => ({ ...text, fr: values[i] })) } : undefined;
+    // The claim's texts are the record's (it is not stale), each French taken by its path.
+    const payload = edited && translation ? { ...translation, texts: translation.texts.map((text) => ({ ...text, fr: values[index.get(text.path)!] })) } : undefined;
     run(() => decide(claim.id, french.review!.version, { action: "APPROVE", payload }));
   };
   const decideOn = (action: Action) => claim && french.review && run(() => decide(claim.id, french.review!.version, { action, note: note.trim() }));
@@ -88,7 +104,7 @@ export function FrenchDesk({ french, viewer, story }: Props) {
     const keys = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || pending || locked || mode !== "view") return;
       if ((event.target as HTMLElement).closest("input, textarea, select")) return;
-      if (event.key === "a" && (writing || claim)) {
+      if (event.key === "a" && (writing || claim) && !cannotApprove) {
         event.preventDefault();
         approve();
       }
@@ -112,7 +128,6 @@ export function FrenchDesk({ french, viewer, story }: Props) {
     );
   }
 
-  const index = new Map(record.texts.map((text, i) => [text.path, i]));
   const field = (path: string) => {
     const i = index.get(path);
     if (i === undefined) return null;
@@ -125,7 +140,7 @@ export function FrenchDesk({ french, viewer, story }: Props) {
         en={text.en}
         fr={values[i]}
         changed={values[i] !== initial[i]}
-        readOnly={locked}
+        readOnly={locked || running}
         flags={flags.map((flag) => flag.reason.slice(path.length + 2))}
         onChange={(fr) => setValues(values.map((value, j) => (j === i ? fr : value)))}
       />
@@ -189,7 +204,7 @@ export function FrenchDesk({ french, viewer, story }: Props) {
           </form>
         ) : (
           <>
-            <button type="button" disabled={pending || locked || blank || (claim?.status === "APPROVED" && !edited)} onClick={approve} className="button-primary" title="Key: A">
+            <button type="button" disabled={cannotApprove} onClick={approve} className="button-primary" title="Key: A">
               {claim?.status === "APPROVED" && !edited ? "French approved" : edited ? "Approve the French with my changes" : "Approve the French"}
             </button>
             {edited && (

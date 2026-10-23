@@ -71,7 +71,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
             <h1 className="page-title">{french.record.label}</h1>
             <span className="text-muted">in French</span>
           </div>
-          <FrenchDesk key={`${french.review?.claim.id} ${french.review?.version} ${french.record.run?.status}`} french={french} viewer={who} />
+          <FrenchDesk key={`${french.review?.claim.id} ${french.review?.version}`} french={french} viewer={who} />
         </main>
       </div>
     );
