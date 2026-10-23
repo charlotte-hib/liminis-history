@@ -1,7 +1,6 @@
 import { Globe, Landmark, Palette, Wheat } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
-import { CONTENT_LANG } from "@/lib/content";
 import type { WorldAround as World } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +28,7 @@ export function WorldAround({ world, meanwhile, compact }: Props) {
           <Icon aria-hidden className={cn("mt-1 size-4", color)} />
           <dt className={cn("pt-0.5 text-xs tracking-widest text-muted-foreground uppercase", compact && "sr-only")}>{t(key)}</dt>
           <dd className={cn("col-start-2 font-story leading-snug", compact ? "text-base" : "text-lg sm:col-start-3")}>
-            <span lang={CONTENT_LANG}>{world[key]}</span>
+            <span lang={world.lang}>{world[key]}</span>
             {key === "meanwhile" && meanwhile && <div className="mt-2 font-sans">{meanwhile}</div>}
           </dd>
         </div>

@@ -1,9 +1,22 @@
 {
   "$schema" : "https://json-schema.org/draft/2020-12/schema",
   "$defs" : {
+    "AnecdoteFrenchRecord" : {
+      "type" : "object",
+      "properties" : {
+        "text" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "text" ],
+      "additionalProperties" : false
+    },
     "AnecdoteRecord" : {
       "type" : "object",
       "properties" : {
+        "fr" : {
+          "$ref" : "#/$defs/AnecdoteFrenchRecord"
+        },
         "id" : {
           "type" : "string"
         },
@@ -64,6 +77,21 @@
       "required" : [ "credit", "source", "url" ],
       "additionalProperties" : false
     },
+    "CardFrenchRecord" : {
+      "type" : "object",
+      "properties" : {
+        "kicker" : {
+          "type" : "string"
+        },
+        "text" : {
+          "type" : "string"
+        },
+        "title" : {
+          "type" : "string"
+        }
+      },
+      "additionalProperties" : false
+    },
     "CardRecord" : {
       "type" : "object",
       "properties" : {
@@ -72,6 +100,9 @@
         },
         "event" : {
           "type" : "string"
+        },
+        "fr" : {
+          "$ref" : "#/$defs/CardFrenchRecord"
         },
         "kicker" : {
           "type" : "string"
@@ -102,9 +133,25 @@
       "type" : "string",
       "enum" : [ "SCENE", "PERSON", "LIFE", "EVENT" ]
     },
+    "ConnectionFrenchRecord" : {
+      "type" : "object",
+      "properties" : {
+        "kind" : {
+          "type" : "string"
+        },
+        "text" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "kind", "text" ],
+      "additionalProperties" : false
+    },
     "ConnectionRecord" : {
       "type" : "object",
       "properties" : {
+        "fr" : {
+          "$ref" : "#/$defs/ConnectionFrenchRecord"
+        },
         "kind" : {
           "type" : "string"
         },
@@ -162,6 +209,19 @@
       "type" : "string",
       "enum" : [ "POWER", "ARTS", "EVERYDAY" ]
     },
+    "DoorFrenchRecord" : {
+      "type" : "object",
+      "properties" : {
+        "kind" : {
+          "type" : "string"
+        },
+        "text" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "kind", "text" ],
+      "additionalProperties" : false
+    },
     "DoorRecord" : {
       "type" : "object",
       "properties" : {
@@ -170,6 +230,9 @@
           "items" : {
             "type" : "string"
           }
+        },
+        "fr" : {
+          "$ref" : "#/$defs/DoorFrenchRecord"
         },
         "kind" : {
           "type" : "string"
@@ -184,11 +247,27 @@
       "required" : [ "kind", "text", "to" ],
       "additionalProperties" : false
     },
+    "EraFrenchRecord" : {
+      "type" : "object",
+      "properties" : {
+        "governedBy" : {
+          "type" : "string"
+        },
+        "label" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "label" ],
+      "additionalProperties" : false
+    },
     "EraRecord" : {
       "type" : "object",
       "properties" : {
         "end" : {
           "type" : "integer"
+        },
+        "fr" : {
+          "$ref" : "#/$defs/EraFrenchRecord"
         },
         "governedBy" : {
           "type" : "string"
@@ -209,11 +288,27 @@
       "required" : [ "id", "label", "region", "start" ],
       "additionalProperties" : false
     },
+    "EventFrenchRecord" : {
+      "type" : "object",
+      "properties" : {
+        "description" : {
+          "type" : "string"
+        },
+        "title" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "description", "title" ],
+      "additionalProperties" : false
+    },
     "EventRecord" : {
       "type" : "object",
       "properties" : {
         "description" : {
           "type" : "string"
+        },
+        "fr" : {
+          "$ref" : "#/$defs/EventFrenchRecord"
         },
         "id" : {
           "type" : "string"
@@ -262,6 +357,19 @@
       "required" : [ "credit", "source", "url" ],
       "additionalProperties" : false
     },
+    "LifeFrenchRecord" : {
+      "type" : "object",
+      "properties" : {
+        "description" : {
+          "type" : "string"
+        },
+        "label" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "description", "label" ],
+      "additionalProperties" : false
+    },
     "LifeIcon" : {
       "type" : "string",
       "enum" : [ "AMPHORA", "BRIEFCASE", "CAR", "COINS", "CONCIERGE_BELL", "FACTORY", "FISH", "HAMMER", "LEAF", "PICKAXE", "SHELL", "SHIELD", "SHIRT", "SHOVEL", "SPOOL", "SPROUT", "WHEAT" ]
@@ -277,6 +385,9 @@
         },
         "end" : {
           "type" : "integer"
+        },
+        "fr" : {
+          "$ref" : "#/$defs/LifeFrenchRecord"
         },
         "icon" : {
           "$ref" : "#/$defs/LifeIcon"
@@ -295,6 +406,25 @@
         }
       },
       "required" : [ "description", "end", "id", "label", "region", "start" ],
+      "additionalProperties" : false
+    },
+    "MomentFrenchRecord" : {
+      "type" : "object",
+      "properties" : {
+        "hook" : {
+          "type" : "string"
+        },
+        "period" : {
+          "type" : "string"
+        },
+        "place" : {
+          "type" : "string"
+        },
+        "world" : {
+          "$ref" : "#/$defs/WorldRecord"
+        }
+      },
+      "required" : [ "hook", "period", "place" ],
       "additionalProperties" : false
     },
     "MomentRecord" : {
@@ -323,6 +453,9 @@
         },
         "focus" : {
           "type" : "integer"
+        },
+        "fr" : {
+          "$ref" : "#/$defs/MomentFrenchRecord"
         },
         "hook" : {
           "type" : "string"
@@ -368,9 +501,22 @@
       "required" : [ "id" ],
       "additionalProperties" : false
     },
+    "ParticipantFrenchRecord" : {
+      "type" : "object",
+      "properties" : {
+        "role" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "role" ],
+      "additionalProperties" : false
+    },
     "ParticipantRecord" : {
       "type" : "object",
       "properties" : {
+        "fr" : {
+          "$ref" : "#/$defs/ParticipantFrenchRecord"
+        },
         "person" : {
           "type" : "string"
         },
@@ -379,6 +525,25 @@
         }
       },
       "required" : [ "person", "role" ],
+      "additionalProperties" : false
+    },
+    "PersonFrenchRecord" : {
+      "type" : "object",
+      "properties" : {
+        "bio" : {
+          "type" : "string"
+        },
+        "name" : {
+          "type" : "string"
+        },
+        "occupation" : {
+          "type" : "string"
+        },
+        "wikipedia" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "name", "occupation" ],
       "additionalProperties" : false
     },
     "PersonRecord" : {
@@ -398,6 +563,9 @@
         },
         "domain" : {
           "$ref" : "#/$defs/Domain"
+        },
+        "fr" : {
+          "$ref" : "#/$defs/PersonFrenchRecord"
         },
         "id" : {
           "type" : "string"
@@ -425,9 +593,22 @@
       "type" : "string",
       "enum" : [ "DRAFT", "PUBLISHED" ]
     },
+    "RegionFrenchRecord" : {
+      "type" : "object",
+      "properties" : {
+        "name" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "name" ],
+      "additionalProperties" : false
+    },
     "RegionRecord" : {
       "type" : "object",
       "properties" : {
+        "fr" : {
+          "$ref" : "#/$defs/RegionFrenchRecord"
+        },
         "id" : {
           "type" : "string"
         },

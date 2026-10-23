@@ -1,7 +1,6 @@
 import { useTranslations } from "next-intl";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "@/i18n/navigation";
-import { CONTENT_LANG } from "@/lib/content";
 import { hasStory, momentHref, titleOf } from "@/lib/moments";
 import { createTimeScale } from "@/lib/time-scale";
 import type { MomentSummary } from "@/lib/types";
@@ -30,7 +29,7 @@ export function StoryMap({ moments }: { moments: MomentSummary[] }) {
       <div className="border-t">
         {regions.map(([code, name]) => (
           <div key={code} className="relative flex h-11 items-center border-b">
-            <span lang={CONTENT_LANG} className="w-20 shrink-0 text-xs font-medium text-muted-foreground">{name}</span>
+            <span className="w-20 shrink-0 text-xs font-medium text-muted-foreground">{name}</span>
             <div className="relative h-full flex-1">
               {moments.filter((m) => m.regionCode === code).map((moment) => (
                 <Tooltip key={moment.id}>

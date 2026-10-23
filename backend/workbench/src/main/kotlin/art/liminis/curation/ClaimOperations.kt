@@ -27,6 +27,9 @@ data class ClaimDetail(val claim: Claim, val sources: List<SourceRef>, val decis
 /** A claim the workbench proposes: its record as fetched or drafted, where it came from, its flags and sources. */
 data class Proposal(val payload: Payload, val origin: Origin, val flags: List<FlagReason>, val sources: List<SourceRef>)
 
+/** A claim approved by a curator: published once its transaction commits, for what follows it (its record's French). */
+data class Approved(val claim: String, val payload: Payload)
+
 /** What proposing came to: claims added, claims whose proposal changed, and claims left as they were. */
 data class ProposalCounts(val added: Int, val refreshed: Int, val unchanged: Int) {
     override fun toString() = "$added added, $refreshed refreshed, $unchanged unchanged"

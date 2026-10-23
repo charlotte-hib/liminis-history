@@ -91,6 +91,62 @@ class ReleaseCompilerTests {
     }
 
     @Test
+    fun `a record's French goes beside its English, who governed defaulting to the label as in English`() {
+        val moment = release.moments[0]
+        val compiled = ReleaseCompiler.compile(
+            release.copy(
+                regions = listOf(release.regions[0].copy(fr = RegionFrenchRecord("France"))),
+                eras = listOf(release.eras[0].copy(fr = EraFrenchRecord("Second Empire", "Napoléon III")), release.eras[1].copy(fr = EraFrenchRecord("Troisième République"))) + release.eras.drop(2),
+                people = listOf(release.people[0].copy(fr = PersonFrenchRecord("Émile Zola", "romancier", wikipedia = "Émile_Zola"))) + release.people.drop(1),
+                events = listOf(
+                    release.events[0].copy(
+                        fr = EventFrenchRecord("J'accuse…!", "Une lettre ouverte."),
+                        participants = listOf(ParticipantRecord("emile-zola", "author", ParticipantFrenchRecord("auteur"))),
+                    ),
+                ),
+                moments = listOf(
+                    moment.copy(
+                        fr = MomentFrenchRecord("Paris", "années 1870", "Une république."),
+                        cards = listOf(CardRecord(CardType.SCENE, title = "A republic", text = "Born of defeat.", fr = CardFrenchRecord(title = "Une république", text = "Née de la défaite."))),
+                        doors = listOf(moment.doors[0].copy(fr = DoorFrenchRecord("suivre", "Vingt ans plus tard"))),
+                    ),
+                    release.moments[1],
+                ),
+            ),
+        )
+
+        assertEquals("France", compiled.regions.single().nameFr)
+        assertEquals("Napoléon III", compiled.eras[0].fr?.governedBy)
+        assertEquals("Troisième République", compiled.eras[1].fr?.governedBy)
+        assertEquals(null, compiled.eras[2].fr)
+        val zola = compiled.people.first()
+        assertEquals(listOf("Émile Zola", "Émile_Zola"), listOf(zola.nameFr, zola.wikipediaTitleFr))
+        assertEquals(listOf("romancier"), zola.occupationsFr)
+        assertEquals(null, compiled.people[1].nameFr)
+        assertEquals("auteur", compiled.events.single().participants.single().roleFr)
+        assertEquals("années 1870", compiled.moments[0].fr?.period)
+        assertEquals("Née de la défaite.", compiled.moments[0].cards.single().fr?.text)
+        assertEquals("Vingt ans plus tard", compiled.doors.single().fr?.text)
+        assertEquals(null, compiled.moments[1].fr)
+    }
+
+    @Test
+    fun `a record's French has each text its English has, and only those`() {
+        val era = release.eras[0]
+        assertEquals("eras.jsonl fr-second-empire: its French has no governedBy, as its English has", problem(release.copy(eras = listOf(era.copy(fr = EraFrenchRecord("Second Empire"))) + release.eras.drop(1))))
+        val zola = release.people[0]
+        assertEquals("people.jsonl emile-zola: its French has a bio, which its English has not", problem(release.copy(people = listOf(zola.copy(fr = PersonFrenchRecord("Émile Zola", "romancier", bio = "Romancier."))) + release.people.drop(1))))
+        val moment = release.moments[0]
+        val card = CardRecord(CardType.SCENE, title = "A republic", text = "Born of defeat.", fr = CardFrenchRecord(title = "Une république"))
+        assertEquals("moments/paris-1870s.json card 1: its French has no text, as its English has", problem(release.copy(moments = listOf(moment.copy(cards = listOf(card)), release.moments[1]))))
+        val event = release.events[0]
+        assertEquals(
+            "events.jsonl jaccuse: an event in French has every participant's role in French, and only then",
+            problem(release.copy(events = listOf(event.copy(fr = EventFrenchRecord("J'accuse…!", "Une lettre ouverte."))))),
+        )
+    }
+
+    @Test
     fun `a connection links two different people`() {
         val connection = ConnectionRecord(listOf("emile-zola", "emile-zola"), "friends", 1860, "Himself.", "https://example.org")
         assertEquals("connections.jsonl emile-zola emile-zola friends: a connection links two different people", problem(release.copy(connections = listOf(connection))))

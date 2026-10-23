@@ -16,6 +16,8 @@ import art.liminis.release.CardRecord
 import art.liminis.release.MomentRecord
 import art.liminis.release.WorldRecord
 import art.liminis.support.UnavailableException
+import art.liminis.translating.RecordKind
+import art.liminis.translating.RecordTexts
 import kotlin.reflect.full.primaryConstructor
 
 /** What a moment's file says of it at the top of its page, "Paris, 1870s", its hook, world and painting, and in its story. */
@@ -67,14 +69,32 @@ class MomentFiles(jsonMapper: JsonMapper) {
             .sortedBy { FIELDS.indexOf(it).takeIf { index -> index >= 0 } ?: FIELDS.size }
         val merged = mapper.createObjectNode()
         for (name in names) merged.set(name, written[name] ?: file[name])
-        return mapper.writer().with(printer).writeValueAsString(merged) + "\n"
+        // A header and story written back as the file has them keep the French beside them; any other change of their
+        // English leaves the French to the moment's translation.
+        val french = RecordTexts.french(RecordKind.MOMENT, file)
+        if (french != null && RecordTexts.english(RecordKind.MOMENT, merged) == RecordTexts.english(RecordKind.MOMENT, file)) {
+            return print(RecordTexts.withFrench(RecordKind.MOMENT, merged, french))
+        }
+        return print(merged)
     }
 
-    /** The header and story in [text], a moment's file, as one line of JSON: to compare and to show. */
-    fun momentText(text: String): String {
-        val file = read(text)
-        return mapper.writeValueAsString(mapper.createObjectNode().apply { for (name in listOf(HOOK, WORLD, ART, CARDS)) file[name]?.let { set(name, it) } })
+    /**
+     * The header and story in [text], a moment's file, as one line of JSON: to compare and to show. With [french], the
+     * French beside them too; without, the English alone.
+     */
+    fun momentText(text: String, french: Boolean = true): String {
+        val file = read(text).let { if (french) it else RecordTexts.withFrench(RecordKind.MOMENT, it, null) }
+        val names = listOf(HOOK, WORLD, ART, CARDS) + listOf(FR).filter { french }
+        return mapper.writeValueAsString(mapper.createObjectNode().apply { for (name in names) file[name]?.let { set(name, it) } })
     }
+
+    /** [text], a moment's file, as an object. */
+    fun node(text: String): ObjectNode = read(text)
+
+    /** [text], a moment's file, as [change] makes it, in the same layout. */
+    fun edit(text: String, change: (ObjectNode) -> ObjectNode): String = print(change(read(text)))
+
+    private fun print(node: ObjectNode): String = mapper.writer().with(printer).writeValueAsString(node) + "\n"
 
     /** What [text], a moment's file, says at the top of the moment's page and in its story. */
     fun content(text: String): MomentContent {
@@ -100,6 +120,7 @@ class MomentFiles(jsonMapper: JsonMapper) {
         const val WORLD = "world"
         const val CARDS = "cards"
         const val ART = "art"
+        const val FR = "fr"
         val INDENT = DefaultIndenter("  ", "\n")
 
         /** A moment's fields in the release format's order. */

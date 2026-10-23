@@ -11,6 +11,7 @@ import java.time.Duration
 
 @ConfigurationProperties("app.wikipedia")
 data class WikipediaProperties(
+    /** The REST API's address, with `{language}` for the Wikipedia's: `en`, `fr`. */
     val baseUrl: String,
     val userAgent: String,
     val enrich: Boolean = true,
@@ -33,11 +34,12 @@ class WikipediaClient(builder: RestClient.Builder, properties: WikipediaProperti
         .defaultHeader("User-Agent", properties.userAgent)
         .build()
 
-    fun summary(title: String): ArticleSummary? {
+    /** The summary of the article [title] of the Wikipedia in [language], `en` or `fr`. */
+    fun summary(title: String, language: String = "en"): ArticleSummary? {
         repeat(MAX_ATTEMPTS) { attempt ->
             try {
                 return restClient.get()
-                    .uri("/page/summary/{title}", title)
+                    .uri("/page/summary/{title}", mapOf("language" to language, "title" to title))
                     .retrieve()
                     .body<PageSummary>()
                     ?.let { ArticleSummary(it.extract, it.thumbnail?.source, it.contentUrls?.desktop?.page) }

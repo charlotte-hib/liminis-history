@@ -9,6 +9,7 @@ import art.liminis.dataset.DatasetExport
 import art.liminis.dataset.DatasetMapping
 import art.liminis.drafting.StoryDrafting
 import art.liminis.repository.MomentRepository
+import art.liminis.translating.Translating
 import art.liminis.support.ConflictException
 import art.liminis.support.InvalidRequestException
 import art.liminis.support.NotFoundException
@@ -22,7 +23,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Runs imports, mappings, exports, proposals and drafts in the background, one at a time: they share Wikimedia's pace and the
+ * Runs imports, mappings, exports, proposals, drafts and translations in the background, one at a time: they share Wikimedia's pace and the
  * dataset. Kept in memory: a run stopped by a restart is started again by hand, and an import resumes where it was.
  */
 @Service
@@ -33,6 +34,7 @@ class Runs(
     private val personFacts: PersonFactsProposals,
     private val occupations: OccupationProposals,
     private val drafting: StoryDrafting,
+    private val translating: Translating,
     private val moments: MomentRepository,
 ) : DisposableBean {
 
@@ -45,11 +47,14 @@ class Runs(
 
     fun find(id: Long): RunDto = runs[id] ?: throw NotFoundException("No run $id")
 
+    /** The last run that translated, [record] alone if given, else every record with no French. */
+    fun lastTranslation(record: String? = null): RunDto? = all().firstOrNull { it.kind == RunKindDto.TRANSLATIONS && it.record == record }
+
     /** The last run that drafted [moment]'s story, if any. */
     fun lastDraft(moment: String): RunDto? = all().firstOrNull { it.kind == RunKindDto.STORY_DRAFT && it.moment == moment }
 
     @Synchronized
-    fun start(kind: RunKindDto, moment: String?): RunDto {
+    fun start(kind: RunKindDto, moment: String?, record: String? = null): RunDto {
         if (kind == RunKindDto.STORY_DRAFT && (moment == null || !moments.existsById(moment))) {
             throw InvalidRequestException("A story draft needs a moment of the release")
         }
@@ -59,6 +64,7 @@ class Runs(
         val run = RunDto(
             id = ids.incrementAndGet(), kind = kind, status = RunDto.Status.RUNNING, startedAt = now(),
             moment = moment.takeIf { kind == RunKindDto.STORY_DRAFT },
+            record = record.takeIf { kind == RunKindDto.TRANSLATIONS },
         )
         runs[run.id] = run
         executor.execute { finish(run) }
@@ -84,6 +90,7 @@ class Runs(
         RunKindDto.PERSON_FACTS_CLAIMS -> personFacts.propose().toString()
         RunKindDto.OCCUPATION_CLAIMS -> occupations.propose().toString()
         RunKindDto.STORY_DRAFT -> drafting.draft(run.moment!!)
+        RunKindDto.TRANSLATIONS -> translating.translate(run.record)
     }
 
     override fun destroy() {

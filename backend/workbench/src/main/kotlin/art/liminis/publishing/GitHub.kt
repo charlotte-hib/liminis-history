@@ -76,6 +76,11 @@ class GitHub(builder: RestClient.Builder, private val properties: PublishPropert
         }
     }
 
+    /** The names of the files in the folder [path] of [commit], none when there is no such folder. */
+    fun files(path: String, commit: String): List<String> = call {
+        getOrNull("$repo/contents/$path?ref=$commit")?.values()?.filter { it["type"].asString() == "file" }?.map { it["name"].asString() }.orEmpty()
+    }
+
     /**
      * A commit on top of [parent] that sets each file of [files] to its text, or removes it when there is none, and
      * leaves every other file as it is in [parent].

@@ -14,7 +14,6 @@ import { TrailOrigin } from "@/components/person-panel";
 import { buttonVariants } from "@/components/ui/button";
 import { Link, useRouter } from "@/i18n/navigation";
 import { track } from "@/lib/analytics";
-import { CONTENT_LANG } from "@/lib/content";
 import { titleOf } from "@/lib/moments";
 import type { Story, StoryCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -189,7 +188,7 @@ export function StoryPlayer({ story }: { story: Story }) {
           href={`/moment/${moment.id}`}
           className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-white/30 bg-black/30 py-1 pr-2 pl-3 text-xs font-medium tracking-[0.12em] uppercase hover:bg-black/50"
         >
-          <span lang={CONTENT_LANG}>{titleOf(moment)}</span> <ChevronRight className="size-3.5" />
+          <span lang={moment.lang}>{titleOf(moment)}</span> <ChevronRight className="size-3.5" />
         </Link>
         {art && (
           <a href={art.sourceUrl} target="_blank" rel="noreferrer" className="max-w-xs min-w-0 text-right text-[11px] text-white/60 hover:underline">
@@ -283,7 +282,7 @@ function Card({ card }: { card: StoryCard }) {
 
   if (card.type === "SCENE") {
     return (
-      <div lang={CONTENT_LANG}>
+      <div lang={card.lang}>
         <Kicker>{card.kicker}</Kicker>
         <h2 className={cn(titleClass, "mb-3")}>{card.title}</h2>
         <p className={textClass}>{card.text}</p>
@@ -301,12 +300,12 @@ function Card({ card }: { card: StoryCard }) {
           <span>
             <span className={titleClass}>{person.name}</span>
             <span className="mt-1 block text-sm text-white/70">
-              <span lang={CONTENT_LANG}>{person.occupations[0]}</span>
+              <span lang={person.lang}>{person.occupations[0]}</span>
               {card.year && ` · ${years.ageInYear(person, card.year)}`}
             </span>
           </span>
         </Link>
-        <p lang={CONTENT_LANG} className={textClass}>{card.text ?? person.bioShort}</p>
+        <p lang={card.text ? card.lang : person.bioLang} className={textClass}>{card.text ?? person.bioShort}</p>
       </>
     );
   }
@@ -318,11 +317,11 @@ function Card({ card }: { card: StoryCard }) {
         <div className="mb-4 flex items-center gap-4">
           <LifeMark life={card.life} size="lg" />
           <span>
-            <span lang={CONTENT_LANG} className={titleClass}>{card.life.label}</span>
+            <span lang={card.life.lang} className={titleClass}>{card.life.label}</span>
             <span className="mt-1 block text-sm text-white/70">{life("illustrated")}</span>
           </span>
         </div>
-        <p lang={CONTENT_LANG} className={textClass}>{card.text ?? card.life.description}</p>
+        <p lang={card.text ? card.lang : card.life.lang} className={textClass}>{card.text ?? card.life.description}</p>
         {card.life.art && (
           <a href={card.life.art.sourceUrl} target="_blank" rel="noreferrer" className="mt-3 block text-[11px] text-white/60 hover:underline">
             {card.life.art.credit}
@@ -337,17 +336,17 @@ function Card({ card }: { card: StoryCard }) {
     return (
       <>
         <Kicker>{t("eventKicker", { year: years.year(event.year) })}</Kicker>
-        <h2 lang={CONTENT_LANG} className={cn(titleClass, "mb-3")}>{event.title}</h2>
-        <p lang={CONTENT_LANG} className={textClass}>
-          {event.description}
-          {card.text && ` ${card.text}`}
+        <h2 lang={event.lang} className={cn(titleClass, "mb-3")}>{event.title}</h2>
+        <p className={textClass}>
+          <span lang={event.lang}>{event.description}</span>
+          {card.text && <span lang={card.lang}> {card.text}</span>}
         </p>
         {event.participants.length > 0 && (
           <ul className="mt-4 flex flex-wrap gap-2">
             {event.participants.map(({ person, role }) => (
               <li key={person.slug}>
                 <Link href={`/person/${person.slug}?year=${event.year}`} className="rounded-full bg-white/15 px-3 py-1 text-sm hover:bg-white/25">
-                  {person.name} · <span lang={CONTENT_LANG}>{role}</span>
+                  {person.name} · <span lang={event.lang}>{role}</span>
                 </Link>
               </li>
             ))}

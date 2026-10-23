@@ -13,10 +13,12 @@ import art.liminis.domain.Artwork
 import art.liminis.domain.Connection
 import art.liminis.domain.Door
 import art.liminis.domain.Era
+import art.liminis.domain.EraFrench
 import art.liminis.domain.Event
 import art.liminis.domain.Life
 import art.liminis.domain.LifeArt
 import art.liminis.domain.Moment
+import art.liminis.domain.MomentFrench
 import art.liminis.domain.Person
 import art.liminis.domain.Region
 import art.liminis.domain.StoryCard
@@ -30,12 +32,16 @@ import art.liminis.domain.WorldAround
 abstract class ReleaseMapper {
 
     @Mapping(target = "code", source = "id")
+    @Mapping(target = "nameFr", source = "fr.name")
     abstract fun region(record: RegionRecord): Region
 
     @Mapping(target = "governedBy", source = "governedBy", defaultExpression = "java(record.getLabel())")
     @Mapping(target = "startYear", source = "start")
     @Mapping(target = "endYear", source = "end", defaultExpression = "java(art.liminis.support.YearsKt.currentYear())")
     abstract fun era(record: EraRecord, @Context references: References): Era
+
+    @Mapping(target = "governedBy", source = "governedBy", defaultExpression = "java(record.getLabel())")
+    abstract fun eraFrench(record: EraFrenchRecord): EraFrench
 
     @Mapping(target = "era", source = "record", qualifiedByName = ["eraOfLife"])
     @Mapping(target = "startYear", source = "start")
@@ -57,6 +63,7 @@ abstract class ReleaseMapper {
     abstract fun connection(record: ConnectionRecord, @Context references: References): Connection
 
     @Mapping(target = "person", source = "person", qualifiedByName = ["personByQid"])
+    @Mapping(target = "textFr", source = "fr.text")
     abstract fun anecdote(record: AnecdoteRecord, @Context references: References): Anecdote
 
     abstract fun anecdoteSource(record: AnecdoteSourceRecord): AnecdoteSource
@@ -71,10 +78,12 @@ abstract class ReleaseMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "art", source = "card.art")
+    @Mapping(target = "fr", source = "card.fr")
     abstract fun card(card: CardRecord, moment: Moment, position: Int, @Context references: References): StoryCard
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "target", source = "door.to")
+    @Mapping(target = "fr", source = "door.fr")
     abstract fun door(door: DoorRecord, origin: Moment, position: Int, @Context references: References): Door
 
     @Mapping(target = "sourceUrl", source = "source")
@@ -82,9 +91,11 @@ abstract class ReleaseMapper {
 
     abstract fun world(record: WorldRecord): WorldAround
 
+    abstract fun momentFrench(record: MomentFrenchRecord): MomentFrench
+
     @AfterMapping
     protected fun addParticipants(record: EventRecord, @MappingTarget event: Event, @Context references: References) {
-        record.participants.forEach { event.participant(references.person(it.person), it.role) }
+        record.participants.forEach { event.participant(references.person(it.person), it.role, it.fr?.role) }
     }
 
     @AfterMapping

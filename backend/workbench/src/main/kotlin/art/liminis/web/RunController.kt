@@ -11,7 +11,7 @@ class RunController(private val runs: Runs) : RunsApi {
 
     override fun listRuns(): List<RunDto> = runs.all()
 
-    override fun startRun(newRunDto: NewRunDto): RunDto = runs.start(newRunDto.kind, newRunDto.moment)
+    override fun startRun(newRunDto: NewRunDto): RunDto = runs.start(newRunDto.kind, newRunDto.moment, newRunDto.record)
 
     override fun getRun(id: Long): RunDto = runs.find(id)
 }

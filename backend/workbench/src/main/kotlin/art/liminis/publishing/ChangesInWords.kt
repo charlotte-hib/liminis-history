@@ -157,7 +157,8 @@ class ChangesInWords(
                 if (old == new) null else AnecdoteFieldChange(field, old, new)
             }
             AnecdoteChange(change.id, anecdote.person, names.getValue(anecdote.person), change.change, anecdote.year, fields)
-        }.sortedWith(compareBy(byName) { it: AnecdoteChange -> it.name }.thenBy { it.year }.thenBy { it.anecdote })
+        // A line whose French alone changes is told with the translations.
+        }.filter { it.change != Change.CHANGED || it.fields.isNotEmpty() }.sortedWith(compareBy(byName) { it: AnecdoteChange -> it.name }.thenBy { it.year }.thenBy { it.anecdote })
     }
 
     /** The names of the people of [qids]: as written by hand in `people.jsonl` ([byHand]), else as the dataset has them, else their Q-id. */
@@ -251,7 +252,13 @@ class ChangesInWords(
      * occupations changed or removed one by one and the ones added by domain, each anecdote, and each moment's header
      * and cards. Cut short within GitHub's limit on a pull request's body.
      */
-    fun summary(people: List<PersonChange>, occupations: List<OccupationChange>, anecdotes: List<AnecdoteChange>, moments: List<MomentChange>): String {
+    fun summary(
+        people: List<PersonChange>,
+        occupations: List<OccupationChange>,
+        anecdotes: List<AnecdoteChange>,
+        moments: List<MomentChange>,
+        translations: List<TranslationChange>,
+    ): String {
         val lines = mutableListOf<String>()
         if (people.isNotEmpty()) {
             lines += "**People's facts** (${people.size})"
@@ -292,6 +299,18 @@ class ChangesInWords(
                     listOfNotNull(moment.painting?.let { "painting changed" }) +
                     moment.cards.map(::cardInWords)
                 "- ${moment.title} (${moment.moment}): ${parts.joinToString("; ")}"
+            }
+        }
+        if (translations.isNotEmpty()) {
+            if (lines.isNotEmpty()) lines += ""
+            lines += "**French** (${translations.size})"
+            lines += translations.map { translation ->
+                val change = when (translation.change) {
+                    Change.ADDED -> "translated"
+                    Change.REMOVED -> "French removed, its English changed"
+                    Change.CHANGED -> "${translation.texts.size} ${if (translation.texts.size == 1) "text" else "texts"} changed"
+                }
+                "- ${translation.label} (${translation.record}): $change"
             }
         }
         val text = StringBuilder()

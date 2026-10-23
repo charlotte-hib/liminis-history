@@ -3,7 +3,7 @@
 {"id":"alfred-the-great","qid":"Q83476","name":"Alfred the Great","born":849,"died":899,"region":"GB","domain":"POWER","occupation":"king of Wessex"}
 {"id":"ashikaga-takauji","qid":"Q297107","name":"Ashikaga Takauji","born":1305,"died":1358,"region":"JP","domain":"POWER","occupation":"first Muromachi shogun"}
 {"id":"auguste-rodin","qid":"Q30755","name":"Auguste Rodin","born":1840,"died":1917,"region":"FR","domain":"ARTS","occupation":"sculptor"}
-{"id":"berthe-morisot","qid":"Q105320","name":"Berthe Morisot","born":1841,"died":1895,"region":"FR","domain":"ARTS","occupation":"painter"}
+{"id":"berthe-morisot","qid":"Q105320","name":"Berthe Morisot","born":1841,"died":1895,"region":"FR","domain":"ARTS","occupation":"painter","fr":{"name":"Berthe Morisot","occupation":"peintre","wikipedia":"Berthe_Morisot"}}
 {"id":"cao-xueqin","qid":"Q182874","name":"Cao Xueqin","born":1715,"died":1763,"approximate":true,"region":"CN","domain":"ARTS","occupation":"novelist"}
 {"id":"cardinal-richelieu","qid":"Q26702","name":"Cardinal Richelieu","born":1585,"died":1642,"region":"FR","domain":"POWER","occupation":"chief minister"}
 {"id":"charlemagne","qid":"Q3044","name":"Charlemagne","born":748,"died":814,"approximate":true,"region":"FR","domain":"POWER","occupation":"emperor of the Franks"}
@@ -13,16 +13,16 @@
 {"id":"chikamatsu-monzaemon","qid":"Q324986","name":"Chikamatsu Monzaemon","born":1653,"died":1725,"region":"JP","domain":"ARTS","occupation":"playwright"}
 {"id":"christine-de-pizan","qid":"Q234816","name":"Christine de Pizan","born":1364,"died":1430,"approximate":true,"region":"FR","domain":"ARTS","occupation":"writer"}
 {"id":"claude-debussy","qid":"Q4700","name":"Claude Debussy","born":1862,"died":1918,"region":"FR","domain":"ARTS","occupation":"composer"}
-{"id":"claude-monet","qid":"Q296","name":"Claude Monet","born":1840,"died":1926,"region":"FR","domain":"ARTS","occupation":"painter"}
+{"id":"claude-monet","qid":"Q296","name":"Claude Monet","born":1840,"died":1926,"region":"FR","domain":"ARTS","occupation":"painter","fr":{"name":"Claude Monet","occupation":"peintre","wikipedia":"Claude_Monet"}}
 {"id":"clovis-i","qid":"Q82339","name":"Clovis I","born":466,"died":511,"approximate":true,"region":"FR","domain":"POWER","occupation":"king of the Franks"}
 {"id":"coco-chanel","qid":"Q45661","name":"Coco Chanel","born":1883,"died":1971,"region":"FR","domain":"ARTS","occupation":"fashion designer"}
 {"id":"confucius","qid":"Q4604","name":"Confucius","born":-551,"died":-479,"region":"CN","domain":"ARTS","occupation":"philosopher"}
 {"id":"du-fu","qid":"Q33772","name":"Du Fu","born":712,"died":770,"region":"CN","domain":"ARTS","occupation":"poet"}
 {"id":"edith-piaf","qid":"Q1631","name":"Édith Piaf","born":1915,"died":1963,"region":"FR","domain":"ARTS","occupation":"singer"}
-{"id":"edouard-manet","qid":"Q40599","name":"Édouard Manet","born":1832,"died":1883,"region":"FR","domain":"ARTS","occupation":"painter"}
+{"id":"edouard-manet","qid":"Q40599","name":"Édouard Manet","born":1832,"died":1883,"region":"FR","domain":"ARTS","occupation":"painter","fr":{"name":"Édouard Manet","occupation":"peintre","wikipedia":"Édouard_Manet"}}
 {"id":"eleanor-of-aquitaine","qid":"Q178525","name":"Eleanor of Aquitaine","born":1122,"died":1204,"approximate":true,"region":"FR","domain":"POWER","occupation":"queen of France, then of England"}
 {"id":"elizabeth-i","qid":"Q7207","name":"Elizabeth I","born":1533,"died":1603,"region":"GB","domain":"POWER","occupation":"queen of England"}
-{"id":"emile-zola","qid":"Q504","name":"Émile Zola","born":1840,"died":1902,"region":"FR","domain":"ARTS","occupation":"novelist","bio":"Building the twenty-novel Rougon-Macquart cycle through the 1870s and 80s."}
+{"id":"emile-zola","qid":"Q504","name":"Émile Zola","born":1840,"died":1902,"region":"FR","domain":"ARTS","occupation":"novelist","bio":"Building the twenty-novel Rougon-Macquart cycle through the 1870s and 80s.","fr":{"name":"Émile Zola","occupation":"romancier","bio":"Il bâtit les vingt romans des Rougon-Macquart au fil des années 1870 et 1880.","wikipedia":"Émile_Zola"}}
 {"id":"emperor-meiji","qid":"Q174231","name":"Emperor Meiji","born":1852,"died":1912,"region":"JP","domain":"POWER","occupation":"emperor"}
 {"id":"empress-dowager-cixi","qid":"Q47842","name":"Empress Dowager Cixi","born":1835,"died":1908,"region":"CN","domain":"POWER","occupation":"regent"}
 {"id":"empress-suiko","qid":"Q298057","name":"Empress Suiko","born":554,"died":628,"region":"JP","domain":"POWER","occupation":"empress"}
@@ -30,8 +30,8 @@
 {"id":"francois-rabelais","qid":"Q131018","name":"François Rabelais","born":1494,"died":1553,"approximate":true,"region":"FR","domain":"ARTS","occupation":"writer"}
 {"id":"geoffrey-chaucer","qid":"Q5683","name":"Geoffrey Chaucer","born":1343,"died":1400,"approximate":true,"region":"GB","domain":"ARTS","occupation":"poet"}
 {"id":"george-sand","qid":"Q3816","name":"George Sand","born":1804,"died":1876,"region":"FR","domain":"ARTS","occupation":"novelist"}
-{"id":"georges-bizet","qid":"Q56158","name":"Georges Bizet","born":1838,"died":1875,"region":"FR","domain":"ARTS","occupation":"composer","bio":"Carmen premiered in 1875 to a cool reception; he died three months later."}
-{"id":"georges-clemenceau","qid":"Q171730","name":"Georges Clemenceau","born":1841,"died":1929,"region":"FR","domain":"POWER","occupation":"statesman, journalist","bio":"A physician turned politician, he spent the 1870s as a fierce critic of the government from the far left."}
+{"id":"georges-bizet","qid":"Q56158","name":"Georges Bizet","born":1838,"died":1875,"region":"FR","domain":"ARTS","occupation":"composer","bio":"Carmen premiered in 1875 to a cool reception; he died three months later.","fr":{"name":"Georges Bizet","occupation":"compositeur","bio":"Carmen est créé en 1875 dans l’indifférence ; il meurt trois mois plus tard.","wikipedia":"Georges_Bizet"}}
+{"id":"georges-clemenceau","qid":"Q171730","name":"Georges Clemenceau","born":1841,"died":1929,"region":"FR","domain":"POWER","occupation":"statesman, journalist","bio":"A physician turned politician, he spent the 1870s as a fierce critic of the government from the far left.","fr":{"name":"Georges Clemenceau","occupation":"homme d’État, journaliste","bio":"Médecin devenu homme politique, il passe les années 1870 à critiquer durement le gouvernement depuis l’extrême gauche.","wikipedia":"Georges_Clemenceau"}}
 {"id":"henry-iv","qid":"Q936976","name":"Henry IV","born":1553,"died":1610,"region":"FR","domain":"POWER","occupation":"king of France","wikipedia":"Henry_IV_of_France"}
 {"id":"henry-viii","qid":"Q38370","name":"Henry VIII","born":1491,"died":1547,"region":"GB","domain":"POWER","occupation":"king of England"}
 {"id":"higuchi-ichiyo","qid":"Q237948","name":"Higuchi Ichiyō","born":1872,"died":1896,"region":"JP","domain":"ARTS","occupation":"writer"}
@@ -65,7 +65,7 @@
 {"id":"natsume-soseki","qid":"Q180903","name":"Natsume Sōseki","born":1867,"died":1916,"region":"JP","domain":"ARTS","occupation":"novelist"}
 {"id":"oda-nobunaga","qid":"Q171411","name":"Oda Nobunaga","born":1534,"died":1582,"region":"JP","domain":"POWER","occupation":"warlord"}
 {"id":"oliver-cromwell","qid":"Q44279","name":"Oliver Cromwell","born":1599,"died":1658,"region":"GB","domain":"POWER","occupation":"Lord Protector"}
-{"id":"paul-cezanne","qid":"Q35548","name":"Paul Cézanne","born":1839,"died":1906,"region":"FR","domain":"ARTS","occupation":"painter","bio":"Exhibited with the Impressionists in 1874, then withdrew to Provence."}
+{"id":"paul-cezanne","qid":"Q35548","name":"Paul Cézanne","born":1839,"died":1906,"region":"FR","domain":"ARTS","occupation":"painter","bio":"Exhibited with the Impressionists in 1874, then withdrew to Provence.","fr":{"name":"Paul Cézanne","occupation":"peintre","bio":"Il expose avec les impressionnistes en 1874, puis se retire en Provence.","wikipedia":"Paul_Cézanne"}}
 {"id":"peter-abelard","qid":"Q4295","name":"Peter Abelard","born":1079,"died":1142,"region":"FR","domain":"ARTS","occupation":"philosopher"}
 {"id":"prince-shotoku","qid":"Q263972","name":"Prince Shōtoku","born":574,"died":622,"region":"JP","domain":"POWER","occupation":"regent"}
 {"id":"qin-shi-huang","qid":"Q7192","name":"Qin Shi Huang","born":-259,"died":-210,"region":"CN","domain":"POWER","occupation":"first emperor of China"}
@@ -84,7 +84,7 @@
 {"id":"toyotomi-hideyoshi","qid":"Q187550","name":"Toyotomi Hideyoshi","born":1537,"died":1598,"region":"JP","domain":"POWER","occupation":"unifier of Japan"}
 {"id":"utagawa-hiroshige","qid":"Q200798","name":"Utagawa Hiroshige","born":1797,"died":1858,"region":"JP","domain":"ARTS","occupation":"printmaker","wikipedia":"Hiroshige"}
 {"id":"vercingetorix","qid":"Q178953","name":"Vercingetorix","born":-82,"died":-46,"approximate":true,"region":"FR","domain":"POWER","occupation":"Gallic chieftain"}
-{"id":"victor-hugo","qid":"Q535","name":"Victor Hugo","born":1802,"died":1885,"region":"FR","domain":"ARTS","occupation":"novelist, poet","bio":"Back from nineteen years of exile, he was the Republic's living monument."}
+{"id":"victor-hugo","qid":"Q535","name":"Victor Hugo","born":1802,"died":1885,"region":"FR","domain":"ARTS","occupation":"novelist, poet","bio":"Back from nineteen years of exile, he was the Republic's living monument.","fr":{"name":"Victor Hugo","occupation":"romancier, poète","bio":"Revenu de dix-neuf ans d’exil, il est le monument vivant de la République.","wikipedia":"Victor_Hugo"}}
 {"id":"virginia-woolf","qid":"Q40909","name":"Virginia Woolf","born":1882,"died":1941,"region":"GB","domain":"ARTS","occupation":"novelist"}
 {"id":"voltaire","qid":"Q9068","name":"Voltaire","born":1694,"died":1778,"region":"FR","domain":"ARTS","occupation":"writer"}
 {"id":"william-shakespeare","qid":"Q692","name":"William Shakespeare","born":1564,"died":1616,"region":"GB","domain":"ARTS","occupation":"playwright"}

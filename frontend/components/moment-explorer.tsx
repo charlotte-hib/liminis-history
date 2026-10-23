@@ -2,7 +2,7 @@
 
 import { Slider } from "@base-ui/react/slider";
 import { Play, Shuffle } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { ArtworkImage } from "@/components/artwork-image";
 import { DoorCard } from "@/components/door-card";
@@ -14,10 +14,9 @@ import { PersonChip } from "@/components/person-chip";
 import { WorldAround } from "@/components/world-around";
 import { Link } from "@/i18n/navigation";
 import { fetchAliveElsewhere, fetchMomentPeople } from "@/lib/api-browser";
-import { CONTENT_LANG } from "@/lib/content";
 import { DOMAIN_ORDER } from "@/lib/domains";
 import { hasStory, titleOf } from "@/lib/moments";
-import type { Era, Event, MomentDetail, MomentPeople, Person } from "@/lib/types";
+import type { Era, Event, Language, MomentDetail, MomentPeople, Person } from "@/lib/types";
 import { isAlive, useYears } from "@/lib/years";
 
 const DEBOUNCE_MS = 200;
@@ -27,17 +26,18 @@ const eraAt = (eras: Era[], year: number) => eras.filter((era) => era.startYear 
 
 /** People alive elsewhere in [year], fetched shortly after the year stops changing. */
 function useAliveElsewhere(region: string, year: number) {
+  const lang = useLocale() as Language;
   const [people, setPeople] = useState<Person[]>([]);
   useEffect(() => {
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetchAliveElsewhere(region, year, controller.signal).then(setPeople).catch(() => { /* aborted or offline */ });
+      fetchAliveElsewhere(region, year, lang, controller.signal).then(setPeople).catch(() => { /* aborted or offline */ });
     }, DEBOUNCE_MS);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [region, year]);
+  }, [region, year, lang]);
   return people;
 }
 
@@ -46,6 +46,7 @@ function useAliveElsewhere(region: string, year: number) {
  * first draw, comes with the page. Moving to another year starts again from its first draw.
  */
 function useMomentPeople(momentId: string, initial: MomentPeople, year: number) {
+  const lang = useLocale() as Language;
   const [fetched, setFetched] = useState<MomentPeople | null>(null);
   const [draw, setDraw] = useState(0);
   const [prevYear, setPrevYear] = useState(year);
@@ -58,13 +59,13 @@ function useMomentPeople(momentId: string, initial: MomentPeople, year: number) 
     if (fromPage) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetchMomentPeople(momentId, year, draw, controller.signal).then(setFetched).catch(() => { /* aborted or offline */ });
+      fetchMomentPeople(momentId, year, draw, lang, controller.signal).then(setFetched).catch(() => { /* aborted or offline */ });
     }, DEBOUNCE_MS);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [momentId, fromPage, year, draw]);
+  }, [momentId, fromPage, year, draw, lang]);
   // Until a new year's draw arrives, the last one stays on screen, without those not alive in this year.
   const shown = fromPage ? initial : fetched ?? initial;
   const another = () => setDraw((shown.draw + 1) % shown.draws);
@@ -188,9 +189,9 @@ export function MomentExplorer({ detail }: { detail: MomentDetail }) {
           {events.map((event) => (
             <article key={event.id} className="border-l-2 border-arts pl-3">
               <h3 className="font-medium">
-                {years.year(event.year)} · <span lang={CONTENT_LANG}>{event.title}</span>
+                {years.year(event.year)} · <span lang={event.lang}>{event.title}</span>
               </h3>
-              <p lang={CONTENT_LANG} className="text-sm text-muted-foreground">{event.description}</p>
+              <p lang={event.lang} className="text-sm text-muted-foreground">{event.description}</p>
               <div className="mt-1 flex gap-4 text-xs text-muted-foreground">
                 {event.participants.length > 0 && (
                   <button

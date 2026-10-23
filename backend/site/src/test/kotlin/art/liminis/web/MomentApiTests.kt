@@ -51,6 +51,46 @@ class MomentApiTests(@Autowired private val mockMvc: MockMvc) {
     }
 
     @Test
+    fun `in French, a moment comes back in French where the release has its French, else in English, saying which`() {
+        mockMvc.get("/api/moments/paris-1870s?lang=fr").andExpect {
+            status { isOk() }
+            jsonPath("$.moment.period") { value("années 1870") }
+            jsonPath("$.moment.region") { value("France") }
+            jsonPath("$.moment.governedBy") { value("Troisième République") }
+            jsonPath("$.moment.lang") { value("fr") }
+            jsonPath("$.world.lang") { value("fr") }
+            jsonPath("$.world.governs") { value("La Troisième République est jeune et fragile. Les monarchistes tiennent la Chambre jusqu’en 1877.") }
+            jsonPath("$.eras[?(@.id == 'fr-third-republic')].label") { value("Troisième République") }
+            jsonPath("$.lives[?(@.id == 'a-washerwoman-on-the-seine')].label") { value("Une lavandière sur la Seine") }
+            jsonPath("$.events[?(@.id == 'carmen-premiere')].participants[0].role") { value("compositeur") }
+            jsonPath("$.doors[0].kind") { value("Pendant ce temps, ailleurs") }
+            jsonPath("$.doors[0].target.lang") { value("en") }
+            jsonPath("$.doors[0].target.place") { value("Tokyo") }
+            jsonPath("$.doors[1].faces[0].occupations[0]") { value("romancier") }
+        }
+        mockMvc.get("/api/moments/paris-1870s").andExpect {
+            jsonPath("$.moment.period") { value("1870s") }
+            jsonPath("$.moment.lang") { value("en") }
+            jsonPath("$.doors[0].kind") { value("Meanwhile, elsewhere") }
+        }
+        mockMvc.get("/api/moments/paris-1870s?lang=de").andExpect { status { isBadRequest() } }
+    }
+
+    @Test
+    fun `in French, a story's cards are in French where written, a card showing only its record in the record's`() {
+        mockMvc.get("/api/moments/paris-1870s/story?lang=fr").andExpect {
+            status { isOk() }
+            jsonPath("$.cards[0].kicker") { value("Le décor · Paris, années 1870") }
+            jsonPath("$.cards[0].lang") { value("fr") }
+            jsonPath("$.cards[2].person.name") { value("Georges Clemenceau") }
+            jsonPath("$.cards[2].person.occupations[0]") { value("homme d’État, journaliste") }
+            jsonPath("$.cards[4].lang") { value("fr") }
+            jsonPath("$.cards[4].life.label") { value("Une lavandière sur la Seine") }
+            jsonPath("$.cards[6].event.title") { value("Carmen à l’Opéra-Comique") }
+        }
+    }
+
+    @Test
     fun `a moment's people come in draws, the related first, then others, nobody twice before everyone is shown`() {
         val draws = (0..2).map { draw ->
             mockMvc.get("/api/moments/paris-1870s/people?year=1875&draw=$draw").andExpect { status { isOk() } }

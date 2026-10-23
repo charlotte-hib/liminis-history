@@ -225,4 +225,34 @@ class ClaimRulesTests {
         }
         ClaimRules.decide(state(ClaimStatus.CANDIDATE, blank, blank), NewDecision(Verdict.REJECT, note = "Arts left empty"))
     }
+
+    private val translation = Translation(
+        "era:fr-third-republic", "Third Republic",
+        listOf(TranslatedText("label", "Third Republic", "Troisième République"), TranslatedText("governedBy", "Third Republic", "Troisième République")),
+    )
+
+    @Test
+    fun `a translation is about its record, changes only its French, and has every text in French`() {
+        assertEquals("translation:era:fr-third-republic", ClaimRules.idOf(translation))
+        val waiting = state(ClaimStatus.CANDIDATE, translation, translation)
+        val edited = translation.copy(texts = listOf(translation.texts[0].copy(fr = "IIIe République"), translation.texts[1]))
+        assertEquals(edited, ClaimRules.decide(waiting, NewDecision(Verdict.APPROVE, edited, null)).payload)
+
+        val english = translation.copy(texts = listOf(translation.texts[0].copy(en = "The Third Republic"), translation.texts[1]))
+        assertThrows<InvalidRequestException> { ClaimRules.decide(waiting, NewDecision(Verdict.APPROVE, english, null)) }
+        val blank = translation.copy(texts = listOf(translation.texts[0].copy(fr = " "), translation.texts[1]))
+        assertThrows<InvalidRequestException> { ClaimRules.decide(waiting, NewDecision(Verdict.APPROVE, blank, null)) }
+        assertThrows<InvalidRequestException> { ClaimRules.flagsOfNew(NewClaim(translation, listOf(SourceRef(SourceKind.WEB, url = "https://example.org")))) }
+    }
+
+    @Test
+    fun `a record translated again, its English changed, waits for review in place of the old French, flagged when approved`() {
+        val again = translation.copy(texts = translation.texts.map { it.copy(en = "The Republic", fr = "La République") })
+        val approved = ClaimRules.refresh(state(ClaimStatus.APPROVED, translation, translation), proposal(again))
+        assertEquals(listOf(ClaimStatus.CANDIDATE, again), listOf(approved.status, approved.payload))
+        assertEquals(listOf(changedSinceApproved), approved.flags)
+
+        val rejected = ClaimRules.refresh(state(ClaimStatus.REJECTED, translation, translation), proposal(again))
+        assertEquals(listOf(ClaimStatus.CANDIDATE, again, emptyList<FlagReason>()), listOf(rejected.status, rejected.payload, rejected.flags))
+    }
 }

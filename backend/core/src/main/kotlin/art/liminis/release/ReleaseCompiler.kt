@@ -41,10 +41,15 @@ object ReleaseCompiler {
 
         val peopleCompiler = PeopleCompiler(release)
         val listed = release.regions.map { references.at("regions.jsonl ${it.id}") { mapper.region(it) } }
-        val regions = listed + peopleCompiler.otherRegions(listed.map { it.code }.toSet()).map { (code, name) -> Region(code, name) }
+        val regions = listed + peopleCompiler.otherRegions(listed.map { it.code }.toSet())
         references.regions(regions)
 
-        val eras = release.eras.map { references.at("eras.jsonl ${it.id}") { mapper.era(it, references) } }
+        val eras = release.eras.map {
+            references.at("eras.jsonl ${it.id}") {
+                it.fr?.let { fr -> french(references, "governedBy", it.governedBy, fr.governedBy) }
+                mapper.era(it, references)
+            }
+        }
         references.eras(eras)
 
         val people = peopleCompiler.compile(references)
@@ -60,7 +65,14 @@ object ReleaseCompiler {
         }
         references.lives(lives)
 
-        val events = release.events.map { references.at("events.jsonl ${it.id}") { mapper.event(it, references) } }
+        val events = release.events.map {
+            references.at("events.jsonl ${it.id}") {
+                if (it.participants.any { participant -> (participant.fr == null) != (it.fr == null) }) {
+                    throw InvalidReleaseException("${references.where}: an event in French has every participant's role in French, and only then")
+                }
+                mapper.event(it, references)
+            }
+        }
         references.events(events)
 
         val connections = release.connections.map {
@@ -81,7 +93,21 @@ object ReleaseCompiler {
             }
         }
 
-        val moments = release.moments.map { references.at("moments/${it.id}.json") { mapper.moment(it, references) } }
+        val moments = release.moments.map {
+            references.at("moments/${it.id}.json") {
+                it.fr?.let { fr -> french(references, "world", it.world, fr.world) }
+                it.cards.forEachIndexed { position, card ->
+                    card.fr?.let { fr ->
+                        references.at("moments/${it.id}.json card ${position + 1}") {
+                            french(references, "kicker", card.kicker, fr.kicker)
+                            french(references, "title", card.title, fr.title)
+                            french(references, "text", card.text, fr.text)
+                        }
+                    }
+                }
+                mapper.moment(it, references)
+            }
+        }
         references.moments(moments)
 
         val doors = release.moments.zip(moments).flatMap { (record, moment) ->
@@ -91,6 +117,12 @@ object ReleaseCompiler {
         }
 
         return CompiledRelease(regions, eras, people, lives, events, connections, anecdotes, moments, doors)
+    }
+
+    /** Checks that a record's French has its [field] when its English has it, and only then. */
+    fun french(references: References, field: String, english: Any?, french: Any?) {
+        if (english != null && french == null) throw InvalidReleaseException("${references.where}: its French has no $field, as its English has")
+        if (english == null && french != null) throw InvalidReleaseException("${references.where}: its French has a $field, which its English has not")
     }
 }
 

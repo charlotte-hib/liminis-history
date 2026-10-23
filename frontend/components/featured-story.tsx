@@ -8,7 +8,6 @@ import { ArtworkCredit, ArtworkImage } from "@/components/artwork-image";
 import { PersonAvatar } from "@/components/person-avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
-import { CONTENT_LANG } from "@/lib/content";
 import type { MomentSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useYears } from "@/lib/years";
@@ -42,10 +41,10 @@ export function FeaturedStory({ stories, initialIndex }: Props) {
 
       <div className="relative mx-auto w-full max-w-6xl px-4 pt-32 pb-12">
         <p className="text-xs font-medium tracking-widest text-lamp uppercase">{t("kicker")}</p>
-        <h1 id="featured-title" lang={CONTENT_LANG} className="mt-2 font-story text-6xl leading-none font-medium sm:text-8xl">
+        <h1 id="featured-title" lang={story.lang} className="mt-2 font-story text-6xl leading-none font-medium sm:text-8xl">
           {story.place}, <span className="text-muted-foreground italic">{story.period}</span>
         </h1>
-        <p lang={CONTENT_LANG} className="mt-4 max-w-xl font-story text-xl text-foreground/90 sm:text-2xl">{story.hook}</p>
+        <p lang={story.lang} className="mt-4 max-w-xl font-story text-xl text-foreground/90 sm:text-2xl">{story.hook}</p>
 
         <ul className="mt-6 flex flex-wrap gap-4">
           {story.cast.map((person) => (
