@@ -23,12 +23,16 @@ export function PersonFrench({ review, english, viewer }: { review: Review; engl
   const { claim, version } = review;
   const facts = claim.payload as PersonFacts;
   const [name, setName] = useState(facts.labelFr ?? "");
+  // What Wikidata gave, for an article removed in an earlier decision to be put back.
+  const wikidata = claim.proposal as PersonFacts;
   const [article, setArticle] = useState(facts.frwiki);
   const [problem, setProblem] = useState<{ status: number; detail: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const locked = lockedFor(claim.heldBy, viewer);
   const nameEdited = name.trim() !== (facts.labelFr ?? "");
-  const articleEdited = article !== facts.frwiki;
+  const articleEdited = article !== wikidata.frwiki;
+  // Their French is approved with their facts: only once the English tab approved those.
+  const factsApproved = claim.status === "APPROVED";
   const changed = nameEdited || articleEdited;
 
   const approve = () =>
@@ -66,23 +70,23 @@ export function PersonFrench({ review, english, viewer }: { review: Review; engl
           </div>
           <span className="label pt-3">Article</span>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Article language="fr" title={article} was={facts.frwiki} edited={articleEdited} onRemove={() => setArticle(undefined)} onRestore={() => setArticle(facts.frwiki)} />
+            <Article language="fr" title={article} was={wikidata.frwiki} edited={articleEdited} onRemove={() => setArticle(undefined)} onRestore={() => setArticle(wikidata.frwiki)} />
             <span className="text-[13px] text-muted">French Wikipedia, as Wikidata links it: its intro shows on the French site</span>
           </div>
         </fieldset>
-        {claim.status !== "APPROVED" && (
-          <p className="text-[13px] text-muted">
-            Approving here approves their facts too, as the{" "}
+        {!factsApproved && (
+          <p role="note" className="text-[13px] text-muted">
+            Their French is approved with their facts: approve those on the{" "}
             <a href={english} className="text-lamp">
               English tab
             </a>{" "}
-            shows them.
+            first.
           </p>
         )}
       </main>
       <footer className="sticky bottom-0 mt-auto flex min-h-15 flex-wrap items-center gap-3 border-t border-line bg-paper px-10 py-4">
-        <button type="button" disabled={pending || locked || (!changed && claim.status === "APPROVED")} onClick={approve} className="button-primary">
-          {changed ? "Approve the French with my changes" : "Approve the French"}
+        <button type="button" disabled={pending || locked || !factsApproved || !changed} onClick={approve} className="button-primary">
+          Approve the French with my changes
         </button>
         <button type="button" disabled={pending || !changed} onClick={discard} className="button">
           Discard my changes

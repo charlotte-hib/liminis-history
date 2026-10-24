@@ -85,9 +85,12 @@ class PersonPreviews(
 
     @Transactional(readOnly = true)
     fun preview(qid: String, momentId: String?, edited: EditedFacts): PersonPreview {
-        val facts = claims.findById(ClaimRules.factsId(qid)).map { it.payload as PersonFacts }.orElse(null)
+        val claim = claims.findById(ClaimRules.factsId(qid)).orElse(null)
+        val facts = claim?.payload as PersonFacts?
             ?: dataset.people(listOf(qid)).singleOrNull()?.let(factsMapper::facts)
             ?: throw NotFoundException("Unknown person: $qid")
+        // An English article removed, in this edit or an approved one before: the release gives no intro or portrait.
+        val articleRemoved = edited.withoutArticle || (facts.enwiki == null && (claim?.proposal as PersonFacts?)?.enwiki != null)
         val moment = momentId?.let { id -> moments.findById(id).orElseThrow { NotFoundException("No moment $id") } }
         val born = edited.born ?: facts.born
         val died = edited.died ?: facts.died
@@ -99,7 +102,7 @@ class PersonPreviews(
         }
         val region = moment?.region?.code ?: birthCountry
         val articles = dataset.articles(qid)
-        val english = articles.firstOrNull { it.language == "en" }.takeUnless { edited.withoutArticle }
+        val english = articles.firstOrNull { it.language == "en" }.takeUnless { articleRemoved }
         val anecdotes = claims.anecdotesAbout(qid).filter { it.status != ClaimStatus.REJECTED }.map { claim ->
             val told = sources.of(claim)
             // The source publishing names, without a book's quote, which stays in the workbench.
@@ -108,8 +111,7 @@ class PersonPreviews(
         }
         return PersonPreview(
             person = qid,
-            // Without their English article, none: as the release has it.
-            portrait = if (edited.withoutArticle) null else articles.firstNotNullOfOrNull { it.thumbnailUrl },
+            portrait = if (articleRemoved) null else articles.firstNotNullOfOrNull { it.thumbnailUrl },
             about = english?.extract?.let(::dropHatnote)?.takeIf { it.isNotBlank() }?.let(::about),
             wikipediaUrl = english?.url,
             domain = domainOf(edited.occupations ?: facts.occupations.map { it.occupation }),

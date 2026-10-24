@@ -83,6 +83,10 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
   const [facts, setFacts] = useState(proposed);
   const [born, setBorn] = useState(String(proposed.born));
   const [died, setDied] = useState(String(proposed.died));
+  // A place's years as typed ("-", "-35"), by place and end, until they parse.
+  const [yearTexts, setYearTexts] = useState<Record<string, string>>({});
+  // What Wikidata gave, for an article removed in an earlier decision to be put back.
+  const wikidata = claim.proposal as PersonFacts;
   const [note, setNote] = useState("");
   const [editingOccupations, setEditingOccupations] = useState(false);
   const [asking, setAsking] = useState<"REJECT" | "NEEDS_WORK" | null>(null);
@@ -97,9 +101,8 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
 
   const bornYear = parseYear(born);
   const diedYear = parseYear(died);
-  const placeYears = facts.places.flatMap((p) => [p.startYear, p.endYear]).filter((y) => y !== undefined);
   const invalid =
-    bornYear === null || diedYear === null || placeYears.some((y) => !Number.isInteger(y) || y === 0)
+    bornYear === null || diedYear === null || Object.values(yearTexts).some((text) => text.trim() !== "" && parseYear(text) === null)
       ? "Years are whole numbers, negative for BCE, never 0."
       : bornYear > diedYear
         ? "Born after the death."
@@ -123,7 +126,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
   // key; the birthplace only once changed.
   const occupations = facts.occupations.map((o) => o.occupation).join(" ");
   const birthplace = birthplaceOf(facts) !== birthplaceOf(proposed) ? birthplaceOf(facts) : undefined;
-  const withoutArticle = !facts.enwiki && !!proposed.enwiki;
+  const withoutArticle = !facts.enwiki && !!wikidata.enwiki;
   useEffect(() => {
     if (bornYear === null || diedYear === null || bornYear > diedYear) return;
     let current = true;
@@ -141,9 +144,21 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
   const leaving = () => !changed || window.confirm("Leave this person without approving your changes?");
   const leave = (href: string | false | undefined) => href && leaving() && router.push(href);
   const guard = (event: { preventDefault: () => void }) => !leaving() && event.preventDefault();
+  // The language tabs sit outside the desk: leaving for the Français tab asks first too.
+  useEffect(() => {
+    const tabs = (event: MouseEvent) => {
+      if ((event.target as HTMLElement).closest('nav[aria-label="Language"] a') && !leaving()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    document.addEventListener("click", tabs, true);
+    return () => document.removeEventListener("click", tabs, true);
+  });
 
   const discard = () => {
     setFacts(proposed);
+    setYearTexts({});
     setBorn(String(proposed.born));
     setDied(String(proposed.died));
   };
@@ -206,8 +221,11 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
     setFacts({ ...facts, occupations: moved });
   };
   const setPlaces = (places: Place[]) => setFacts({ ...facts, places });
+  const yearKey = (place: Place, end: "startYear" | "endYear") => `${place.role} ${place.place} ${end}`;
+  const yearText = (place: Place, end: "startYear" | "endYear") => yearTexts[yearKey(place, end)] ?? String(place[end] ?? "");
   const placeYear = (place: Place, end: "startYear" | "endYear", text: string) => {
-    const value = text.trim() === "" ? undefined : Number(text);
+    setYearTexts({ ...yearTexts, [yearKey(place, end)]: text });
+    const value = text.trim() === "" ? undefined : (parseYear(text) ?? place[end]);
     setPlaces(facts.places.map((p) => (p === place ? { ...p, [end]: value } : p)));
   };
   // An estimated year of death has no precision; known again, it is known to the year unless Wikidata said better.
@@ -220,7 +238,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
     facts.diedEstimated !== proposed.diedEstimated ||
     facts.diedPrecision !== proposed.diedPrecision ||
     facts.datesApproximate !== proposed.datesApproximate;
-  const articleEdited = facts.enwiki !== proposed.enwiki;
+  const articleEdited = facts.enwiki !== wikidata.enwiki;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -400,7 +418,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
                                   aria-label={`${place.label}: from`}
                                   inputMode="numeric"
                                   className={`${field} w-16 border-edge font-mono text-[13px] text-ink`}
-                                  value={place.startYear ?? ""}
+                                  value={yearText(place, "startYear")}
                                   onChange={(e) => placeYear(place, "startYear", e.target.value)}
                                 />
                               </label>
@@ -410,7 +428,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
                                   aria-label={`${place.label}: until`}
                                   inputMode="numeric"
                                   className={`${field} w-16 border-edge font-mono text-[13px] text-ink`}
-                                  value={place.endYear ?? ""}
+                                  value={yearText(place, "endYear")}
                                   onChange={(e) => placeYear(place, "endYear", e.target.value)}
                                 />
                               </label>
@@ -442,10 +460,10 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
               <Article
                 language="en"
                 title={facts.enwiki}
-                was={proposed.enwiki}
+                was={wikidata.enwiki}
                 edited={articleEdited}
                 onRemove={() => setFacts({ ...facts, enwiki: undefined })}
-                onRestore={() => setFacts({ ...facts, enwiki: proposed.enwiki })}
+                onRestore={() => setFacts({ ...facts, enwiki: wikidata.enwiki })}
               />
               <span className="text-[13px] text-muted">English Wikipedia, as Wikidata links it: its intro and portrait show on the site</span>
               <FieldNotes name="Articles" said={[]} flags={flagsOf(claim.flags, "articles")} />

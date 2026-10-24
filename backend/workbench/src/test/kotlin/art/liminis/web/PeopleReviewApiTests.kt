@@ -282,6 +282,30 @@ class PeopleReviewApiTests(
     }
 
     @Test
+    fun `a place the claim holds stays, though the dataset no longer has it`() {
+        propose("Q535")
+        // Wikidata deleted Paris, Hugo's death place: a new mapping leaves it out.
+        jdbc.update("delete from dataset.person_place where place = 'Q90'")
+        jdbc.update("delete from dataset.place_country where place = 'Q90'")
+        jdbc.update("delete from dataset.place where qid = 'Q90'")
+        mockMvc.post("/api/claims/{id}/decisions", "person-facts:Q535") {
+            signedIn()
+            header(HttpHeaders.IF_MATCH, mockMvc.get("/api/claims/{id}", "person-facts:Q535") { signedIn() }.andReturn().response.getHeader(HttpHeaders.ETAG)!!)
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {"action": "APPROVE", "payload": {"type": "PERSON_FACTS", "person": "Q535", "label": "Victor Hugo", "labelFr": "Hugo",
+                 "born": 1802, "bornPrecision": 9, "died": 1885, "diedEstimated": false, "datesApproximate": false,
+                 "occupations": [{"occupation": "Q36180", "label": "writer"}],
+                 "places": [{"role": "BIRTH", "place": "Q37776", "label": "Besançon"}, {"role": "DEATH", "place": "Q90", "label": "Paris"}]}}
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.payload.places[1].label") { value("Paris") }
+            jsonPath("$.payload.labelFr") { value("Hugo") }
+        }
+    }
+
+    @Test
     fun `a claim whose person a mapping run dropped stays in review`() {
         propose("Q504", "Q535")
         CurationFixtures.map(dataset, CurationFixtures.PEOPLE - CurationFixtures.HUGO)

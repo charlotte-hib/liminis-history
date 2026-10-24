@@ -77,7 +77,8 @@ class Claims(
     fun decide(id: String, version: Long, decision: NewDecision, by: Actor): ClaimDetail {
         val claim = find(id, version)
         write(claim, by)
-        val edited = (decision.payload as? PersonFacts)?.let { decision.copy(payload = factEdits.checked(it)) } ?: decision
+        val held = listOfNotNull(claim.state.proposal, claim.state.payload).filterIsInstance<PersonFacts>()
+        val edited = (decision.payload as? PersonFacts)?.let { decision.copy(payload = factEdits.checked(it, held)) } ?: decision
         val decided = ClaimRules.decide(claim.state, edited)
         decisions.save(Decision(id, by.name, claim.status, decided.status, claim.payload, decided.payload, decision.note))
         claim.state = decided
