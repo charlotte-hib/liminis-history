@@ -70,7 +70,7 @@ export function PaintingBox({ label, painting, title, hint, onChange, remove, no
                 value={painting.credit}
                 maxLength={300}
                 onChange={(event) => onChange({ ...painting, credit: event.target.value })}
-                className="rounded-sm border border-line bg-white px-2 py-1.5 text-sm"
+                className="rounded-sm border border-line bg-surface px-2 py-1.5 text-sm"
               />
             </label>
             <span className="text-[12.5px] text-ok">
@@ -225,7 +225,7 @@ function CommonsSearch({ hint, chosen, onChoose }: { hint: string; chosen?: Pain
           value={query}
           maxLength={500}
           onChange={(event) => setQuery(event.target.value)}
-          className="rounded-full border border-edge bg-white px-4 py-2.5 text-base"
+          className="rounded-full border border-edge bg-surface px-4 py-2.5 text-base"
         />
       </label>
       <p role="status" className="text-muted empty:hidden">
@@ -371,4 +371,4 @@ function OtherLink({ onChoose }: { onChoose: (painting: Painting | null) => void
   );
 }
 
-const field = "rounded-sm border border-edge bg-white px-2.5 py-2";
+const field = "rounded-sm border border-edge bg-surface px-2.5 py-2";

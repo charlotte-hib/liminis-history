@@ -24,7 +24,7 @@ export async function proxy(request: NextRequest) {
   if (host !== CURATE_URL.hostname) return toCurateUrl(request);
 
   const { pathname } = request.nextUrl;
-  if (pathname.startsWith("/auth/") || pathname.startsWith("/_next/") || pathname === "/favicon.ico") return NextResponse.next();
+  if (pathname.startsWith("/auth/") || pathname.startsWith("/_next/") || pathname === "/favicon.ico" || pathname === "/icon.svg") return NextResponse.next();
 
   const session = await readSession(request.cookies.get(SESSION_COOKIE)?.value);
   if (!session) return signIn(request);

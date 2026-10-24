@@ -5,12 +5,15 @@ type PersonPreview = components["schemas"]["PersonPreview"];
 type PreviewLifeLine = components["schemas"]["PreviewLifeLine"];
 type Source = components["schemas"]["Source"];
 
-/** The site's domains, as its badge names and colours them (frontend/lib/domains.ts, its light theme). */
+/** The site's domains, as its badge names and colours them (frontend/lib/domains.ts), light or dark as the device asks. */
 const DOMAINS: Record<PersonPreview["domain"], { title: string; colour: string }> = {
-  POWER: { title: "Politics and power", colour: "#3b6ea5" },
-  ARTS: { title: "Arts and ideas", colour: "#b0447a" },
-  EVERYDAY: { title: "Everyday life", colour: "#4d7332" },
+  POWER: { title: "Politics and power", colour: "var(--color-power)" },
+  ARTS: { title: "Arts and ideas", colour: "var(--color-arts)" },
+  EVERYDAY: { title: "Everyday life", colour: "var(--color-everyday)" },
 };
+
+/** A domain's colour, faint, behind its badge and an empty portrait. */
+const soft = (colour: string) => `color-mix(in srgb, ${colour} 15%, transparent)`;
 
 const TEXT_STYLE: Record<PreviewLifeLine["kind"], string> = {
   BIRTH: "",
@@ -57,11 +60,11 @@ type Props = {
 export function PersonPreviewCard({ name, born, died, approximate, occupations, preview }: Props) {
   const domain = DOMAINS[preview.domain];
   return (
-    <div className="flex flex-col gap-4 rounded border border-line bg-[#f8f5ef] p-5 shadow-[0_18px_40px_-24px_rgba(35,30,24,0.55)]">
+    <div className="flex flex-col gap-4 rounded border border-line bg-panel p-5 shadow-[0_18px_40px_-24px_rgba(35,30,24,0.55)]">
       <header className="flex items-center gap-4">
         <span
           className="flex size-[92px] flex-none items-center justify-center overflow-hidden rounded-full border-[3px] font-serif text-2xl"
-          style={{ borderColor: domain.colour, color: domain.colour, background: `${domain.colour}26` }}
+          style={{ borderColor: domain.colour, color: domain.colour, background: soft(domain.colour) }}
         >
           {preview.portrait ? (
             // eslint-disable-next-line @next/next/no-img-element -- a Wikipedia thumbnail, shown as the site shows it
@@ -76,7 +79,7 @@ export function PersonPreviewCard({ name, born, died, approximate, occupations, 
             {[`${year(born)}–${year(died)}`, occupations.slice(0, 3).join(", "), preview.region].filter(Boolean).join(" · ")}
           </span>
           <span className="flex flex-wrap items-center gap-2 text-[12.5px]">
-            <span className="rounded-full px-2 py-0.5" style={{ color: domain.colour, background: `${domain.colour}26` }}>
+            <span className="rounded-full px-2 py-0.5" style={{ color: domain.colour, background: soft(domain.colour) }}>
               {domain.title}
             </span>
             <span className="text-lamp">
@@ -113,7 +116,7 @@ export function PersonPreviewCard({ name, born, died, approximate, occupations, 
               ) : (
                 <span className={TEXT_STYLE[line.kind]}>
                   {line.text}
-                  {line.role && <span className="block text-xs font-normal text-[#b0447a]">{line.role}</span>}
+                  {line.role && <span className="block text-xs font-normal text-arts">{line.role}</span>}
                 </span>
               )}
             </li>
