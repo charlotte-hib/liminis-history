@@ -8,6 +8,7 @@ import art.liminis.curation.ClaimStatus
 import art.liminis.curation.FlagReason
 import art.liminis.curation.SourceRef
 import art.liminis.dataset.ArticleRow
+import art.liminis.dataset.FoundPlace
 import art.liminis.dataset.PersonSummary
 import art.liminis.dataset.Rank
 import art.liminis.people.Evidence
@@ -22,6 +23,7 @@ import art.liminis.workbench.api.model.ArticleDto
 import art.liminis.workbench.api.model.ClaimStatusDto
 import art.liminis.workbench.api.model.EvidenceDto
 import art.liminis.workbench.api.model.FlagReasonDto
+import art.liminis.workbench.api.model.FoundPlaceDto
 import art.liminis.workbench.api.model.PeopleToReviewDto
 import art.liminis.workbench.api.model.PersonPreviewDto
 import art.liminis.workbench.api.model.PersonSummaryDto
@@ -38,6 +40,8 @@ import art.liminis.workbench.api.model.StatementDto
 abstract class PeopleApiMapper {
 
     abstract fun toDto(person: PersonSummary): PersonSummaryDto
+
+    abstract fun toDto(place: FoundPlace): FoundPlaceDto
 
     abstract fun toDto(evidence: Evidence): EvidenceDto
 

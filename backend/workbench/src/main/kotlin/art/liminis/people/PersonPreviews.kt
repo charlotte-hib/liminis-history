@@ -54,8 +54,17 @@ data class PreviewLifeLine(
     val waiting: Boolean = false,
 )
 
-/** The facts a preview shows, as the curator is editing them: their years and first occupations' Q-ids. */
-data class EditedFacts(val born: Int?, val died: Int?, val occupations: List<String>?)
+/**
+ * The facts a preview shows, as the curator is editing them: their years, first occupations' Q-ids, their birthplace's
+ * Q-id (blank for none), and whether their English Wikipedia article was removed.
+ */
+data class EditedFacts(
+    val born: Int? = null,
+    val died: Int? = null,
+    val occupations: List<String>? = null,
+    val birthplace: String? = null,
+    val withoutArticle: Boolean = false,
+)
 
 /**
  * A person as the site would show them once their facts are approved and published: from their claim, else the
@@ -76,16 +85,24 @@ class PersonPreviews(
 
     @Transactional(readOnly = true)
     fun preview(qid: String, momentId: String?, edited: EditedFacts): PersonPreview {
-        val facts = claims.findById(ClaimRules.factsId(qid)).map { it.payload as PersonFacts }.orElse(null)
+        val claim = claims.findById(ClaimRules.factsId(qid)).orElse(null)
+        val facts = claim?.payload as PersonFacts?
             ?: dataset.people(listOf(qid)).singleOrNull()?.let(factsMapper::facts)
             ?: throw NotFoundException("Unknown person: $qid")
+        // An English article removed, in this edit or an approved one before: the release gives no intro or portrait.
+        val articleRemoved = edited.withoutArticle || (facts.enwiki == null && (claim?.proposal as PersonFacts?)?.enwiki != null)
         val moment = momentId?.let { id -> moments.findById(id).orElseThrow { NotFoundException("No moment $id") } }
         val born = edited.born ?: facts.born
         val died = edited.died ?: facts.died
         if (born > died) throw InvalidRequestException("Born in $born, after the death in $died")
-        val region = moment?.region?.code ?: facts.places.firstOrNull { it.role == PlaceRole.BIRTH }?.country
+        val birthCountry = when {
+            edited.birthplace == null -> facts.places.firstOrNull { it.role == PlaceRole.BIRTH }?.country
+            edited.birthplace.isBlank() -> null
+            else -> dataset.foundPlaces(listOf(edited.birthplace)).singleOrNull()?.country
+        }
+        val region = moment?.region?.code ?: birthCountry
         val articles = dataset.articles(qid)
-        val english = articles.firstOrNull { it.language == "en" }
+        val english = articles.firstOrNull { it.language == "en" }.takeUnless { articleRemoved }
         val anecdotes = claims.anecdotesAbout(qid).filter { it.status != ClaimStatus.REJECTED }.map { claim ->
             val told = sources.of(claim)
             // The source publishing names, without a book's quote, which stays in the workbench.
@@ -94,7 +111,7 @@ class PersonPreviews(
         }
         return PersonPreview(
             person = qid,
-            portrait = articles.firstNotNullOfOrNull { it.thumbnailUrl },
+            portrait = if (articleRemoved) null else articles.firstNotNullOfOrNull { it.thumbnailUrl },
             about = english?.extract?.let(::dropHatnote)?.takeIf { it.isNotBlank() }?.let(::about),
             wikipediaUrl = english?.url,
             domain = domainOf(edited.occupations ?: facts.occupations.map { it.occupation }),

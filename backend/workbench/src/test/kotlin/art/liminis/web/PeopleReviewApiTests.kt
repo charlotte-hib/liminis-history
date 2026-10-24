@@ -214,6 +214,98 @@ class PeopleReviewApiTests(
     }
 
     @Test
+    fun `a preview follows an edited birthplace, and an English article taken away`() {
+        jdbc.update(
+            "insert into dataset.person_article (person, language, title, url, extract, thumbnail_url, image) values " +
+                "('Q535', 'en', 'Victor Hugo', 'https://en.wikipedia.org/wiki/Victor_Hugo', 'Victor Hugo was a French writer.', 'https://upload.example/hugo.jpg', 'Hugo.jpg')",
+        )
+        mockMvc.get("/api/people/{qid}/preview", "Q535") { signedIn(); param("birthplace", "Q727") }.andExpect {
+            status { isOk() }
+            jsonPath("$.region") { value("Netherlands") }
+            jsonPath("$.about") { value("Victor Hugo was a French writer.") }
+        }
+        mockMvc.get("/api/people/{qid}/preview", "Q535") { signedIn(); param("birthplace", ""); param("withoutArticle", "true") }.andExpect {
+            status { isOk() }
+            jsonPath("$.region") { doesNotExist() }
+            jsonPath("$.about") { doesNotExist() }
+            jsonPath("$.portrait") { doesNotExist() }
+            jsonPath("$.wikipediaUrl") { doesNotExist() }
+        }
+    }
+
+    @Test
+    fun `finds places and occupations by name, in English or French, ignoring accents`() {
+        mockMvc.get("/api/places") { signedIn(); param("q", "besan") }.andExpect {
+            status { isOk() }
+            jsonPath("$[0].place") { value("Q37776") }
+            jsonPath("$[0].label") { value("Besançon") }
+            jsonPath("$[0].country") { value("FR") }
+            jsonPath("$[0].people") { value(1) }
+        }
+        mockMvc.get("/api/places") { signedIn(); param("q", "q727") }.andExpect { jsonPath("$[0].label") { value("Amsterdam") } }
+        mockMvc.get("/api/occupations") { signedIn(); param("q", "ecriv") }.andExpect {
+            status { isOk() }
+            jsonPath("$[0].occupation") { value("Q36180") }
+            jsonPath("$[0].labelFr") { value("écrivain") }
+        }
+        mockMvc.get("/api/places") { signedIn(); param("q", "a") }.andExpect { status { isBadRequest() } }
+    }
+
+    @Test
+    fun `edited places and occupations are the dataset's, labelled as it labels them`() {
+        propose("Q535")
+        fun decide(places: String, occupations: String = """[{"occupation": "Q36180", "label": "writer"}]""", enwiki: String = " ") =
+            mockMvc.post("/api/claims/{id}/decisions", "person-facts:Q535") {
+                signedIn()
+                header(HttpHeaders.IF_MATCH, mockMvc.get("/api/claims/{id}", "person-facts:Q535") { signedIn() }.andReturn().response.getHeader(HttpHeaders.ETAG)!!)
+                contentType = MediaType.APPLICATION_JSON
+                content = """
+                    {"action": "APPROVE", "payload": {"type": "PERSON_FACTS", "person": "Q535", "label": "Victor Hugo", "enwiki": "$enwiki",
+                     "born": 1802, "bornPrecision": 9, "died": 1885, "diedEstimated": false, "datesApproximate": false,
+                     "occupations": $occupations, "places": $places}}
+                """.trimIndent()
+            }
+
+        decide("""[{"role": "BIRTH", "place": "Q404", "label": "Nowhere"}]""").andExpect { status { isBadRequest() } }
+        decide("[]", """[{"occupation": "Q1", "label": "Nothing"}]""").andExpect { status { isBadRequest() } }
+        // The article is Wikidata's: removed, never another.
+        decide("[]", enwiki = "Victor Hugo (writer)").andExpect { status { isBadRequest() } }
+        decide("""[{"role": "WORK", "place": "Q90", "label": "Paris", "startYear": 1850, "endYear": 1840}]""").andExpect { status { isBadRequest() } }
+        decide("""[{"role": "BIRTH", "place": "Q727", "label": "Somewhere else", "country": "XX"}, {"role": "RESIDENCE", "place": "Q90", "label": "Paris", "startYear": 1870}]""")
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.payload.places[0].label") { value("Amsterdam") }
+                jsonPath("$.payload.places[0].country") { value("NL") }
+                jsonPath("$.payload.places[1].startYear") { value(1870) }
+                jsonPath("$.payload.enwiki") { doesNotExist() }
+            }
+    }
+
+    @Test
+    fun `a place the claim holds stays, though the dataset no longer has it`() {
+        propose("Q535")
+        // Wikidata deleted Paris, Hugo's death place: a new mapping leaves it out.
+        jdbc.update("delete from dataset.person_place where place = 'Q90'")
+        jdbc.update("delete from dataset.place_country where place = 'Q90'")
+        jdbc.update("delete from dataset.place where qid = 'Q90'")
+        mockMvc.post("/api/claims/{id}/decisions", "person-facts:Q535") {
+            signedIn()
+            header(HttpHeaders.IF_MATCH, mockMvc.get("/api/claims/{id}", "person-facts:Q535") { signedIn() }.andReturn().response.getHeader(HttpHeaders.ETAG)!!)
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {"action": "APPROVE", "payload": {"type": "PERSON_FACTS", "person": "Q535", "label": "Victor Hugo", "labelFr": "Hugo",
+                 "born": 1802, "bornPrecision": 9, "died": 1885, "diedEstimated": false, "datesApproximate": false,
+                 "occupations": [{"occupation": "Q36180", "label": "writer"}],
+                 "places": [{"role": "BIRTH", "place": "Q37776", "label": "Besançon"}, {"role": "DEATH", "place": "Q90", "label": "Paris"}]}}
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.payload.places[1].label") { value("Paris") }
+            jsonPath("$.payload.labelFr") { value("Hugo") }
+        }
+    }
+
+    @Test
     fun `a claim whose person a mapping run dropped stays in review`() {
         propose("Q504", "Q535")
         CurationFixtures.map(dataset, CurationFixtures.PEOPLE - CurationFixtures.HUGO)

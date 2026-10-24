@@ -4,6 +4,7 @@ import art.liminis.domain.ArtFit
 import art.liminis.domain.CardType
 import art.liminis.domain.Domain
 import art.liminis.domain.LifeIcon
+import art.liminis.domain.PlaceKind
 import art.liminis.domain.PublicationStatus
 import art.liminis.dataset.FetchedDataset
 
@@ -200,8 +201,8 @@ data class OccupationRecord(val id: String, val domain: Domain? = null)
 
 /**
  * A line of `corrections.jsonl`: the curator's corrections to a person of the fetched dataset, by Q-id. Only the fields
- * corrected are written; the others stay as Wikidata states them. A correction for someone written by hand in
- * `people.jsonl`, or for a Q-id the dataset does not hold, changes nothing.
+ * corrected are written; the others stay as Wikidata states them, but those [cleared], which hold nothing then. A
+ * correction for someone written by hand in `people.jsonl`, or for a Q-id the dataset does not hold, changes nothing.
  */
 data class CorrectionRecord(
     val id: String,
@@ -209,11 +210,26 @@ data class CorrectionRecord(
     /** The French name, for the French site: the English one compiles without it. */
     val nameFr: String? = null,
     val born: Int? = null,
+    /** Wikidata's precision of the year of birth: 9 a year, 8 a decade, 7 a century, 10 and 11 a month and a day. */
+    val bornPrecision: Int? = null,
     val died: Int? = null,
+    val diedPrecision: Int? = null,
+    /** The year of death is estimated: it then has no precision. */
+    val diedEstimated: Boolean? = null,
     val approximate: Boolean? = null,
     /** Q-ids, in the order the site takes them: the first mapped one gives the domain. */
     val occupations: List<String>? = null,
+    /** All their places, each a place of the dataset: the first birthplace gives their region. */
+    val places: List<CorrectionPlaceRecord>? = null,
+    /** The fields emptied: a French name, the death's precision, or a Wikipedia article that is not theirs. */
+    val cleared: Set<ClearedField>? = null,
 )
+
+/** One of a person's places, by its Q-id, with the years they were there when known. */
+data class CorrectionPlaceRecord(val kind: PlaceKind, val place: String, val start: Int? = null, val end: Int? = null)
+
+/** The fields a correction can empty. */
+enum class ClearedField { NAME_FR, DIED_PRECISION, WIKIPEDIA, WIKIPEDIA_FR }
 
 /** A release as read from its directory, before it is compiled. */
 data class Release(

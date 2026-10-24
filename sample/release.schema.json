@@ -133,6 +133,10 @@
       "type" : "string",
       "enum" : [ "SCENE", "PERSON", "LIFE", "EVENT" ]
     },
+    "ClearedField" : {
+      "type" : "string",
+      "enum" : [ "NAME_FR", "DIED_PRECISION", "WIKIPEDIA", "WIKIPEDIA_FR" ]
+    },
     "ConnectionFrenchRecord" : {
       "type" : "object",
       "properties" : {
@@ -174,6 +178,25 @@
       "required" : [ "kind", "people", "source", "text", "year" ],
       "additionalProperties" : false
     },
+    "CorrectionPlaceRecord" : {
+      "type" : "object",
+      "properties" : {
+        "end" : {
+          "type" : "integer"
+        },
+        "kind" : {
+          "$ref" : "#/$defs/PlaceKind"
+        },
+        "place" : {
+          "type" : "string"
+        },
+        "start" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [ "kind", "place" ],
+      "additionalProperties" : false
+    },
     "CorrectionRecord" : {
       "type" : "object",
       "properties" : {
@@ -183,7 +206,22 @@
         "born" : {
           "type" : "integer"
         },
+        "bornPrecision" : {
+          "type" : "integer"
+        },
+        "cleared" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/$defs/ClearedField"
+          }
+        },
         "died" : {
+          "type" : "integer"
+        },
+        "diedEstimated" : {
+          "type" : "boolean"
+        },
+        "diedPrecision" : {
           "type" : "integer"
         },
         "id" : {
@@ -199,6 +237,12 @@
           "type" : "array",
           "items" : {
             "type" : "string"
+          }
+        },
+        "places" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/$defs/CorrectionPlaceRecord"
           }
         }
       },
@@ -588,6 +632,10 @@
       },
       "required" : [ "born", "domain", "id", "name", "occupation", "region" ],
       "additionalProperties" : false
+    },
+    "PlaceKind" : {
+      "type" : "string",
+      "enum" : [ "BIRTH", "DEATH", "WORK", "RESIDENCE" ]
     },
     "PublicationStatus" : {
       "type" : "string",

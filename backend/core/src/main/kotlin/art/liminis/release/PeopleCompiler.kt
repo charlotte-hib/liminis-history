@@ -3,6 +3,7 @@ package art.liminis.release
 import art.liminis.dataset.ArticleRow
 import art.liminis.dataset.OccupationRow
 import art.liminis.dataset.PersonOccupation
+import art.liminis.dataset.PersonPlace as DatasetPlace
 import art.liminis.dataset.PersonRow
 import art.liminis.dataset.PlaceProperty
 import art.liminis.dataset.PlaceRow
@@ -114,9 +115,11 @@ internal class PeopleCompiler(private val release: Release) {
     }
 
     private fun fetchedPerson(row: PersonRow, region: String, slug: String, fame: Int, references: References): Person {
-        val article = dataset!!.articles[row.qid]
+        // An article the curator removed (not this person's) brings no intro, portrait or link.
+        val cleared = corrections[row.qid]?.cleared.orEmpty()
+        val article = dataset!!.articles[row.qid]?.takeUnless { ClearedField.WIKIPEDIA in cleared }
         val text = article?.let(::intro)
-        val articleFr = dataset.articlesFr[row.qid]
+        val articleFr = dataset.articlesFr[row.qid]?.takeUnless { ClearedField.WIKIPEDIA_FR in cleared }
         val textFr = articleFr?.let(::intro)
         val occupations = row.occupations.mapNotNull { dataset.occupations[it.occupation] }.distinctBy { it.label }.take(MAX_OCCUPATIONS)
         return Person(
@@ -157,16 +160,30 @@ internal class PeopleCompiler(private val release: Release) {
         )
     }
 
-    /** The row with each field the curator corrected; occupations they removed are gone, the others reordered. */
+    /**
+     * The row with each field the curator corrected or cleared; occupations and places they removed are gone, the
+     * others reordered, those they added unreferenced.
+     */
     private fun PersonRow.corrected(correction: CorrectionRecord): PersonRow {
-        val held = occupations.associateBy { it.occupation }
+        val cleared = correction.cleared.orEmpty()
+        val heldOccupations = occupations.associateBy { it.occupation }
+        val heldPlaces = places.associateBy { it.property to it.place }
         return copy(
             label = correction.name ?: label,
-            labelFr = correction.nameFr ?: labelFr,
+            labelFr = if (ClearedField.NAME_FR in cleared) null else correction.nameFr ?: labelFr,
             born = correction.born ?: born,
+            bornPrecision = correction.bornPrecision ?: bornPrecision,
             died = correction.died ?: died,
+            diedPrecision = if (ClearedField.DIED_PRECISION in cleared) null else correction.diedPrecision ?: diedPrecision,
+            diedEstimated = correction.diedEstimated ?: diedEstimated,
             datesApproximate = correction.approximate ?: datesApproximate,
-            occupations = correction.occupations?.map { held[it] ?: PersonOccupation(it, referenced = false) } ?: occupations,
+            enwiki = enwiki.takeUnless { ClearedField.WIKIPEDIA in cleared },
+            frwiki = frwiki.takeUnless { ClearedField.WIKIPEDIA_FR in cleared },
+            occupations = correction.occupations?.map { heldOccupations[it] ?: PersonOccupation(it, referenced = false) } ?: occupations,
+            places = correction.places?.map { place ->
+                val property = PlaceProperty.valueOf(place.kind.name).code
+                DatasetPlace(property, place.place, place.start, place.end, heldPlaces[property to place.place]?.referenced ?: false)
+            } ?: places,
         )
     }
 

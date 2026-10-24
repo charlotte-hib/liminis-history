@@ -282,8 +282,8 @@ export interface paths {
          * @description What the site's person panel shows of the person beyond their name and dates: their portrait, the intro of
          *     their English Wikipedia article, their domain, and their life in their time, from the release's eras and events
          *     of the moment's region (without `moment`, of the country their birthplace lies in today) and the anecdotes told
-         *     about them. `born`, `died` and `occupation` stand for the facts being edited; without them, the claim's, else
-         *     the dataset's. Born after the death is a 400.
+         *     about them. `born`, `died`, `occupation`, `birthplace` and `withoutArticle` stand for the facts being edited;
+         *     without them, the claim's, else the dataset's. Born after the death is a 400.
          */
         get: operations["getPersonPreview"];
         put?: never;
@@ -560,6 +560,49 @@ export interface paths {
          *     wide at most, with a credit made from what Commons says of its artist, title and date, to edit.
          */
         get: operations["findPaintings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find places by name
+         * @description The places of the dataset whose English or French label contains `q`, ignoring case and accents, those it
+         *     starts with first, then those of the most people. A Q-id finds that place. A person's places are chosen among
+         *     them.
+         */
+        get: operations["findPlaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/occupations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find occupations by name
+         * @description The occupations of the dataset, and the classes above them, whose English or French label contains `q`,
+         *     ignoring case and accents, those it starts with first, then those the most people hold. A Q-id finds that one.
+         */
+        get: operations["findOccupations"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1380,6 +1423,25 @@ export interface components {
             /** @description The first occupation's label, the one the site shows. */
             occupation?: string;
         };
+        FoundPlace: {
+            place: components["schemas"]["Qid"];
+            label: string;
+            labelFr?: string;
+            /**
+             * @description The ISO code of the country it lies in today.
+             * @example FR
+             */
+            country?: string;
+            /** @description How many people of the dataset it is a place of. */
+            people: number;
+        };
+        FoundOccupation: {
+            occupation: components["schemas"]["Qid"];
+            label: string;
+            labelFr?: string;
+            /** @description How many people of the dataset hold it. */
+            people: number;
+        };
         Evidence: {
             person: components["schemas"]["Qid"];
             /**
@@ -1478,7 +1540,7 @@ export interface components {
         };
         FactChange: {
             /** @enum {string} */
-            fact: "NAME" | "FRENCH_NAME" | "BORN" | "DIED" | "DATES_APPROXIMATE" | "OCCUPATIONS";
+            fact: "NAME" | "FRENCH_NAME" | "BORN" | "BORN_PRECISION" | "DIED" | "DIED_PRECISION" | "DIED_ESTIMATED" | "DATES_APPROXIMATE" | "OCCUPATIONS" | "BIRTHPLACE" | "DEATHPLACE" | "WORK_PLACES" | "RESIDENCES" | "WIKIPEDIA" | "WIKIPEDIA_FR";
             /**
              * @description None when there is none.
              * @example 1802
@@ -2156,6 +2218,10 @@ export interface operations {
                 died?: components["schemas"]["Year"];
                 /** @description Their occupations, in order. The site takes their domain from the first with one. */
                 occupation?: components["schemas"]["Qid"][];
+                /** @description The Q-id of their birthplace, whose country gives their region without `moment`; empty for none. */
+                birthplace?: string;
+                /** @description Their English Wikipedia article removed, as not theirs. */
+                withoutArticle?: boolean;
             };
             header?: never;
             path: {
@@ -2583,6 +2649,58 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             503: components["responses"]["Unavailable"];
+        };
+    };
+    findPlaces: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description At most `limit` places. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoundPlace"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    findOccupations: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description At most `limit` occupations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoundOccupation"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getOccupation: {

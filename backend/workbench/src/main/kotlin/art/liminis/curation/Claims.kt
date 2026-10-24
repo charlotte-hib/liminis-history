@@ -22,6 +22,7 @@ class Claims(
     private val sources: ClaimSources,
     private val transactions: TransactionTemplate,
     private val jsonMapper: JsonMapper,
+    private val factEdits: FactEdits,
     private val events: ApplicationEventPublisher,
 ) {
 
@@ -76,7 +77,9 @@ class Claims(
     fun decide(id: String, version: Long, decision: NewDecision, by: Actor): ClaimDetail {
         val claim = find(id, version)
         write(claim, by)
-        val decided = ClaimRules.decide(claim.state, decision)
+        val held = listOfNotNull(claim.state.proposal, claim.state.payload).filterIsInstance<PersonFacts>()
+        val edited = (decision.payload as? PersonFacts)?.let { decision.copy(payload = factEdits.checked(it, held)) } ?: decision
+        val decided = ClaimRules.decide(claim.state, edited)
         decisions.save(Decision(id, by.name, claim.status, decided.status, claim.payload, decided.payload, decision.note))
         claim.state = decided
         if (decided.status == ClaimStatus.APPROVED) events.publishEvent(Approved(id, decided.payload))

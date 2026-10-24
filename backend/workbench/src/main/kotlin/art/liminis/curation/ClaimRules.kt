@@ -124,6 +124,7 @@ object ClaimRules {
                 invalid("An edit of a translation changes its French, not its English")
             }
             check(payload)
+            if (payload is PersonFacts) checkArticles(payload, state.proposal as PersonFacts)
         } else if (decision.verdict == Verdict.APPROVE && (payload is Story || payload is MomentPage || payload is Translation)) {
             // A draft is checked by the validator, which only flags: approved as drafted, it must still hold together.
             check(payload)
@@ -210,7 +211,7 @@ object ClaimRules {
      */
     private fun check(payload: Payload) {
         val years = when (payload) {
-            is PersonFacts -> listOf(payload.born, payload.died)
+            is PersonFacts -> listOf(payload.born, payload.died) + payload.places.flatMap { listOfNotNull(it.startYear, it.endYear) }
             is Connection -> listOf(payload.year)
             is Event -> listOf(payload.year)
             is Anecdote -> listOf(payload.year)
@@ -228,6 +229,13 @@ object ClaimRules {
             if (payload.art?.credit?.isBlank() == true) invalid("The moment's painting needs a credit")
         }
         if (payload is Translation && payload.texts.any { it.fr.isBlank() }) invalid("Write every text in French")
+    }
+
+    /** A person's Wikipedia articles are Wikidata's: an edit may remove one that is not theirs, never name another. */
+    private fun checkArticles(edited: PersonFacts, proposed: PersonFacts) {
+        if (edited.enwiki !in setOf(null, proposed.enwiki) || edited.frwiki !in setOf(null, proposed.frwiki)) {
+            invalid("A person's Wikipedia article is the one Wikidata links: remove it, or correct it in Wikidata")
+        }
     }
 
     private fun check(number: Int, card: StoryCard) {

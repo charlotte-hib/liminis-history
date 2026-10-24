@@ -49,6 +49,7 @@ class PeopleCompilerTests {
         articles: List<ArticleRow> = emptyList(),
         mapped: List<OccupationRecord> = emptyList(),
         corrections: List<CorrectionRecord> = emptyList(),
+        articlesFr: List<ArticleRow> = emptyList(),
     ) = Release(
         regions = listOf(RegionRecord("FR", "France")),
         eras = emptyList(),
@@ -61,6 +62,7 @@ class PeopleCompilerTests {
             articles.associateBy { it.person },
             listOf(paris, rome, atlantis).associateBy { it.qid },
             occupations.associateBy { it.qid },
+            articlesFr.associateBy { it.person },
         ),
         lives = emptyList(),
         events = emptyList(),
@@ -123,6 +125,46 @@ class PeopleCompilerTests {
         // writer is removed; politician is added, and is the first one mapped.
         assertEquals(listOf("engineer", "politician", "painter"), person.occupations)
         assertEquals(Domain.POWER, person.domain)
+    }
+
+    @Test
+    fun `corrected places replace them all, and the birthplace gives the region`() {
+        val corrections = listOf(
+            CorrectionRecord("Q762", places = listOf(CorrectionPlaceRecord(PlaceKind.BIRTH, "Q90"), CorrectionPlaceRecord(PlaceKind.RESIDENCE, "Q220", 1500, 1510))),
+        )
+        val person = ReleaseCompiler.compile(release(listOf(zola, leonardo), corrections = corrections)).people.single { it.id == "Q762" }
+
+        assertEquals("FR", person.region.code)
+        assertEquals(
+            listOf(Triple(PlaceKind.BIRTH, "FR", null), Triple(PlaceKind.RESIDENCE, "IT", 1500)),
+            person.places.map { Triple(it.kind, it.regionCode, it.startYear) },
+        )
+    }
+
+    @Test
+    fun `someone with no known birthplace comes in once a correction gives one`() {
+        val nowhere = row("Q4", "Someone of nowhere", 1500, 40, null, "Q36180")
+        val corrections = listOf(CorrectionRecord("Q4", places = listOf(CorrectionPlaceRecord(PlaceKind.BIRTH, "Q220"))))
+        val people = ReleaseCompiler.compile(release(listOf(zola, nowhere), corrections = corrections)).people
+
+        assertEquals("IT", people.single { it.id == "Q4" }.region.code)
+    }
+
+    @Test
+    fun `an article removed brings no intro, portrait or link, in English or in French`() {
+        val en = ArticleRow("Q762", "en", "Leonardo da Vinci", "https://en.wikipedia.org/wiki/Leonardo_da_Vinci", "Leonardo was a painter.", "https://upload.example/leo.jpg", "Leo.jpg")
+        val fr = ArticleRow("Q762", "fr", "Léonard de Vinci", "https://fr.wikipedia.org/wiki/L%C3%A9onard_de_Vinci", "Léonard est un peintre.", null, null)
+        fun compiled(vararg cleared: ClearedField) = ReleaseCompiler.compile(
+            release(listOf(zola, leonardo), listOf(en), corrections = listOf(CorrectionRecord("Q762", cleared = cleared.toSet())), articlesFr = listOf(fr)),
+        ).people.single { it.id == "Q762" }
+
+        val english = compiled(ClearedField.WIKIPEDIA)
+        assertEquals(listOf(null, null, null, null, null), listOf(english.wikipediaTitle, english.bioShort, english.about, english.portraitUrl, english.wikipediaUrl))
+        assertEquals("Léonard de Vinci", english.wikipediaTitleFr)
+
+        val french = compiled(ClearedField.WIKIPEDIA_FR)
+        assertEquals("Leonardo da Vinci", french.wikipediaTitle)
+        assertEquals(listOf(null, null, null), listOf(french.wikipediaTitleFr, french.bioShortFr, french.wikipediaUrlFr))
     }
 
     @Test

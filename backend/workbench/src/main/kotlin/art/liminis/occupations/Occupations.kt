@@ -2,6 +2,7 @@ package art.liminis.occupations
 
 import org.springframework.stereotype.Component
 import art.liminis.dataset.DatasetStore
+import art.liminis.dataset.FoundOccupation
 import art.liminis.dataset.OccupationRow
 import art.liminis.dataset.PersonSummary
 import art.liminis.support.NotFoundException
@@ -27,6 +28,8 @@ data class OccupationLabel(val occupation: String, val label: String)
  */
 @Component
 class Occupations(private val dataset: DatasetStore) {
+
+    fun find(query: String, limit: Int): List<FoundOccupation> = dataset.findOccupations(query.trim(), limit)
 
     /**
      * Every occupation and class held by someone: those most held as a first occupation first, then the classes no one
