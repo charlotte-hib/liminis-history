@@ -11,6 +11,8 @@
   --color-quiet: #8a7a62;
   --color-line: #e0d7c6;
   --color-edge: #cdbfa8;
+  /* A boxed text field, set in from the paper or card around it. */
+  --color-field: #ffffff;
   --color-faint: #ece4d6;
   --color-lamp: #9a6a14;
   --color-lamp-soft: #e8dcc2;
@@ -46,7 +48,8 @@
     --color-muted: #b3a99a;
     --color-quiet: #8f8576;
     --color-line: #2d2a25;
-    --color-edge: #46413a;
+    --color-edge: #5a5349;
+    --color-field: #25221d;
     --color-faint: #25221d;
     --color-lamp: #f2c97d;
     --color-lamp-soft: #3a3020;

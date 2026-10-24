@@ -5,6 +5,9 @@ import { take } from "@/lib/rate-limit";
 /** The names this computer answers to: nothing else may reach it, even through a name that points here. */
 const LOCAL = new Set(["localhost", "127.0.0.1"]);
 
+/** What a signed-out browser may fetch: the sign-in pages show the tab's icon too. */
+const OPEN = new Set(["/favicon.ico", "/icon.svg"]);
+
 /** The names curate answers to: its own, and on this computer both of its local ones. */
 const NAMES = LOCAL.has(CURATE_URL.hostname) ? LOCAL : new Set([CURATE_URL.hostname]);
 
@@ -24,7 +27,7 @@ export async function proxy(request: NextRequest) {
   if (host !== CURATE_URL.hostname) return toCurateUrl(request);
 
   const { pathname } = request.nextUrl;
-  if (pathname.startsWith("/auth/") || pathname.startsWith("/_next/") || pathname === "/favicon.ico" || pathname === "/icon.svg") return NextResponse.next();
+  if (pathname.startsWith("/auth/") || pathname.startsWith("/_next/") || OPEN.has(pathname)) return NextResponse.next();
 
   const session = await readSession(request.cookies.get(SESSION_COOKIE)?.value);
   if (!session) return signIn(request);

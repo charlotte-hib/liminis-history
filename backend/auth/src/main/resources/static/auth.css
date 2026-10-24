@@ -9,6 +9,7 @@
   --quiet: #8a7a62;
   --line: #e0d7c6;
   --edge: #cdbfa8;
+  --field: #ffffff;
   --faint: #ece4d6;
   --lamp: #9a6a14;
   --ok: #4f6b33;
@@ -26,7 +27,8 @@
     --muted: #b3a99a;
     --quiet: #8f8576;
     --line: #2d2a25;
-    --edge: #46413a;
+    --edge: #5a5349;
+    --field: #25221d;
     --faint: #25221d;
     --lamp: #f2c97d;
     --ok: #9cc673;
@@ -59,7 +61,7 @@ button.quiet { min-height: 32px; padding: 0 12px; background: transparent; color
 button.quiet:hover { border-color: var(--ink); }
 button:focus-visible, .button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
 label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
-input { min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface);
+input { min-height: 40px; padding: 8px 12px; border: 1px solid var(--edge); border-radius: 4px; background: var(--field);
   color: var(--ink); font: inherit; }
 .alert { display: none; padding: 10px 12px; border-radius: 4px; }
 .alert.shown { display: block; }
