@@ -10,9 +10,21 @@ const SHOWN_UNDATED = 6;
 
 const ROLE_WORD = { BIRTH: "born", WORK: "worked", RESIDENCE: "lived", DEATH: "died" } as const satisfies Record<PlaceKind, string>;
 
-const dated = (place: PersonPlace) => place.roles.some((role) => role.startYear !== null || role.endYear !== null);
+/** The sentence of places without years names each once, under the first of these roles it had. */
+const UNDATED_PARTS = [
+  ["WORK", "workedIn"],
+  ["RESIDENCE", "livedIn"],
+  ["BIRTH", "bornAt"],
+  ["DEATH", "diedAt"],
+] as const satisfies [PlaceKind, string][];
 
-/** The years a place covers: "1832–1848", "1852", "–1878" when only its end is known, "1878–" when only its start. */
+const dated = (place: PersonPlace) => place.roles.some((role) => role.startYear !== null || role.endYear !== null);
+const had = (place: PersonPlace, kind: PlaceKind) => place.roles.some((role) => role.kind === kind);
+
+/**
+ * The years a place covers: "1832–1848", "1852", "–1878" when only its end is known, "1878–" when only its start.
+ * Both ends before the common era say so once: "1200–1150 BCE".
+ */
 function useSpan() {
   const years = useYears();
   return (place: PersonPlace) => {
@@ -22,7 +34,8 @@ function useSpan() {
     const to = ends.length > 0 ? Math.max(...ends) : null;
     if (from === null) return to === null ? "" : `–${years.year(to)}`;
     if (to === null) return `${years.year(from)}–`;
-    return from === to ? years.year(from) : `${years.year(from)}–${years.year(to)}`;
+    if (from === to) return years.year(from);
+    return from < 0 && to < 0 ? `${-from}–${years.year(to)}` : `${years.year(from)}–${years.year(to)}`;
   };
 }
 
@@ -33,9 +46,17 @@ const Name = ({ place, className }: { place: PersonPlace; className?: string }) 
   </span>
 );
 
+const list = (places: PersonPlace[]) =>
+  places.map((place, index) => (
+    <Fragment key={index}>
+      {index > 0 && ", "}
+      <Name place={place} />
+    </Fragment>
+  ));
+
 /**
  * Where someone was born, worked, lived and died: a line per place with its years, in the order they were there, then
- * the places Wikidata gives no year for, in one sentence.
+ * the places Wikidata gives no year for, in one sentence, folded after a few.
  */
 export function Places({ places }: { places: PersonPlace[] }) {
   const t = useTranslations("places");
@@ -43,22 +64,18 @@ export function Places({ places }: { places: PersonPlace[] }) {
   const [all, setAll] = useState(false);
 
   const undated = places.filter((place) => !dated(place));
-  const worked = undated.filter((place) => place.roles.some((role) => role.kind === "WORK"));
-  const lived = undated.filter((place) => !worked.includes(place));
-  const hidden = all ? 0 : Math.max(0, undated.length - SHOWN_UNDATED);
-  const shownWorked = all ? worked : worked.slice(0, SHOWN_UNDATED);
-  const shownLived = all ? lived : lived.slice(0, Math.max(0, SHOWN_UNDATED - worked.length));
-  const list = (shown: PersonPlace[]) =>
-    shown.map((place, index) => (
-      <Fragment key={index}>
-        {index > 0 && ", "}
-        <Name place={place} />
-      </Fragment>
-    ));
-  const parts = [
-    shownWorked.length > 0 && t.rich("workedIn", { places: () => list(shownWorked) }),
-    shownLived.length > 0 && t.rich("livedIn", { places: () => list(shownLived) }),
-  ].filter(Boolean);
+  const shown = all ? undated.length : Math.min(undated.length, SHOWN_UNDATED);
+  // Each place under its first role, in that order, then the first `shown` of them named.
+  const byRole = UNDATED_PARTS.map(([kind, message], index) => {
+    const earlier = UNDATED_PARTS.slice(0, index).map(([other]) => other);
+    return { message, named: undated.filter((place) => had(place, kind) && !earlier.some((other) => had(place, other))) };
+  });
+  const parts = byRole.flatMap(({ message, named }, index) => {
+    const before = byRole.slice(0, index).reduce((count, part) => count + part.named.length, 0);
+    const kept = named.slice(0, Math.max(0, shown - before));
+    return kept.length > 0 ? [t.rich(message, { places: () => list(kept) })] : [];
+  });
+  const hidden = undated.length - shown;
 
   return (
     <div>
@@ -86,12 +103,13 @@ export function Places({ places }: { places: PersonPlace[] }) {
                   {part}
                 </Fragment>
               )),
-          })}{" "}
-          {hidden > 0 && (
-            <button type="button" onClick={() => setAll(true)} className="text-lamp underline underline-offset-2">
-              {t("more", { count: hidden })}
-            </button>
-          )}
+            more: () =>
+              hidden > 0 && (
+                <button type="button" onClick={() => setAll(true)} className="text-lamp underline underline-offset-2">
+                  {t("more", { count: hidden })}
+                </button>
+              ),
+          })}
         </p>
       )}
     </div>
@@ -103,22 +121,15 @@ const unique = (word: string, index: number, words: string[]) => words.indexOf(w
 /** "Born in Besançon · died in Paris", from their places, for the header. Null when Wikidata gives neither. */
 export function BornAndDied({ places }: { places: PersonPlace[] }) {
   const t = useTranslations("places");
-  const where = (kind: PlaceKind) => places.find((place) => place.roles.some((role) => role.kind === kind));
+  const where = (kind: PlaceKind) => places.find((place) => had(place, kind));
   const birth = where("BIRTH");
   const death = where("DEATH");
   if (!birth && !death) return null;
-  const parts = [
-    birth && t.rich("bornIn", { place: () => <Name place={birth} /> }),
-    death && t.rich("diedIn", { place: () => <Name place={death} /> }),
-  ].filter(Boolean);
   return (
-    <p className="text-sm text-foreground first-letter:uppercase">
-      {parts.map((part, index) => (
-        <Fragment key={index}>
-          {index > 0 && " · "}
-          {part}
-        </Fragment>
-      ))}
+    <p className="text-sm text-foreground">
+      {birth && t.rich("bornIn", { place: () => <Name place={birth} /> })}
+      {birth && death && " · "}
+      {death && t.rich(birth ? "diedIn" : "diedOnly", { place: () => <Name place={death} /> })}
     </p>
   );
 }

@@ -132,12 +132,15 @@
     "worked": "Worked",
     "lived": "Lived",
     "died": "Died",
-    "bornIn": "born in <place></place>",
+    "bornIn": "Born in <place></place>",
     "diedIn": "died in <place></place>",
+    "diedOnly": "Died in <place></place>",
     "workedIn": "worked in <places></places>",
     "livedIn": "lived in <places></places>",
-    "undated": "Also <parts></parts>, years unknown.",
-    "more": "and {count} more",
+    "bornAt": "born in <places></places>",
+    "diedAt": "died in <places></places>",
+    "undated": "Also <parts></parts><more></more>, years unknown.",
+    "more": " and {count} more",
     "separator": "; "
   },
   "life": {

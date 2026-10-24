@@ -53,6 +53,23 @@ class PlacesTests {
         assertEquals(LanguageDto.en, placesOf(monet, Language.FR, country).first().lang)
     }
 
+    @Test
+    fun `a merged place takes the French name any of its items has`() {
+        val two = person(place("Q1", "Argenteuil", PlaceKind.WORK), place("Q2", "Argenteuil", PlaceKind.RESIDENCE, nameFr = "Argenteuil-sur-Seine"))
+        assertEquals("Argenteuil-sur-Seine", placesOf(two, Language.FR, country).single().name)
+    }
+
+    @Test
+    fun `a death place with no death year is undated, and BCE years order like the others`() {
+        val alive = person(place("Q3", "Thebes", PlaceKind.DEATH), place("Q4", "Memphis", PlaceKind.RESIDENCE, -1200, -1150), born = -1250, died = null)
+        val lines = placesOf(alive, Language.EN, country)
+        assertEquals(listOf("Memphis", "Thebes"), lines.map { it.name })
+        assertEquals(PlaceRoleDto(PlaceKindDto.DEATH, null, null), lines[1].roles.single())
+    }
+
+    private fun person(vararg places: PersonPlace, born: Int = 1840, died: Int? = 1926) =
+        Person("p", "Q0", "p", "P", born, died, false, france, Domain.ARTS, listOf("painter"), 1, 1, null).apply { this.places += places }
+
     private fun place(qid: String, name: String, kind: PlaceKind, start: Int? = null, end: Int? = null, region: String = "FR", nameFr: String? = null) =
         PersonPlace(qid, name, nameFr, kind, region, start, end)
 }

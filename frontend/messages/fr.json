@@ -132,13 +132,16 @@
     "worked": "Travail",
     "lived": "Résidence",
     "died": "Décès",
-    "bornIn": "naissance : <place></place>",
-    "diedIn": "décès : <place></place>",
-    "workedIn": "travail : <places></places>",
-    "livedIn": "résidence : <places></places>",
-    "undated": "Sans dates connues, aussi — <parts></parts>.",
-    "more": "et {count} autres",
-    "separator": " ; "
+    "bornIn": "Naissance : <place></place>",
+    "diedIn": "décès : <place></place>",
+    "diedOnly": "Décès : <place></place>",
+    "workedIn": "travail : <places></places>",
+    "livedIn": "résidence : <places></places>",
+    "bornAt": "naissance : <places></places>",
+    "diedAt": "décès : <places></places>",
+    "undated": "Aussi, sans dates connues : <parts></parts><more></more>.",
+    "more": " et {count, plural, one {# autre} other {# autres}}",
+    "separator": " ; "
   },
   "life": {
     "typical": "vie type",

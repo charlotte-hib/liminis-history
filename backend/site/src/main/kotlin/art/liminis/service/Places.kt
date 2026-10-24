@@ -11,7 +11,8 @@ import art.liminis.web.dto
 /**
  * Where [person] was born, worked, lived and died: one line per place, with every role it had (Wikidata may list a
  * place twice, or two items of the same name in one country: they are one line), in the order they were there, by the
- * first year known; places with no year come last, in Wikidata's order. A birth is dated by their birth, a death by
+ * first year known (a place known only by when they left it, by that year); places with no year come last, in
+ * Wikidata's order. Roles come in [PlaceKindDto]'s order: birth, work, residence, death. A birth is dated by their birth, a death by
  * their death. Names are in [language] where Wikidata has them in it; [country] names a region code.
  */
 fun placesOf(person: Person, language: Language, country: (String) -> String?): List<PersonPlaceDto> =
@@ -20,7 +21,7 @@ fun placesOf(person: Person, language: Language, country: (String) -> String?): 
         .values
         .map { same ->
             val first = same.first()
-            val french = first.nameFr?.takeIf { language == Language.FR }
+            val french = same.firstNotNullOfOrNull { it.nameFr }?.takeIf { language == Language.FR }
             val roles = same
                 .map { place ->
                     when (place.kind) {

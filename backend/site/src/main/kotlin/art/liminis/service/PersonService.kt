@@ -85,14 +85,18 @@ class PersonService(
     }
 
     /**
-     * The names of the countries [person]'s places lie in: the release's regions where it holds them, else the
-     * country's name in [language].
+     * The names of the countries [person]'s places lie in: the release's regions where it holds them in [language],
+     * else the country's name in [language].
      */
     private fun countries(person: Person, language: Language): (String) -> String? {
         val held = regions.findAllById(person.places.mapNotNull { it.regionCode }.toSet()).associateBy { it.code }
         return { code ->
-            held[code]?.let { mapper.regionName(it, language) }
-                ?: Locale.of("", code).getDisplayCountry(if (language == Language.FR) Locale.FRENCH else Locale.ENGLISH).takeIf { it != code }
+            val named = Locale.of("", code).getDisplayCountry(if (language == Language.FR) Locale.FRENCH else Locale.ENGLISH).takeIf { it != code }
+            when (val region = held[code]) {
+                null -> named
+                // A region the release names in English only is named in French after its code.
+                else -> if (language == Language.FR && region.nameFr == null) named ?: region.name else mapper.regionName(region, language)
+            }
         }
     }
 

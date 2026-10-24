@@ -63,6 +63,7 @@ test("an anecdote is told among the years of their life, with its source", async
   await expect(page.getByRole("dialog", { name: "Someone who lived it" }).getByText(daruma)).toBeVisible();
 });
 
+// Relies on sample/dataset: Hugo's 16 places (Jersey his one undated work place), Monet's 9 undated ones.
 test("a person's page says where they were born, worked, lived and died", async ({ page }) => {
   await page.goto("/person/victor-hugo");
   await expect(page.getByText("Born in Besançon · died in Paris")).toBeVisible();
