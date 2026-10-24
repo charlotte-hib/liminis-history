@@ -126,6 +126,20 @@
     "episode": "episode {episode}",
     "minute": "at {minute}"
   },
+  "places": {
+    "title": "Where they lived",
+    "born": "Born",
+    "worked": "Worked",
+    "lived": "Lived",
+    "died": "Died",
+    "bornIn": "born in <place></place>",
+    "diedIn": "died in <place></place>",
+    "workedIn": "worked in <places></places>",
+    "livedIn": "lived in <places></places>",
+    "undated": "Also <parts></parts>, years unknown.",
+    "more": "and {count} more",
+    "separator": "; "
+  },
   "life": {
     "typical": "typical life",
     "notReal": "A typical life of the period, illustrated rather than documented: not a real person.",

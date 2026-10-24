@@ -126,6 +126,20 @@
     "episode": "épisode {episode}",
     "minute": "à {minute}"
   },
+  "places": {
+    "title": "Les lieux de sa vie",
+    "born": "Naissance",
+    "worked": "Travail",
+    "lived": "Résidence",
+    "died": "Décès",
+    "bornIn": "naissance : <place></place>",
+    "diedIn": "décès : <place></place>",
+    "workedIn": "travail : <places></places>",
+    "livedIn": "résidence : <places></places>",
+    "undated": "Sans dates connues, aussi — <parts></parts>.",
+    "more": "et {count} autres",
+    "separator": " ; "
+  },
   "life": {
     "typical": "vie type",
     "notReal": "Une vie type de l’époque, illustrée plutôt que documentée : ce n’est pas une personne réelle.",

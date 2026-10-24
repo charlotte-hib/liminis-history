@@ -6,6 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { Connections } from "@/components/connections";
 import { DoorCard } from "@/components/door-card";
 import { LifeInTime } from "@/components/life-in-time";
+import { Places } from "@/components/places";
 import { LifeChip } from "@/components/life";
 import { PageView } from "@/components/page-view";
 import { PersonChip } from "@/components/person-chip";
@@ -39,6 +40,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/[
 
   const { person, year } = detail;
   const t = await getTranslations("person");
+  const places = await getTranslations("places");
   const common = await getTranslations("common");
   const years = yearWords(await getTranslations("years"));
 
@@ -76,6 +78,12 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/[
         <Section title={t("lifeInTime")}>
           <LifeInTime lines={detail.lifeline} />
         </Section>
+
+        {detail.places.length > 0 && (
+          <Section title={places("title")}>
+            <Places places={detail.places} />
+          </Section>
+        )}
 
         {detail.connections.length > 0 && (
           <Section title={t("connected")}>
