@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-/* The reading room: warm paper, Newsreader for what is read, Geist for the tools, round dark buttons. */
+/* The reading room: warm paper, Newsreader for what is read, Geist for the tools, round dark buttons. At night, when
+   the device asks for it, the site's dark gallery (frontend/app/globals.css): near-black paper, light ink, the lamp in gold. */
 @theme {
   --color-paper: #f3eee4;
   --color-surface: #fbf8f1;
@@ -10,6 +11,8 @@
   --color-quiet: #8a7a62;
   --color-line: #e0d7c6;
   --color-edge: #cdbfa8;
+  /* A boxed text field, set in from the paper or card around it. */
+  --color-field: #ffffff;
   --color-faint: #ece4d6;
   --color-lamp: #9a6a14;
   --color-lamp-soft: #e8dcc2;
@@ -21,9 +24,48 @@
   --color-sensitive-soft: #f0dcea;
   --color-ok: #4f6b33;
   --color-ok-soft: #dfe8cc;
+  /* The site's person panel and its domains, for the preview of it (components/person-preview.tsx). */
+  --color-panel: #f8f5ef;
+  --color-power: #3b6ea5;
+  --color-arts: #b0447a;
+  --color-everyday: #4d7332;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-serif: var(--font-newsreader);
+}
+
+:root {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-paper: #13110e;
+    --color-surface: #1c1a16;
+    --color-note: #211e19;
+    --color-ink: #f1ece3;
+    --color-muted: #b3a99a;
+    --color-quiet: #8f8576;
+    --color-line: #2d2a25;
+    --color-edge: #5a5349;
+    --color-field: #25221d;
+    --color-faint: #25221d;
+    --color-lamp: #f2c97d;
+    --color-lamp-soft: #3a3020;
+    --color-conflict: #f0a27a;
+    --color-conflict-soft: #3d2619;
+    --color-poor: #86afe0;
+    --color-poor-soft: #1f2a38;
+    --color-sensitive: #e48bb8;
+    --color-sensitive-soft: #3a2232;
+    --color-ok: #9cc673;
+    --color-ok-soft: #26321b;
+    --color-panel: #1c1a16;
+    --color-power: #86afe0;
+    --color-arts: #e48bb8;
+    --color-everyday: #9cc673;
+  }
 }
 
 body {

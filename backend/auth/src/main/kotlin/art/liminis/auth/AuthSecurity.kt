@@ -134,6 +134,7 @@ class AuthSecurity {
                 authorize("/login", permitAll)
                 authorize(HttpMethod.GET, "/login/ott", permitAll)
                 authorize("/auth.css", permitAll)
+                authorize("/favicon.svg", permitAll)
                 authorize(anyRequest, authenticated)
             }
             webAuthn {

@@ -38,6 +38,7 @@ class SignInTests(
         }
         mockMvc.get("/login/webauthn.js").andExpect { status { isOk() } }
         mockMvc.get("/auth.css").andExpect { status { isOk() } }
+        mockMvc.get("/favicon.svg").andExpect { status { isOk() } }
     }
 
     @Test
