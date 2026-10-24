@@ -62,3 +62,17 @@ test("an anecdote is told among the years of their life, with its source", async
   await page.getByRole("option", { name: /Katsushika Hokusai/ }).click();
   await expect(page.getByRole("dialog", { name: "Someone who lived it" }).getByText(daruma)).toBeVisible();
 });
+
+test("a person's page says where they were born, worked, lived and died", async ({ page }) => {
+  await page.goto("/person/victor-hugo");
+  await expect(page.getByText("Born in Besançon · died in Paris")).toBeVisible();
+  const places = page.locator("section").filter({ has: page.getByRole("heading", { name: "Where they lived" }) });
+  await expect(places.getByRole("listitem").filter({ hasText: "Hauteville House" })).toContainText("1856–1870");
+  await expect(places.getByRole("listitem").filter({ hasText: "Paris" })).toContainText("Worked · Died");
+  await expect(places).toContainText("Also worked in Jersey");
+
+  await page.goto("/person/claude-monet");
+  const monet = page.locator("section").filter({ has: page.getByRole("heading", { name: "Where they lived" }) });
+  await monet.getByRole("button", { name: "and 3 more" }).click();
+  await expect(monet).toContainText("London");
+});
