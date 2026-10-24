@@ -87,14 +87,14 @@ export async function translate(): Promise<Outcome<{ id: number }>> {
 
 /**
  * The person as the site would show them, looked at from [moment] if given, with the facts being edited: their
- * birthplace's Q-id and English article's title empty for none.
+ * birthplace's Q-id empty for none, and their English article removed.
  */
 export async function previewPerson(
   qid: string,
   moment: string | undefined,
-  facts: { born?: number; died?: number; occupation: string[]; birthplace?: string; enwiki?: string },
+  facts: { born?: number; died?: number; occupation: string[]; birthplace?: string; withoutArticle?: boolean },
 ): Promise<Outcome<PersonPreview>> {
-  const query = { moment, born: facts.born, died: facts.died, occupation: facts.occupation.slice(0, 50), birthplace: facts.birthplace, enwiki: facts.enwiki?.slice(0, 255) };
+  const query = { moment, born: facts.born, died: facts.died, occupation: facts.occupation.slice(0, 50), birthplace: facts.birthplace, withoutArticle: facts.withoutArticle };
   return outcome(workbench.GET("/api/people/{qid}/preview", { params: { path: { qid }, query } }));
 }
 

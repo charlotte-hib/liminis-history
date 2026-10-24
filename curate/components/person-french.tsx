@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { decide } from "@/app/actions";
 import { ProblemBanner } from "@/components/decision-parts";
 import { HolderBar } from "@/components/holder-bar";
+import { Article } from "@/components/person-desk";
 import type { components } from "@/lib/api-schema";
 import { lockedFor, type Viewer } from "@/lib/holders";
 import type { Review } from "@/lib/queue";
@@ -14,32 +15,32 @@ type PersonFacts = components["schemas"]["PersonFacts"];
 const field = "min-w-0 border-0 border-b bg-transparent py-1.5 font-serif text-[19px] outline-none focus:border-lamp disabled:opacity-60";
 
 /**
- * A fetched person's Français tab: their French name and French Wikipedia article, as Wikidata gives them, edited and
- * approved with their facts (the same claim as the English tab's). People written by hand have the French desk instead.
+ * A fetched person's Français tab: their French name, edited, and their French Wikipedia article as Wikidata links it,
+ * removed if it is not theirs, approved with their facts (the same claim as the English tab's). People written by hand have the French desk instead.
  */
 export function PersonFrench({ review, english, viewer }: { review: Review; english: string; viewer: Viewer }) {
   const router = useRouter();
   const { claim, version } = review;
   const facts = claim.payload as PersonFacts;
   const [name, setName] = useState(facts.labelFr ?? "");
-  const [article, setArticle] = useState(facts.frwiki ?? "");
+  const [article, setArticle] = useState(facts.frwiki);
   const [problem, setProblem] = useState<{ status: number; detail: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const locked = lockedFor(claim.heldBy, viewer);
   const nameEdited = name.trim() !== (facts.labelFr ?? "");
-  const articleEdited = article.trim() !== (facts.frwiki ?? "");
+  const articleEdited = article !== facts.frwiki;
   const changed = nameEdited || articleEdited;
 
   const approve = () =>
     startTransition(async () => {
-      const payload = { ...facts, labelFr: name.trim() || undefined, frwiki: article.trim() || undefined };
+      const payload = { ...facts, labelFr: name.trim() || undefined, frwiki: article };
       const result = await decide(claim.id, version, { action: "APPROVE", payload });
       if (!result.ok) return setProblem(result);
       router.refresh();
     });
   const discard = () => {
     setName(facts.labelFr ?? "");
-    setArticle(facts.frwiki ?? "");
+    setArticle(facts.frwiki);
   };
 
   return (
@@ -65,26 +66,8 @@ export function PersonFrench({ review, english, viewer }: { review: Review; engl
           </div>
           <span className="label pt-3">Article</span>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <input
-              aria-label="French Wikipedia"
-              lang="fr"
-              placeholder="The French Wikipedia article's title"
-              className={`${field} ${articleEdited ? "border-lamp" : "border-edge"}`}
-              value={article}
-              onChange={(e) => setArticle(e.target.value)}
-            />
-            <span className={`text-[13px] ${articleEdited ? "text-lamp" : "text-muted"}`}>
-              {articleEdited ? `Edited by you · was ${facts.frwiki || "none"}` : "French Wikipedia: its intro shows on the French site"}
-              {article.trim() && (
-                <>
-                  {" · "}
-                  <a href={`https://fr.wikipedia.org/wiki/${encodeURIComponent(article.trim().replaceAll(" ", "_"))}`} target="_blank" rel="noreferrer" className="text-lamp">
-                    open it
-                  </a>
-                </>
-              )}
-              {" · "}empty for none
-            </span>
+            <Article language="fr" title={article} was={facts.frwiki} edited={articleEdited} onRemove={() => setArticle(undefined)} onRestore={() => setArticle(facts.frwiki)} />
+            <span className="text-[13px] text-muted">French Wikipedia, as Wikidata links it: its intro shows on the French site</span>
           </div>
         </fieldset>
         {claim.status !== "APPROVED" && (

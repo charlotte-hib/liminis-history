@@ -282,9 +282,8 @@ export interface paths {
          * @description What the site's person panel shows of the person beyond their name and dates: their portrait, the intro of
          *     their English Wikipedia article, their domain, and their life in their time, from the release's eras and events
          *     of the moment's region (without `moment`, of the country their birthplace lies in today) and the anecdotes told
-         *     about them. `born`, `died`, `occupation`, `birthplace` and `enwiki` stand for the facts being edited; without
-         *     them, the claim's, else the dataset's. Another English article than the claim's is fetched from Wikipedia then
-         *     (503 when it does not answer). Born after the death is a 400.
+         *     about them. `born`, `died`, `occupation`, `birthplace` and `withoutArticle` stand for the facts being edited;
+         *     without them, the claim's, else the dataset's. Born after the death is a 400.
          */
         get: operations["getPersonPreview"];
         put?: never;
@@ -2221,8 +2220,8 @@ export interface operations {
                 occupation?: components["schemas"]["Qid"][];
                 /** @description The Q-id of their birthplace, whose country gives their region without `moment`; empty for none. */
                 birthplace?: string;
-                /** @description Their English Wikipedia article's title; empty for none. */
-                enwiki?: string;
+                /** @description Their English Wikipedia article removed, as not theirs. */
+                withoutArticle?: boolean;
             };
             header?: never;
             path: {

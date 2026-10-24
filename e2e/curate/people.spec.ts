@@ -155,7 +155,8 @@ test("a person's places, occupations and articles are edited, then approved as e
   await expect(page.getByLabel("Death known to the")).toBeHidden();
 
   // No English article: the preview has no intro left.
-  await page.getByLabel("English Wikipedia").fill("");
+  await page.getByRole("button", { name: "Remove the English article" }).click();
+  await expect(page.getByText(/^Removed by you · was /)).toBeVisible();
   await expect(preview(page).getByText(/Victor Hugo was/)).toBeHidden();
 
   await page.getByRole("button", { name: /^Approve with my changes/ }).click();

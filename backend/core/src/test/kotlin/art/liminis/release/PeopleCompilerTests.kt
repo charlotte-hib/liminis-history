@@ -151,32 +151,20 @@ class PeopleCompilerTests {
     }
 
     @Test
-    fun `another English article drops the dataset's intro for its title, and a cleared one leaves none`() {
-        val article = ArticleRow("Q762", "en", "Leonardo da Vinci", "https://en.wikipedia.org/wiki/Leonardo_da_Vinci", "Leonardo was a painter.", "https://upload.example/leo.jpg", "Leo.jpg")
-        fun compiled(correction: CorrectionRecord) =
-            ReleaseCompiler.compile(release(listOf(zola, leonardo), listOf(article), corrections = listOf(correction))).people.single { it.id == "Q762" }
-
-        val retitled = compiled(CorrectionRecord("Q762", wikipedia = "Leonardo da Vinci (painter)"))
-        assertEquals("Leonardo_da_Vinci_(painter)", retitled.wikipediaTitle)
-        assertEquals(listOf(null, null, null, null), listOf(retitled.bioShort, retitled.about, retitled.portraitUrl, retitled.wikipediaUrl))
-
-        val cleared = compiled(CorrectionRecord("Q762", cleared = setOf(ClearedField.WIKIPEDIA)))
-        assertEquals(listOf(null, null), listOf(cleared.wikipediaTitle, cleared.bioShort))
-
-        // The French article is not the English one's business.
-        val french = compiled(CorrectionRecord("Q762", wikipediaFr = "Léonard de Vinci"))
-        assertEquals("Leonardo da Vinci", french.wikipediaTitle)
-        assertEquals("Léonard_de_Vinci", french.wikipediaTitleFr)
-    }
-
-    @Test
-    fun `another French article drops the dataset's French intro for its title`() {
+    fun `an article removed brings no intro, portrait or link, in English or in French`() {
+        val en = ArticleRow("Q762", "en", "Leonardo da Vinci", "https://en.wikipedia.org/wiki/Leonardo_da_Vinci", "Leonardo was a painter.", "https://upload.example/leo.jpg", "Leo.jpg")
         val fr = ArticleRow("Q762", "fr", "Léonard de Vinci", "https://fr.wikipedia.org/wiki/L%C3%A9onard_de_Vinci", "Léonard est un peintre.", null, null)
-        val corrections = listOf(CorrectionRecord("Q762", wikipediaFr = "Léonard de Vinci (peintre)"))
-        val person = ReleaseCompiler.compile(release(listOf(zola, leonardo), articlesFr = listOf(fr), corrections = corrections)).people.single { it.id == "Q762" }
+        fun compiled(vararg cleared: ClearedField) = ReleaseCompiler.compile(
+            release(listOf(zola, leonardo), listOf(en), corrections = listOf(CorrectionRecord("Q762", cleared = cleared.toSet())), articlesFr = listOf(fr)),
+        ).people.single { it.id == "Q762" }
 
-        assertEquals("Léonard_de_Vinci_(peintre)", person.wikipediaTitleFr)
-        assertEquals(listOf(null, null, null), listOf(person.bioShortFr, person.aboutFr, person.wikipediaUrlFr))
+        val english = compiled(ClearedField.WIKIPEDIA)
+        assertEquals(listOf(null, null, null, null, null), listOf(english.wikipediaTitle, english.bioShort, english.about, english.portraitUrl, english.wikipediaUrl))
+        assertEquals("Léonard de Vinci", english.wikipediaTitleFr)
+
+        val french = compiled(ClearedField.WIKIPEDIA_FR)
+        assertEquals("Leonardo da Vinci", french.wikipediaTitle)
+        assertEquals(listOf(null, null, null), listOf(french.wikipediaTitleFr, french.bioShortFr, french.wikipediaUrlFr))
     }
 
     @Test

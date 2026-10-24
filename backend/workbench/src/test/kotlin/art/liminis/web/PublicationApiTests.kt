@@ -230,14 +230,14 @@ class PublicationApiTests(
         val besancon = Place(PlaceRole.BIRTH, "Q37776", "Besançon", "FR")
         val guernsey = Place(PlaceRole.RESIDENCE, "Q25230", "Guernsey", "GG", startYear = 1855, endYear = 1870)
         val wikidata = facts("Q504", "Émile Zola", 1840, 1902).copy(diedPrecision = 9, labelFr = "Émile Zola", enwiki = "Émile Zola", frwiki = "Émile Zola", places = listOf(paris))
-        approve(wikidata, wikidata.copy(labelFr = null, enwiki = "Emile Zola (novelist)", frwiki = null, places = listOf(besancon, guernsey), diedPrecision = null, diedEstimated = true))
+        approve(wikidata, wikidata.copy(labelFr = null, enwiki = null, frwiki = null, places = listOf(besancon, guernsey), diedPrecision = null, diedEstimated = true))
 
         mockMvc.get("/api/publication") { signedIn() }.andExpect {
             status { isOk() }
             jsonPath("$.files[1].changes[1].after") {
                 value(
                     """{"id":"Q504","diedEstimated":true,"places":[{"kind":"BIRTH","place":"Q37776"},{"kind":"RESIDENCE","place":"Q25230","start":1855,"end":1870}],""" +
-                        """"wikipedia":"Emile Zola (novelist)","cleared":["NAME_FR","DIED_PRECISION","WIKIPEDIA_FR"]}""",
+                        """"cleared":["NAME_FR","DIED_PRECISION","WIKIPEDIA","WIKIPEDIA_FR"]}""",
                 )
             }
             jsonPath("$.people[0].name") { value("Émile Zola") }
@@ -249,6 +249,8 @@ class PublicationApiTests(
             jsonPath("$.people[0].facts[3].before") { value("Paris") }
             jsonPath("$.people[0].facts[3].after") { value("Besançon") }
             jsonPath("$.people[0].facts[4].after") { value("Guernsey (1855–1870)") }
+            jsonPath("$.people[0].facts[5].before") { value("Émile Zola") }
+            jsonPath("$.people[0].facts[5].after") { doesNotExist() }
         }
     }
 

@@ -120,22 +120,22 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
   const occupationsEdited = JSON.stringify(facts.occupations) !== JSON.stringify(proposed.occupations);
 
   // The preview follows the years, occupations, birthplace and English article being edited, a little after the last
-  // key; the birthplace and the article only once changed, as the workbench fetches another article from Wikipedia.
+  // key; the birthplace only once changed.
   const occupations = facts.occupations.map((o) => o.occupation).join(" ");
   const birthplace = birthplaceOf(facts) !== birthplaceOf(proposed) ? birthplaceOf(facts) : undefined;
-  const enwiki = (facts.enwiki ?? "") !== (proposed.enwiki ?? "") ? (facts.enwiki ?? "") : undefined;
+  const withoutArticle = !facts.enwiki && !!proposed.enwiki;
   useEffect(() => {
     if (bornYear === null || diedYear === null || bornYear > diedYear) return;
     let current = true;
     const timer = setTimeout(async () => {
-      const result = await previewPerson(qid, scope.moment, { born: bornYear, died: diedYear, occupation: occupations ? occupations.split(" ") : [], birthplace, enwiki });
+      const result = await previewPerson(qid, scope.moment, { born: bornYear, died: diedYear, occupation: occupations ? occupations.split(" ") : [], birthplace, withoutArticle });
       if (current && result.ok) setPreview(result.data);
     }, PREVIEW_DELAY_MS);
     return () => {
       current = false;
       clearTimeout(timer);
     };
-  }, [qid, scope.moment, bornYear, diedYear, occupations, birthplace, enwiki, anecdotes]);
+  }, [qid, scope.moment, bornYear, diedYear, occupations, birthplace, withoutArticle, anecdotes]);
 
   // Moving away drops the edits not approved: ask first.
   const leaving = () => !changed || window.confirm("Leave this person without approving your changes?");
@@ -220,7 +220,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
     facts.diedEstimated !== proposed.diedEstimated ||
     facts.diedPrecision !== proposed.diedPrecision ||
     facts.datesApproximate !== proposed.datesApproximate;
-  const articleEdited = (facts.enwiki ?? "") !== (proposed.enwiki ?? "");
+  const articleEdited = facts.enwiki !== proposed.enwiki;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -439,26 +439,15 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
             })}
 
             <Row name="Article">
-              <input
-                aria-label="English Wikipedia"
-                placeholder="The English Wikipedia article's title"
-                className={`${field} ${edge(articleEdited)}`}
-                value={facts.enwiki ?? ""}
-                onChange={(e) => setFacts({ ...facts, enwiki: e.target.value || undefined })}
+              <Article
+                language="en"
+                title={facts.enwiki}
+                was={proposed.enwiki}
+                edited={articleEdited}
+                onRemove={() => setFacts({ ...facts, enwiki: undefined })}
+                onRestore={() => setFacts({ ...facts, enwiki: proposed.enwiki })}
               />
-              <span className="text-[13px] text-muted">
-                English Wikipedia: its intro and portrait show on the site
-                {facts.enwiki && (
-                  <>
-                    {" · "}
-                    <a href={`https://en.wikipedia.org/wiki/${encodeURIComponent(facts.enwiki.replaceAll(" ", "_"))}`} target="_blank" rel="noreferrer" className="text-lamp">
-                      open it
-                    </a>
-                  </>
-                )}
-                {" · "}empty for none
-              </span>
-              <Note edited={articleEdited} was={proposed.enwiki || "none"} />
+              <span className="text-[13px] text-muted">English Wikipedia, as Wikidata links it: its intro and portrait show on the site</span>
               <FieldNotes name="Articles" said={[]} flags={flagsOf(claim.flags, "articles")} />
             </Row>
           </fieldset>
@@ -544,6 +533,40 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
           </>
         )}
       </footer>
+    </div>
+  );
+}
+
+/**
+ * A person's Wikipedia article as Wikidata links it, never typed: removed when it is not theirs (a namesake's page),
+ * and put back. Another one is corrected in Wikidata.
+ */
+export function Article(props: { language: "en" | "fr"; title?: string; was?: string; edited: boolean; onRemove: () => void; onRestore: () => void }) {
+  const { language, title, was, edited, onRemove, onRestore } = props;
+  const name = language === "en" ? "English" : "French";
+  return (
+    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-b py-1 ${edge(edited)}`}>
+      {title ? (
+        <a href={`https://${language}.wikipedia.org/wiki/${encodeURIComponent(title.replaceAll(" ", "_"))}`} target="_blank" rel="noreferrer" lang={language} className="font-serif text-[19px] text-ink underline-offset-4 hover:underline">
+          {title}
+        </a>
+      ) : (
+        <span className="font-serif text-[19px] text-muted">None</span>
+      )}
+      {edited && <span className="text-[13px] text-lamp">Removed by you · was {was}</span>}
+      <span className="ml-auto">
+        {title ? (
+          <button type="button" aria-label={`Remove the ${name} article`} onClick={onRemove} className="size-9 rounded-full border border-edge">
+            ×
+          </button>
+        ) : (
+          edited && (
+            <button type="button" onClick={onRestore} className="button-small">
+              Restore
+            </button>
+          )
+        )}
+      </span>
     </div>
   );
 }

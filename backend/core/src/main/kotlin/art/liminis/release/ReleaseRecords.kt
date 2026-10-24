@@ -221,10 +221,7 @@ data class CorrectionRecord(
     val occupations: List<String>? = null,
     /** All their places, each a place of the dataset: the first birthplace gives their region. */
     val places: List<CorrectionPlaceRecord>? = null,
-    /** The English Wikipedia article's title: the site fetches its intro and portrait from Wikipedia. */
-    val wikipedia: String? = null,
-    /** The French Wikipedia article's title. */
-    val wikipediaFr: String? = null,
+    /** The fields emptied: a French name, the death's precision, or a Wikipedia article that is not theirs. */
     val cleared: Set<ClearedField>? = null,
 )
 

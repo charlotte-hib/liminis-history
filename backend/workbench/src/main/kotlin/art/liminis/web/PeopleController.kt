@@ -41,9 +41,9 @@ class PeopleController(
         died: Int?,
         occupation: List<String>?,
         birthplace: String?,
-        enwiki: String?,
+        withoutArticle: Boolean?,
     ): PersonPreviewDto =
-        mapper.toDto(previews.preview(qid, moment, EditedFacts(born, died, occupation?.takeIf { it.isNotEmpty() }, birthplace, enwiki)))
+        mapper.toDto(previews.preview(qid, moment, EditedFacts(born, died, occupation?.takeIf { it.isNotEmpty() }, birthplace, withoutArticle == true)))
 }
 
 @RestController

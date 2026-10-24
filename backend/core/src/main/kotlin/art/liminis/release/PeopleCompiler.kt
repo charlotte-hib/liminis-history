@@ -115,13 +115,11 @@ internal class PeopleCompiler(private val release: Release) {
     }
 
     private fun fetchedPerson(row: PersonRow, region: String, slug: String, fame: Int, references: References): Person {
-        // Another article than Wikidata's: WikipediaJob fills in its intro (and the English one's portrait) from its title.
-        val correction = corrections[row.qid]
-        val retitled = correction?.let { it.wikipedia != null || ClearedField.WIKIPEDIA in it.cleared.orEmpty() } == true
-        val retitledFr = correction?.let { it.wikipediaFr != null || ClearedField.WIKIPEDIA_FR in it.cleared.orEmpty() } == true
-        val article = dataset!!.articles[row.qid]?.takeUnless { retitled }
+        // An article the curator removed (not this person's) brings no intro, portrait or link.
+        val cleared = corrections[row.qid]?.cleared.orEmpty()
+        val article = dataset!!.articles[row.qid]?.takeUnless { ClearedField.WIKIPEDIA in cleared }
         val text = article?.let(::intro)
-        val articleFr = dataset.articlesFr[row.qid]?.takeUnless { retitledFr }
+        val articleFr = dataset.articlesFr[row.qid]?.takeUnless { ClearedField.WIKIPEDIA_FR in cleared }
         val textFr = articleFr?.let(::intro)
         val occupations = row.occupations.mapNotNull { dataset.occupations[it.occupation] }.distinctBy { it.label }.take(MAX_OCCUPATIONS)
         return Person(
@@ -137,7 +135,7 @@ internal class PeopleCompiler(private val release: Release) {
             occupations = occupations.map { it.label },
             sitelinks = row.sitelinks,
             fame = fame,
-            wikipediaTitle = article?.title ?: row.enwiki?.takeIf { retitled }?.replace(' ', '_'),
+            wikipediaTitle = article?.title,
             bioShort = text?.let(::leadSentences),
             about = text?.let(::about),
             wikipediaUrl = article?.url,
@@ -145,7 +143,7 @@ internal class PeopleCompiler(private val release: Release) {
             nameFr = row.labelFr,
             // In French when every one of them is, else left in English with the rest of the person.
             occupationsFr = occupations.map { (if (row.gender == FEMALE) it.femaleLabelFr else null) ?: it.labelFr }.takeIf { null !in it }?.filterNotNull(),
-            wikipediaTitleFr = articleFr?.title ?: row.frwiki?.takeIf { retitledFr }?.replace(' ', '_'),
+            wikipediaTitleFr = articleFr?.title,
             bioShortFr = textFr?.let(::leadSentences),
             aboutFr = textFr?.let(::about),
             wikipediaUrlFr = articleFr?.url,
@@ -179,8 +177,8 @@ internal class PeopleCompiler(private val release: Release) {
             diedPrecision = if (ClearedField.DIED_PRECISION in cleared) null else correction.diedPrecision ?: diedPrecision,
             diedEstimated = correction.diedEstimated ?: diedEstimated,
             datesApproximate = correction.approximate ?: datesApproximate,
-            enwiki = if (ClearedField.WIKIPEDIA in cleared) null else correction.wikipedia ?: enwiki,
-            frwiki = if (ClearedField.WIKIPEDIA_FR in cleared) null else correction.wikipediaFr ?: frwiki,
+            enwiki = enwiki.takeUnless { ClearedField.WIKIPEDIA in cleared },
+            frwiki = frwiki.takeUnless { ClearedField.WIKIPEDIA_FR in cleared },
             occupations = correction.occupations?.map { heldOccupations[it] ?: PersonOccupation(it, referenced = false) } ?: occupations,
             places = correction.places?.map { place ->
                 val property = PlaceProperty.valueOf(place.kind.name).code

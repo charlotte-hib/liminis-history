@@ -224,7 +224,7 @@ class PeopleReviewApiTests(
             jsonPath("$.region") { value("Netherlands") }
             jsonPath("$.about") { value("Victor Hugo was a French writer.") }
         }
-        mockMvc.get("/api/people/{qid}/preview", "Q535") { signedIn(); param("birthplace", ""); param("enwiki", "") }.andExpect {
+        mockMvc.get("/api/people/{qid}/preview", "Q535") { signedIn(); param("birthplace", ""); param("withoutArticle", "true") }.andExpect {
             status { isOk() }
             jsonPath("$.region") { doesNotExist() }
             jsonPath("$.about") { doesNotExist() }
@@ -254,13 +254,13 @@ class PeopleReviewApiTests(
     @Test
     fun `edited places and occupations are the dataset's, labelled as it labels them`() {
         propose("Q535")
-        fun decide(places: String, occupations: String = """[{"occupation": "Q36180", "label": "writer"}]""") =
+        fun decide(places: String, occupations: String = """[{"occupation": "Q36180", "label": "writer"}]""", enwiki: String = " ") =
             mockMvc.post("/api/claims/{id}/decisions", "person-facts:Q535") {
                 signedIn()
                 header(HttpHeaders.IF_MATCH, mockMvc.get("/api/claims/{id}", "person-facts:Q535") { signedIn() }.andReturn().response.getHeader(HttpHeaders.ETAG)!!)
                 contentType = MediaType.APPLICATION_JSON
                 content = """
-                    {"action": "APPROVE", "payload": {"type": "PERSON_FACTS", "person": "Q535", "label": "Victor Hugo", "enwiki": " ",
+                    {"action": "APPROVE", "payload": {"type": "PERSON_FACTS", "person": "Q535", "label": "Victor Hugo", "enwiki": "$enwiki",
                      "born": 1802, "bornPrecision": 9, "died": 1885, "diedEstimated": false, "datesApproximate": false,
                      "occupations": $occupations, "places": $places}}
                 """.trimIndent()
@@ -268,6 +268,8 @@ class PeopleReviewApiTests(
 
         decide("""[{"role": "BIRTH", "place": "Q404", "label": "Nowhere"}]""").andExpect { status { isBadRequest() } }
         decide("[]", """[{"occupation": "Q1", "label": "Nothing"}]""").andExpect { status { isBadRequest() } }
+        // The article is Wikidata's: removed, never another.
+        decide("[]", enwiki = "Victor Hugo (writer)").andExpect { status { isBadRequest() } }
         decide("""[{"role": "WORK", "place": "Q90", "label": "Paris", "startYear": 1850, "endYear": 1840}]""").andExpect { status { isBadRequest() } }
         decide("""[{"role": "BIRTH", "place": "Q727", "label": "Somewhere else", "country": "XX"}, {"role": "RESIDENCE", "place": "Q90", "label": "Paris", "startYear": 1870}]""")
             .andExpect {

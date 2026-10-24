@@ -136,8 +136,6 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
             approximate = changed(PersonFacts::datesApproximate),
             occupations = changed(occupations),
             places = changed(places),
-            wikipedia = changed(PersonFacts::enwiki),
-            wikipediaFr = changed(PersonFacts::frwiki),
             cleared = setOfNotNull(
                 cleared(PersonFacts::labelFr, ClearedField.NAME_FR),
                 cleared(PersonFacts::diedPrecision, ClearedField.DIED_PRECISION),

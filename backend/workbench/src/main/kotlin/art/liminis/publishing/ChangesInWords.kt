@@ -140,8 +140,8 @@ class ChangesInWords(
                     places(Fact.DEATHPLACE, PlaceKind.DEATH),
                     places(Fact.WORK_PLACES, PlaceKind.WORK),
                     places(Fact.RESIDENCES, PlaceKind.RESIDENCE),
-                    fact(Fact.WIKIPEDIA, CorrectionRecord::wikipedia, PersonFacts::enwiki, ClearedField.WIKIPEDIA) { it },
-                    fact(Fact.WIKIPEDIA_FR, CorrectionRecord::wikipediaFr, PersonFacts::frwiki, ClearedField.WIKIPEDIA_FR) { it },
+                    fact(Fact.WIKIPEDIA, { null }, PersonFacts::enwiki, ClearedField.WIKIPEDIA) { it },
+                    fact(Fact.WIKIPEDIA_FR, { null }, PersonFacts::frwiki, ClearedField.WIKIPEDIA_FR) { it },
                 ),
             )
         }.sortedWith(compareBy(byName) { it: PersonChange -> it.name }.thenBy { it.person })

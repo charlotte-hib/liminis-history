@@ -244,12 +244,6 @@
           "items" : {
             "$ref" : "#/$defs/CorrectionPlaceRecord"
           }
-        },
-        "wikipedia" : {
-          "type" : "string"
-        },
-        "wikipediaFr" : {
-          "type" : "string"
         }
       },
       "required" : [ "id" ],
