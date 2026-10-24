@@ -2,11 +2,12 @@
 
 The slice holds the people written by hand in sample/people.jsonl, and for each of its moments the people most written
 about who are tied to the moment's place and alive during it, so that the sample's lists are long enough to rank and
-draw from. With them: their Wikipedia articles, their places, and their occupations with three levels of classes.
+draw from. With --written-only, `wb slice` writes the people written by hand alone, for the data repository: they get
+their places and articles, and no unreviewed person reaches the site. With them: their Wikipedia articles, their places, and their occupations with three levels of classes.
 Lines are copied as the export wrote them; the same export makes the same files. The file names are DatasetFile's
 (backend/core): keep them in step.
 
-Usage: python3 -I sample_dataset.py <export dir> <sample dir>
+Usage: python3 -I sample_dataset.py [--written-only] <export dir> <release dir>
 """
 
 import gzip
@@ -38,7 +39,7 @@ def country(place):
     return place.get("coordinatesCountry") or next((c["iso"] for c in place.get("countries", []) if c.get("iso")), None)
 
 
-def main(export_dir, sample_dir):
+def main(export_dir, sample_dir, written_only=False):
     people = read_lines(export_dir / "people.jsonl.gz")
     places = {row["qid"]: (line, row) for line, row in read_lines(export_dir / "places.jsonl.gz")}
 
@@ -48,7 +49,7 @@ def main(export_dir, sample_dir):
 
     written = {json.loads(line).get("qid") for line in (sample_dir / "people.jsonl").open(encoding="utf-8")}
     chosen = {row["qid"] for _, row in people if row["qid"] in written}
-    for moment_file in sorted((sample_dir / "moments").glob("*.json")):
+    for moment_file in [] if written_only else sorted((sample_dir / "moments").glob("*.json")):
         moment = json.loads(moment_file.read_text(encoding="utf-8"))
         place = moment.get("placeQid")
         if place is None:
@@ -92,4 +93,7 @@ def main(export_dir, sample_dir):
 
 
 if __name__ == "__main__":
-    main(Path(sys.argv[1]), Path(sys.argv[2]))
+    args = sys.argv[1:]
+    written_only = "--written-only" in args
+    paths = [arg for arg in args if arg != "--written-only"]
+    main(Path(paths[0]), Path(paths[1]), written_only)

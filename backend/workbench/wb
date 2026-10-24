@@ -29,6 +29,8 @@ Usage: wb <command>
   export-run      only export the dataset's rows to files, where the workbench runs
   sample          write the public sample/'s slice of the last export into sample/dataset/: its people, and the
                   people most written about of its moments' places (no workbench needed)
+  slice <dir>     write the slice of the last export for the people written by hand in <dir>/people.jsonl alone into
+                  <dir>/dataset/ (the data repository's data/: their places and articles, nobody else)
   claims          propose the facts of the people of the release's moments for review
   occupations     propose a domain to choose for every occupation the dataset's people hold, the most held first,
                   then their classes
@@ -158,7 +160,7 @@ remote() {
 
 if [[ -n "$server" ]]; then
   case "${1:-}" in
-    export|sample|""|-h|--help|help) ;;
+    export|sample|slice|""|-h|--help|help) ;;
     *) remote "$@"; exit ;;
   esac
 fi
@@ -169,6 +171,9 @@ case "${1:-}" in
   export) export_dataset ;;
   export-run) start '{"kind": "DATASET_EXPORT"}' ;;
   sample) python3 -I "$repo/backend/workbench/sample_dataset.py" "$export_dir" "$repo/sample" ;;
+  slice)
+    [[ -n "${2:-}" ]] || { usage >&2; exit 2; }
+    python3 -I "$repo/backend/workbench/sample_dataset.py" --written-only "$export_dir" "$2" ;;
   claims) start '{"kind": "PERSON_FACTS_CLAIMS"}' ;;
   occupations) start '{"kind": "OCCUPATION_CLAIMS"}' ;;
   draft)
