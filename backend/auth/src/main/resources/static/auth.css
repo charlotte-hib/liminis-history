@@ -1,5 +1,7 @@
-/* auth's pages in curate's look (curate/app/globals.css): the reading room's paper, Newsreader for headings, round buttons. */
+/* auth's pages in curate's look (curate/app/globals.css): the reading room's paper, Newsreader for headings, round buttons;
+   at night, when the device asks for it, the site's dark gallery. */
 :root {
+  color-scheme: light;
   --paper: #f3eee4;
   --surface: #fbf8f1;
   --ink: #231e18;
@@ -13,6 +15,24 @@
   --error: #8a3d0e;
   --error-soft: #f6dfcc;
   --serif: "Newsreader", Georgia, serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #13110e;
+    --surface: #1c1a16;
+    --ink: #f1ece3;
+    --muted: #b3a99a;
+    --quiet: #8f8576;
+    --line: #2d2a25;
+    --edge: #46413a;
+    --faint: #25221d;
+    --lamp: #f2c97d;
+    --ok: #9cc673;
+    --error: #f0a27a;
+    --error-soft: #3d2619;
+  }
 }
 
 * { box-sizing: border-box; }

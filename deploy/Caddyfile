@@ -54,7 +54,7 @@ Disallow: /
 # wb, which call auth on the server itself. Check the list again after a Spring Security upgrade.
 (liminis-auth) {
 	import liminis-review
-	@browser path / /auth.css /login /login/* /webauthn/* /oauth2/authorize /connect/logout
+	@browser path / /auth.css /favicon.svg /login /login/* /webauthn/* /oauth2/authorize /connect/logout
 	handle @browser {
 		reverse_proxy 127.0.0.1:9000
 	}
