@@ -33,6 +33,22 @@ class PersonApiTests(@Autowired private val mockMvc: MockMvc) {
     }
 
     @Test
+    fun `where they were born, worked, lived and died, a line per place`() {
+        mockMvc.get("/api/people/victor-hugo").andExpect {
+            jsonPath("$.places[0].name") { value("Besançon") }
+            jsonPath("$.places[0].country") { value("France") }
+            jsonPath("$.places[0].roles[0].kind") { value("BIRTH") }
+            jsonPath("$.places[0].roles[0].startYear") { value(1802) }
+            jsonPath("$.places[?(@.name == 'Hauteville House')].roles[0].startYear") { value(1856) }
+            jsonPath("$.places[?(@.name == 'Hauteville House')].country") { value("Guernsey") }
+            jsonPath("$.places[?(@.name == 'Paris')].roles[*].kind") { value(org.hamcrest.Matchers.contains("WORK", "DEATH")) }
+        }
+        mockMvc.get("/api/people/victor-hugo?lang=fr").andExpect {
+            jsonPath("$.places[?(@.name == 'maison natale de Victor Hugo')].lang") { value("fr") }
+        }
+    }
+
+    @Test
     fun `their life in their time lists regimes and events with their age`() {
         mockMvc.get("/api/people/emile-zola").andExpect {
             jsonPath("$.lifeline[0].text") { value("Born under the July Monarchy") }

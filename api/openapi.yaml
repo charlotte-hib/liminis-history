@@ -833,6 +833,48 @@ components:
       type: string
       enum: [BIRTH, ERA, EVENT, OWN_EVENT, ANECDOTE, DEATH]
 
+    PlaceKind:
+      description: What a place was to them, as Wikidata states it.
+      type: string
+      enum: [BIRTH, WORK, RESIDENCE, DEATH]
+
+    PlaceRole:
+      description: One thing a place was to them, with its years when known. A birth's year is their birth year, a death's their death year.
+      type: object
+      required: [kind, startYear, endYear]
+      properties:
+        kind:
+          $ref: "#/components/schemas/PlaceKind"
+        startYear:
+          type: integer
+          format: int32
+          nullable: true
+        endYear:
+          type: integer
+          format: int32
+          nullable: true
+
+    PersonPlace:
+      description: A place in a person's life, with every role it had, e.g. Giverny, where Monet lived and worked, then died.
+      type: object
+      required: [name, country, roles, lang]
+      properties:
+        name:
+          description: The place as Wikidata names it, a town, a house or a street.
+          type: string
+        country:
+          description: The country it lies in today.
+          type: string
+          nullable: true
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlaceRole"
+        lang:
+          description: The language of `name`.
+          allOf:
+            - $ref: "#/components/schemas/Language"
+
     AnecdoteSource:
       description: Where an anecdote was read or heard. A book has a title and a page; a podcast, a video or a documentary a title, and an episode, a minute or a URL; a web page a URL.
       type: object
@@ -915,7 +957,7 @@ components:
 
     PersonDetail:
       type: object
-      required: [person, about, wikipediaUrl, year, age, world, worldMoment, lifeline, connections, aroundPeople, aroundLives, elsewhere, moments, aboutLang]
+      required: [person, about, wikipediaUrl, year, age, world, worldMoment, lifeline, places, connections, aroundPeople, aroundLives, elsewhere, moments, aboutLang]
       properties:
         person:
           $ref: "#/components/schemas/Person"
@@ -947,6 +989,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/LifeLine"
+        places:
+          description: Where they were born, worked, lived and died, one line per place, in the order they were there; places with no year last.
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonPlace"
         connections:
           description: Sourced links to other people, curated ones first, then shared documented events.
           type: array
