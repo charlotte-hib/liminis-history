@@ -21,6 +21,7 @@ type Change = FileChanges["changes"][number];
 type PersonChange = Publication["people"][number];
 type OccupationChange = Publication["occupations"][number];
 type AnecdoteChange = Publication["anecdotes"][number];
+type ConnectionChange = Publication["connections"][number];
 type MomentChange = Publication["moments"][number];
 type TranslationChange = Publication["translations"][number];
 type CardChange = MomentChange["cards"][number];
@@ -54,6 +55,12 @@ const WORLD: Record<MomentChange["world"][number]["part"], string> = {
 const ANECDOTE_FIELDS: Record<AnecdoteChange["fields"][number]["field"], string> = {
   YEAR: "Year",
   TEXT: "Anecdote",
+  SOURCE: "Source",
+};
+
+const CONNECTION_FIELDS: Record<ConnectionChange["fields"][number]["field"], string> = {
+  YEAR: "Year",
+  TEXT: "Sentence",
   SOURCE: "Source",
 };
 
@@ -135,6 +142,11 @@ function Changes({ publication }: { publication: Publication }) {
           <Anecdotes anecdotes={publication.anecdotes} />
         </Section>
       )}
+      {publication.connections.length > 0 && (
+        <Section title="Connections" count={lineCounts(publication.connections)} files={fileLines((path) => path === "data/connections.jsonl")}>
+          <Connections connections={publication.connections} />
+        </Section>
+      )}
       {publication.occupations.length > 0 && (
         <Section title="Occupations" count={lineCounts(publication.occupations)} files={fileLines((path) => path === "data/occupations.jsonl")}>
           <Occupations occupations={publication.occupations} />
@@ -144,7 +156,9 @@ function Changes({ publication }: { publication: Publication }) {
         <Section
           title="French"
           count={lineCounts(publication.translations)}
-          files={fileLines((path) => !["data/corrections.jsonl", "data/anecdotes.jsonl", "data/occupations.jsonl"].includes(path) && !path.startsWith("data/moments/"))}
+          files={fileLines(
+            (path) => !["data/corrections.jsonl", "data/anecdotes.jsonl", "data/connections.jsonl", "data/occupations.jsonl"].includes(path) && !path.startsWith("data/moments/"),
+          )}
         >
           <Translations translations={publication.translations} />
         </Section>
@@ -248,6 +262,41 @@ function Anecdotes({ anecdotes }: { anecdotes: AnecdoteChange[] }) {
                   </span>
                 ),
               )}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Each connection added, removed or changed: its two people and its kind, then what changes, the words marked. */
+function Connections({ connections }: { connections: ConnectionChange[] }) {
+  return (
+    <ul className="flex flex-col border-t border-line">
+      {connections.map((connection) => (
+        <li key={connection.connection} className="flex flex-wrap gap-x-5 gap-y-1 border-b border-line py-3">
+          <span className="flex basis-60 flex-col gap-0.5">
+            <span className="font-serif text-[18px]">
+              {connection.names[0]} and {connection.names[1]}
+            </span>
+            <span className="text-muted">
+              <span className="text-arts">{connection.kind}</span>
+              {connection.change === "ADDED" && <span className="text-ok"> · added</span>}
+              {connection.change === "REMOVED" && <span className="text-conflict"> · removed</span>}
+            </span>
+          </span>
+          <span className="flex flex-1 basis-96 flex-col gap-1">
+            {connection.fields.map((field) =>
+              field.field === "TEXT" ? (
+                <p key={field.field} className="font-serif text-[16px] leading-relaxed">
+                  <WordDiff before={field.before} after={field.after} />
+                </p>
+              ) : (
+                <span key={field.field}>
+                  <span className="text-muted">{CONNECTION_FIELDS[field.field]}</span> <ValueChange before={field.before} after={field.after} />
+                </span>
+              ),
+            )}
           </span>
         </li>
       ))}
@@ -434,7 +483,7 @@ function FileLines({ file }: { file: FileChanges }) {
 
 const changed = (count: number) => `${count.toLocaleString("en")} changed`;
 
-function lineCounts(changes: (Change | OccupationChange | AnecdoteChange | TranslationChange)[]): string {
+function lineCounts(changes: (Change | OccupationChange | AnecdoteChange | ConnectionChange | TranslationChange)[]): string {
   return (["ADDED", "CHANGED", "REMOVED"] as const)
     .map((kind) => [changes.filter((change) => change.change === kind).length, kind.toLowerCase()] as const)
     .filter(([count]) => count > 0)
