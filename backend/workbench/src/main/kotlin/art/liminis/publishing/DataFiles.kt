@@ -106,6 +106,9 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
     /** A line of `anecdotes.jsonl`. */
     fun readAnecdote(line: String): AnecdoteRecord = lineMapper.readValue(line, AnecdoteRecord::class.java)
 
+    /** [record] as its line of `connections.jsonl`. */
+    fun line(record: ConnectionRecord): String = lineMapper.writeValueAsString(record)
+
     /** A line of `connections.jsonl`. */
     fun readConnection(line: String): ConnectionRecord = lineMapper.readValue(line, ConnectionRecord::class.java)
 
@@ -141,7 +144,7 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
         SourceKind.WIKIDATA -> CitedSourceRecord(url = "https://www.wikidata.org/wiki/${source.entity}")
         // Non-ASCII letters percent-encoded, as Wikipedia's own links are.
         SourceKind.WIKIPEDIA -> CitedSourceRecord(url = URI("https", "${source.language}.wikipedia.org", "/wiki/${source.title!!.replace(' ', '_')}", null).toASCIIString())
-        SourceKind.BOOK -> CitedSourceRecord(title = source.title, page = source.page)
+        SourceKind.BOOK -> CitedSourceRecord(title = source.title, page = source.page, url = source.url)
         SourceKind.WEB -> CitedSourceRecord(title = source.title, url = source.url)
         SourceKind.MEDIA -> CitedSourceRecord(title = source.title, episode = source.episode, minute = source.minute, url = source.url)
     }

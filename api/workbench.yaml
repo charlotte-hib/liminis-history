@@ -517,7 +517,7 @@ paths:
       summary: A person's connections
       description: |
         The connection claims naming the person, rejected ones left out, by year, each with the other person: as the
-        dataset gives them, else by Q-id alone.
+        dataset gives them, else as the release writes them, else by Q-id alone.
       parameters:
         - name: qid
           in: path
@@ -3321,6 +3321,7 @@ components:
 
     ConnectionFieldChange:
       type: object
+      description: One field's value on `main` and once published; a source as its title, where in it, and its link, joined by commas.
       required: [field]
       properties:
         field:
@@ -3330,7 +3331,6 @@ components:
           type: string
         after:
           type: string
-          description: A source as its title, where in it, and its link, joined by commas.
 
     MomentChange:
       type: object

@@ -6,6 +6,7 @@ import art.liminis.curation.Claim
 import art.liminis.curation.ClaimRepository
 import art.liminis.curation.Connection
 import art.liminis.dataset.DatasetStore
+import art.liminis.publishing.PublishProperties
 import art.liminis.repository.PersonRepository
 
 /** The other person in a connection: as the dataset gives them, else as the release writes them, else by Q-id alone. */
@@ -28,6 +29,7 @@ class PersonConnections(
     private val claims: ClaimRepository,
     private val dataset: DatasetStore,
     private val releasePeople: PersonRepository,
+    private val publish: PublishProperties,
 ) {
 
     /** The connection claims naming [qid] but those rejected, by year, each with the other person. */
@@ -41,14 +43,21 @@ class PersonConnections(
             val summary = fetched[other]
             val written = held[other]
             val person = when {
-                summary != null -> ConnectionPerson(other, summary.label, summary.born, summary.died, summary.occupation, written == null)
+                summary != null -> ConnectionPerson(other, summary.label, summary.born, summary.died, summary.occupation, waits(written == null))
                 written != null -> ConnectionPerson(other, written.name, written.birthYear, written.deathYear, written.occupations.firstOrNull(), false)
-                else -> ConnectionPerson(other, other, null, null, null, true)
+                else -> ConnectionPerson(other, other, null, null, null, waits(true))
             }
             PersonConnection(claim, person)
         }
     }
 
-    /** The Q-ids among [qids] that the release holds: the others are fetched people, not on the site yet. */
-    fun held(qids: Collection<String>): Set<String> = releasePeople.findByQidIn(qids).mapNotNull { it.qid }.toSet()
+    /**
+     * The Q-ids among [qids] whom the site holds: the release's people, or anyone once publishing takes fetched people.
+     * The others wait at publishing.
+     */
+    fun held(qids: Collection<String>): Set<String> =
+        if (publish.fetchedPeople) qids.toSet() else releasePeople.findByQidIn(qids).mapNotNull { it.qid }.toSet()
+
+    /** Whether someone the release doesn't hold waits at publishing: unless it takes fetched people. */
+    private fun waits(fetched: Boolean) = fetched && !publish.fetchedPeople
 }

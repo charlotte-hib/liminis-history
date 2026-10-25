@@ -5,6 +5,7 @@ import art.liminis.curation.ClaimRepository
 import art.liminis.curation.ClaimRules
 import art.liminis.curation.ClaimStatus
 import art.liminis.curation.ClaimType
+import art.liminis.curation.Connection
 import art.liminis.curation.MomentPage
 import art.liminis.curation.Story
 import art.liminis.release.AnecdoteRecord
@@ -112,6 +113,9 @@ class Publishing(
         val connected = connections.filter { connection -> connectionsHeldBack.none { it.id == connection.id } }.map { it.record }
         val connectionsBefore = github.file(DataFile.CONNECTIONS.path, base)
         val notImported = notImported(connectionsBefore, people)
+        // main's lines keyed by Q-id, as the claims' are, for their French to be carried onto the lines written now.
+        val connectionsByQid = dataFiles.readConnections(connectionsBefore).map { ConnectionLines.byQid(it, dataFiles.qids(people)) }
+            .joinToString("") { dataFiles.line(it) + "\n" }
 
         val french = translationFiles.claims()
         val heldBack = mutableListOf<HeldBack>()
@@ -127,7 +131,8 @@ class Publishing(
                 else -> return@mapValues lines
             }
             if (file == DataFile.CONNECTIONS && notImported != null) return@mapValues dataFiles.read(file, connectionsBefore)
-            val translated = translationFiles.lines(kind, lines.text(), french, github.file(file.path, base))
+            val before = if (file == DataFile.CONNECTIONS) connectionsByQid else github.file(file.path, base)
+            val translated = translationFiles.lines(kind, lines.text(), french, before)
             translations += translated.changes
             heldBack += translated.heldBack
             dataFiles.read(file, translated.lines.values.joinToString("\n"))
@@ -246,16 +251,15 @@ class Publishing(
     /**
      * Why the connections file is not written yet, if it isn't: some of its lines on `main`, [connections], written by
      * hand, have no claim, as they were not imported ([people], `people.jsonl`, gives the Q-ids of those it names by
-     * id). Writing it from the claims would drop them.
+     * id). A line is a claim's when a claim, whatever became of it, has its people and its kind: its id stays the one
+     * it was proposed with, whatever kind it was edited to. Writing the file from the claims would drop the others.
      */
     private fun notImported(connections: String?, people: String?): HeldBack? {
         val lines = dataFiles.readConnections(connections)
         if (lines.isEmpty()) return null
-        val missing = try {
-            ConnectionLines.claimIds(lines, dataFiles.qids(people)).count { !claims.existsById(it) }
-        } catch (e: UnavailableException) {
-            return HeldBack(DataFile.CONNECTIONS.path, "${e.message}, then import the connections (wb connections)")
-        }
+        val qids = dataFiles.qids(people)
+        val claimed = claims.findByTypeOrderById(ClaimType.CONNECTION).map { ConnectionLines.key(it.payload as Connection) }.toSet()
+        val missing = lines.map { ConnectionLines.byQid(it, qids) }.count { ConnectionLines.key(it) !in claimed }
         if (missing == 0) return null
         return HeldBack(
             DataFile.CONNECTIONS.path,

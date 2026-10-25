@@ -56,8 +56,10 @@ export async function undoAll(claims: ClaimVersion[]): Promise<Outcome<ClaimVers
 
 /** The connections naming the person, rejected ones left out, each with the other person. */
 export async function connectionsOf(qid: string): Promise<PersonConnection[]> {
-  const { data } = await workbench.GET("/api/people/{qid}/connections", { params: { path: { qid } } });
-  return data ?? [];
+  const { data, error } = await workbench.GET("/api/people/{qid}/connections", { params: { path: { qid } } });
+  // Never an empty list for a failure: approving the page would leave the connections out unsaid.
+  if (!data) throw new Error(`The workbench did not list the connections of ${qid}: ${JSON.stringify(error)}`);
+  return data;
 }
 
 export async function addClaim(claim: NewClaim): Promise<Outcome<{ id: string }>> {

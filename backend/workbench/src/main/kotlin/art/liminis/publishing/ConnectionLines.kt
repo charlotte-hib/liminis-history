@@ -1,6 +1,5 @@
 package art.liminis.publishing
 
-import art.liminis.curation.ClaimRules
 import art.liminis.curation.Connection
 import art.liminis.curation.SourceKind
 import art.liminis.curation.SourceRef
@@ -33,16 +32,25 @@ object ConnectionLines {
         return Connection(people, record.kind, record.year, record.text, sourceOf(record.source))
     }
 
-    /** The claim's id of each line of [lines], `connections.jsonl` as written. */
-    fun claimIds(lines: Collection<ConnectionRecord>, qids: Map<String, String>): List<String> = lines.map { ClaimRules.idOf(claimOf(it, qids)) }
+    /** The key of the line [connection] writes. */
+    fun key(connection: Connection) = key(connection.people, connection.kind)
 
-    /** A source as the site names it, as a claim keeps it: a book's page, a programme's episode, else a web page. */
+    /**
+     * [record] with its people named by Q-id where [qids] gives one: a line written by hand, keyed as the claims'
+     * lines are, to tell whether a claim holds it and to carry its French.
+     */
+    fun byQid(record: ConnectionRecord, qids: Map<String, String>): ConnectionRecord = record.copy(people = record.people.map { qids[it] ?: it })
+
+    /**
+     * A source as the site names it, as a claim keeps it: a book's page, a programme's episode, else a web page; a title
+     * alone, which no kind of claim source holds, is refused.
+     */
     private fun sourceOf(source: CitedSourceRecord): SourceRef = when {
-        source.page != null -> SourceRef(SourceKind.BOOK, title = source.title, page = source.page)
+        source.page != null -> SourceRef(SourceKind.BOOK, title = source.title, page = source.page, url = source.url)
         source.episode != null || source.minute != null ->
             SourceRef(SourceKind.MEDIA, title = source.title, episode = source.episode, minute = source.minute, url = source.url)
         source.url != null -> SourceRef(SourceKind.WEB, title = source.title, url = source.url)
-        else -> SourceRef(SourceKind.BOOK, title = source.title)
+        else -> throw UnavailableException("A source with a title alone, ${source.title}, needs a page, an episode or a link to be a claim's")
     }
 
     private fun split(key: String): Pair<List<String>, String> {

@@ -170,6 +170,8 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
 
   const decideOn = (action: Action, why?: string) => {
     if (locked || (action === "APPROVE" && invalid)) return;
+    // Only an approval takes the connections with it: other verdicts on the facts leave their changes behind.
+    if (action !== "APPROVE" && links.changed && !window.confirm("Your changes to the connections go only with an approval. Decide on the facts and drop them?")) return;
     startTransition(async () => {
       const payload = action === "APPROVE" && factsChanged ? edited : undefined;
       const facts = { action, payload, note: why?.trim() || undefined };

@@ -212,6 +212,12 @@ class ClaimsApiTests(
         }.andExpect { status { isPreconditionFailed() } }
         mockMvc.get("/api/claims/{id}", anecdoteId) { signedIn() }.andExpect { jsonPath("$.status") { value("CANDIDATE") } }
 
+        // The same claim twice would pass its version check twice.
+        mockMvc.post("/api/decisions") {
+            json("""[{"claim": "$anecdoteId", "version": ${version(anecdoteId)}, "decision": {"action": "APPROVE"}},
+                     {"claim": "$anecdoteId", "version": ${version(anecdoteId)}, "decision": {"action": "APPROVE"}}]""")
+        }.andExpect { status { isBadRequest() } }
+
         val decided = mockMvc.post("/api/decisions") {
             json("""[{"claim": "$anecdoteId", "version": ${version(anecdoteId)}, "decision": {"action": "APPROVE"}},
                      {"claim": "$connectionId", "version": ${version(connectionId)}, "decision": {"action": "APPROVE", "payload": $edited}}]""")

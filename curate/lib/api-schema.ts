@@ -255,7 +255,7 @@ export interface paths {
         /**
          * A person's connections
          * @description The connection claims naming the person, rejected ones left out, by year, each with the other person: as the
-         *     dataset gives them, else by Q-id alone.
+         *     dataset gives them, else as the release writes them, else by Q-id alone.
          */
         get: operations["listPersonConnections"];
         put?: never;
@@ -1715,11 +1715,11 @@ export interface components {
             change: components["schemas"]["Change"];
             fields: components["schemas"]["ConnectionFieldChange"][];
         };
+        /** @description One field's value on `main` and once published; a source as its title, where in it, and its link, joined by commas. */
         ConnectionFieldChange: {
             /** @enum {string} */
             field: "YEAR" | "TEXT" | "SOURCE";
             before?: string;
-            /** @description A source as its title, where in it, and its link, joined by commas. */
             after?: string;
         };
         /**

@@ -620,7 +620,7 @@ class PublicationApiTests(
 
     /** `connections.jsonl` as written by hand: people by id, a source by its address alone. */
     private val byHand = listOf(
-        """{"people":["auguste-rodin","victor-hugo"],"kind":"sculptor and subject","year":1889,"text":"Rodin made a monument to Hugo.","source":"https://example.org/rodin"}""",
+        """{"people":["auguste-rodin","victor-hugo"],"kind":"sculptor and subject","year":1889,"text":"Rodin made a monument to Hugo.","source":"https://example.org/rodin","fr":{"kind":"sculpteur et modèle","text":"Rodin fit un monument à Hugo."}}""",
         """{"people":["victor-hugo","katsushika-hokusai"],"kind":"readers","year":1850,"text":"Gone.","source":{"url":"https://example.org/gone"}}""",
     ).joinToString("\n", postfix = "\n")
 
@@ -635,14 +635,47 @@ class PublicationApiTests(
         assertEquals("0 imported, 2 already there, from data/connections.jsonl at aaaaaaa", connectionImport.import())
         val rodin = claims.findById("connection:Q30755|Q535:sculptor-and-subject").get()
         assertEquals(ClaimStatus.APPROVED, rodin.status)
+        // Held by nobody: any curator edits it.
+        assertEquals(null, rodin.heldBy)
         assertEquals(Connection(listOf("Q30755", "Q535"), "sculptor and subject", 1889, "Rodin made a monument to Hugo.", web("https://example.org/rodin")), rodin.payload)
 
         // A person written by hand with no Q-id stops it, before any line is added.
         CurationFixtures.clearClaims(jdbc)
         file("data/people.jsonl", people.replace(""","qid":"Q30755"""", ""))
         val refused = assertFailsWith<UnavailableException> { connectionImport.import() }
-        assertEquals("data/people.jsonl gives auguste-rodin no Q-id: add the Q-ids of the people written by hand first", refused.message)
+        assertEquals(
+            "data/connections.jsonl, auguste-rodin and victor-hugo, sculptor and subject: data/people.jsonl gives auguste-rodin no Q-id: add the Q-ids of the people written by hand first",
+            refused.message,
+        )
         assertEquals(0, claims.count())
+
+        // A source no claim can hold stops it too, the lines before it not added.
+        file("data/people.jsonl", people)
+        file("data/connections.jsonl", byHand.replace(""""source":{"url":"https://example.org/gone"}""", """"source":{"title":"A letter"}"""))
+        assertFailsWith<UnavailableException> { connectionImport.import() }
+        assertEquals(0, claims.count())
+    }
+
+    @Test
+    fun `a connection whose kind was edited stays its claim's on later publishes`() {
+        file("data/people.jsonl", people)
+        file("data/connections.jsonl", byHand)
+        connectionImport.import()
+        val rodin = claims.findById("connection:Q30755|Q535:sculptor-and-subject").get()
+        claims.save(rodin.apply { payload = (payload as Connection).copy(kind = "sculptor and poet") })
+        // As main has it once published: its line under its new kind.
+        file(
+            "data/connections.jsonl",
+            """{"people":["Q30755","Q535"],"kind":"sculptor and poet","year":1889,"text":"Rodin made a monument to Hugo.","source":{"url":"https://example.org/rodin"}}""" + "\n" +
+                """{"people":["Q535","Q5586"],"kind":"readers","year":1850,"text":"Gone.","source":{"url":"https://example.org/gone"}}""" + "\n",
+        )
+
+        mockMvc.get("/api/publication") { signedIn() }.andExpect {
+            status { isOk() }
+            jsonPath("$.heldBack.length()") { value(0) }
+            jsonPath("$.files[3].changes.length()") { value(0) }
+        }
+        assertEquals("0 imported, 2 already there, from data/connections.jsonl at aaaaaaa", connectionImport.import())
     }
 
     @Test
@@ -682,15 +715,17 @@ class PublicationApiTests(
             jsonPath("$.files[3].changes[*].id") {
                 value(contains("Q30755|Q535:sculptor and subject", "Q5586|Q535:printmaker and novelist", "auguste-rodin|victor-hugo:sculptor and subject", "victor-hugo|katsushika-hokusai:readers"))
             }
+            // Its French, on the line written by hand, carried onto the line by Q-id: its English changed since, so it
+            // stays as it was, the curator told.
             jsonPath("$.files[3].changes[0].after") {
-                value("""{"people":["Q30755","Q535"],"kind":"sculptor and subject","year":1889,"text":"Rodin was asked for a monument to Hugo in 1889.","source":{"url":"https://example.org/rodin"}}""")
+                value(containsString(""""text":"Rodin was asked for a monument to Hugo in 1889.","source":{"url":"https://example.org/rodin"},"fr":{"kind":"sculpteur et modèle","text":"Rodin fit un monument à Hugo."}"""))
             }
             jsonPath("$.files[3].changes[1].after") { value(containsString(""""source":{"title":"A book","page":"9"}""")) }
             jsonPath("$.connections.length()") { value(4) }
             jsonPath("$.connections[0].names[0]") { value("Auguste Rodin") }
-            jsonPath("$.heldBack.length()") { value(1) }
-            jsonPath("$.heldBack[0].id") { value("connection:Q504|Q535:poet-and-novelist") }
-            jsonPath("$.heldBack[0].reason") { value("It names a fetched person, Émile Zola (Q504), whom the release holds once it carries the dataset") }
+            jsonPath("$.heldBack[?(@.id == 'connection:Q504|Q535:poet-and-novelist')].reason") {
+                value("It names a fetched person, Émile Zola (Q504), whom the release holds once it carries the dataset")
+            }
         }
 
         stubWrites()
