@@ -206,7 +206,7 @@ object ClaimRules {
     private fun fetchedFlags(flags: List<FlagReason>) = flags - setOf(CHANGED_SINCE_APPROVED, CHANGED_SINCE_EDITED)
 
     /**
-     * What the spec cannot say: no year 0, two different people in a connection, a story's cards naming what they
+     * What the spec cannot say: no year 0, two different people in a connection with a whole source, a story's cards naming what they
      * show, a moment's page with every line written, and every painting credited.
      */
     private fun check(payload: Payload) {
@@ -221,7 +221,10 @@ object ClaimRules {
             is Translation -> emptyList()
         }
         if (0 in years) invalid("There is no year 0: 1 BCE is followed by 1 CE")
-        if (payload is Connection && payload.people.distinct().size != 2) invalid("A connection links two different people")
+        if (payload is Connection) {
+            if (payload.people.distinct().size != 2) invalid("A connection links two different people")
+            check(payload.source)
+        }
         if (payload is Story) payload.cards.forEachIndexed { index, card -> check(index + 1, card) }
         if (payload is MomentPage) {
             val lines = with(payload.world) { listOf(payload.hook, governs, everyday, arts, meanwhile) }

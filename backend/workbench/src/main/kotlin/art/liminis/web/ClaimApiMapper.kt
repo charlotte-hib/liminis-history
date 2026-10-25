@@ -8,9 +8,11 @@ import org.mapstruct.SubclassExhaustiveStrategy
 import org.mapstruct.SubclassMapping
 import art.liminis.curation.Anecdote
 import art.liminis.curation.Claim
+import art.liminis.curation.ClaimDecision
 import art.liminis.curation.ClaimDetail
 import art.liminis.curation.ClaimStatus
 import art.liminis.curation.ClaimType
+import art.liminis.curation.ClaimVersion
 import art.liminis.curation.Connection
 import art.liminis.curation.Decision
 import art.liminis.curation.Event
@@ -27,10 +29,12 @@ import art.liminis.curation.Painting
 import art.liminis.curation.Story
 import art.liminis.curation.Translation
 import art.liminis.workbench.api.model.AnecdoteDto
+import art.liminis.workbench.api.model.ClaimDecisionDto
 import art.liminis.workbench.api.model.ClaimDetailDto
 import art.liminis.workbench.api.model.ClaimDto
 import art.liminis.workbench.api.model.ClaimStatusDto
 import art.liminis.workbench.api.model.ClaimTypeDto
+import art.liminis.workbench.api.model.ClaimVersionDto
 import art.liminis.workbench.api.model.ConnectionDto
 import art.liminis.workbench.api.model.DecisionDto
 import art.liminis.workbench.api.model.EventDto
@@ -121,6 +125,10 @@ abstract class ClaimApiMapper {
 
     @Mapping(target = "verdict", source = "action")
     abstract fun toModel(decision: NewDecisionDto): NewDecision
+
+    abstract fun toModel(decision: ClaimDecisionDto): ClaimDecision
+
+    abstract fun toModel(version: ClaimVersionDto): ClaimVersion
 
     @SubclassMapping(source = PersonFactsDto::class, target = PersonFacts::class)
     @SubclassMapping(source = ConnectionDto::class, target = Connection::class)

@@ -7,14 +7,16 @@ import art.liminis.curation.Anecdote
 import art.liminis.curation.Approved
 import art.liminis.curation.ClaimRepository
 import art.liminis.curation.ClaimRules
+import art.liminis.curation.Connection
 import art.liminis.curation.MomentPage
 import art.liminis.curation.Story
+import art.liminis.publishing.ConnectionLines
 import art.liminis.runs.Runs
 import art.liminis.support.ConflictException
 import art.liminis.workbench.api.model.RunKindDto
 
 /**
- * The French follows the English: once a curator approves a new header, story or anecdote of a record that has a
+ * The French follows the English: once a curator approves a new header, story, anecdote or connection of a record that has a
  * translation, Claude updates its French (only the texts whose English changed, from the French approved before), and
  * it waits for review under the record's Français tab. Meanwhile the site keeps the French written before. While another run runs, nothing starts: the tab says the English
  * changed, and "Translate again" does it. English changed by hand in `data/` waits for "Translate everything missing".
@@ -51,6 +53,8 @@ class FrenchFollows(private val claims: ClaimRepository, private val runs: Runs)
         is MomentPage -> "${RecordKind.MOMENT.key}:${payload.moment}"
         // An anecdote's line in data/ is named after its claim.
         is Anecdote -> "${RecordKind.ANECDOTE.key}:${event.claim}"
+        // A connection's, after its people and its kind.
+        is Connection -> "${RecordKind.CONNECTION.key}:${ConnectionLines.key(payload.people, payload.kind)}"
         else -> null
     }
 }

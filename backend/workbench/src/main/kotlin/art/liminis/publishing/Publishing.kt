@@ -30,7 +30,7 @@ data class HeldBack(val id: String, val reason: String)
 /**
  * What publishing makes of the data repository's [base] commit: the changes to each [DataFile], to the files of records
  * written by hand that approved translations go into, and to the moments' files the approved pages, stories and
- * translations go into, the same in words ([people], [occupations], [anecdotes], [moments], [translations]), the
+ * translations go into, the same in words ([people], [occupations], [anecdotes], [connections], [moments], [translations]), the
  * publish pull request open, if any, the people written by hand whom a correction would not change, and the approved
  * stories, anecdotes and translations left out.
  */
@@ -40,6 +40,7 @@ data class Publication(
     val people: List<PersonChange>,
     val occupations: List<OccupationChange>,
     val anecdotes: List<AnecdoteChange>,
+    val connections: List<ConnectionChange>,
     val moments: List<MomentChange>,
     val translations: List<TranslationChange>,
     val pullRequest: PullRequest?,
@@ -100,25 +101,38 @@ class Publishing(
 
     /** What the approved claims change in [base]'s files, and the text of each file as publishing would write it. */
     private fun compare(base: String): Pair<Publication, Map<String, String?>> {
-        val byHand = dataFiles.byHand(github.file(PEOPLE, base))
+        val people = github.file(PEOPLE, base)
+        val byHand = dataFiles.byHand(people)
         val anecdotes = dataFiles.anecdotes()
         val anecdotesHeldBack = holdBack(anecdotes, byHand)
         val published = anecdotes.filter { anecdote -> anecdotesHeldBack.none { it.id == anecdote.id } }
             .map { AnecdoteRecord(it.id, it.anecdote.person, it.anecdote.year, it.anecdote.text, it.source!!) }
+        val connections = dataFiles.connections()
+        val connectionsHeldBack = holdBackConnections(connections, byHand)
+        val connected = connections.filter { connection -> connectionsHeldBack.none { it.id == connection.id } }.map { it.record }
+        val connectionsBefore = github.file(DataFile.CONNECTIONS.path, base)
+        val notImported = notImported(connectionsBefore, people)
 
         val french = translationFiles.claims()
         val heldBack = mutableListOf<HeldBack>()
         val translations = mutableListOf<TranslationChange>()
 
-        // The anecdotes are written whole from their claims, then their French goes beside them.
-        val files = dataFiles.build(published).mapValues { (file, lines) ->
-            if (file != DataFile.ANECDOTES) return@mapValues lines
-            val translated = translationFiles.lines(RecordKind.ANECDOTE, lines.text(), french, github.file(file.path, base))
+        // The anecdotes and the connections are written whole from their claims, then their French goes beside them.
+        // Connections written by hand wait for their claims: until they are imported, their file stays as it is.
+        notImported?.let { heldBack += it }
+        val files = dataFiles.build(published, connected).mapValues { (file, lines) ->
+            val kind = when (file) {
+                DataFile.ANECDOTES -> RecordKind.ANECDOTE
+                DataFile.CONNECTIONS -> RecordKind.CONNECTION
+                else -> return@mapValues lines
+            }
+            if (file == DataFile.CONNECTIONS && notImported != null) return@mapValues dataFiles.read(file, connectionsBefore)
+            val translated = translationFiles.lines(kind, lines.text(), french, github.file(file.path, base))
             translations += translated.changes
             heldBack += translated.heldBack
-            translated.lines.mapKeys { (key, _) -> key.removePrefix("${RecordKind.ANECDOTE.key}:") }.toSortedMap()
+            dataFiles.read(file, translated.lines.values.joinToString("\n"))
         }
-        val changes = files.map { (file, lines) -> FileChanges(file.path, changes(dataFiles.read(file.path, github.file(file.path, base)), lines)) }
+        val changes = files.map { (file, lines) -> FileChanges(file.path, changes(dataFiles.read(file, github.file(file.path, base)), lines)) }
         val changesOf = { file: DataFile -> changes.single { it.path == file.path }.changes }
         val withoutEffect = files.getValue(DataFile.CORRECTIONS).keys.filter { it in byHand }
         val texts = files.entries.associate { (file, lines) -> file.path to lines.text() }.toMutableMap()
@@ -170,8 +184,9 @@ class Publishing(
         val publication = Publication(
             base, changes + byHandFiles + moments.map { it.first },
             words.people(changesOf(DataFile.CORRECTIONS)), words.occupations(changesOf(DataFile.OCCUPATIONS)),
-            words.anecdotes(changesOf(DataFile.ANECDOTES), byHand), momentsInWords, translations.sortedBy { it.record },
-            github.openPullRequest(properties.branch), withoutEffect, heldBack + anecdotesHeldBack,
+            words.anecdotes(changesOf(DataFile.ANECDOTES), byHand), words.connections(changesOf(DataFile.CONNECTIONS), byHand),
+            momentsInWords, translations.sortedBy { it.record },
+            github.openPullRequest(properties.branch), withoutEffect, heldBack + anecdotesHeldBack + connectionsHeldBack,
         )
         return publication to texts + moments.associate { (file, text) -> file.path to text }
     }
@@ -215,6 +230,40 @@ class Publishing(
     }
 
     /**
+     * The approved connections that cannot be published yet: one naming a fetched person, whom the release holds only
+     * once it carries the fetched dataset (not one of [byHand]'s, the people written by hand), named.
+     */
+    private fun holdBackConnections(connections: List<ApprovedConnection>, byHand: Map<String, String>): List<HeldBack> {
+        if (properties.fetchedPeople) return emptyList()
+        val fetched = connections.associateWith { connection -> connection.record.people.filter { it !in byHand } }.filterValues { it.isNotEmpty() }
+        val names = words.names(fetched.values.flatten(), byHand)
+        return fetched.map { (connection, people) ->
+            val named = people.joinToString(" and ") { "${names.getValue(it)} ($it)" }
+            HeldBack(connection.id, "It names ${if (people.size == 1) "a fetched person" else "fetched people"}, $named, whom the release holds once it carries the dataset")
+        }
+    }
+
+    /**
+     * Why the connections file is not written yet, if it isn't: some of its lines on `main`, [connections], written by
+     * hand, have no claim, as they were not imported ([people], `people.jsonl`, gives the Q-ids of those it names by
+     * id). Writing it from the claims would drop them.
+     */
+    private fun notImported(connections: String?, people: String?): HeldBack? {
+        val lines = dataFiles.readConnections(connections)
+        if (lines.isEmpty()) return null
+        val missing = try {
+            ConnectionLines.claimIds(lines, dataFiles.qids(people)).count { !claims.existsById(it) }
+        } catch (e: UnavailableException) {
+            return HeldBack(DataFile.CONNECTIONS.path, "${e.message}, then import the connections (wb connections)")
+        }
+        if (missing == 0) return null
+        return HeldBack(
+            DataFile.CONNECTIONS.path,
+            "${if (missing == 1) "One connection on main has" else "$missing connections on main have"} no claim yet: import them first (wb connections), or publishing would drop them",
+        )
+    }
+
+    /**
      * Records compared line for line, as JSON text: the workbench writes these files whole, in one format, so a line
      * changes only when its record does.
      */
@@ -232,11 +281,11 @@ class Publishing(
 
     /** The changes in words, for the commit and the pull request. */
     private fun summary(publication: Publication): String =
-        words.summary(publication.people, publication.occupations, publication.anecdotes, publication.moments, publication.translations)
+        words.summary(publication.people, publication.occupations, publication.anecdotes, publication.connections, publication.moments, publication.translations)
 
     private companion object {
         /** The files of records written by hand that publishing writes only the French of. */
-        val WRITTEN_BY_HAND = listOf(RecordKind.REGION, RecordKind.ERA, RecordKind.PERSON, RecordKind.LIFE, RecordKind.EVENT, RecordKind.CONNECTION)
+        val WRITTEN_BY_HAND = listOf(RecordKind.REGION, RecordKind.ERA, RecordKind.PERSON, RecordKind.LIFE, RecordKind.EVENT)
 
         const val PEOPLE = "data/people.jsonl"
         const val TITLE = "feat: publish the curator's decisions"

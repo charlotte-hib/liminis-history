@@ -4,6 +4,7 @@ import org.springframework.web.bind.annotation.RestController
 import art.liminis.people.EditedFacts
 import art.liminis.people.People
 import art.liminis.people.PeopleReview
+import art.liminis.people.PersonConnections
 import art.liminis.people.PersonPreviews
 import art.liminis.people.ReviewScope
 import art.liminis.workbench.api.PeopleApi
@@ -11,6 +12,7 @@ import art.liminis.workbench.api.PlacesApi
 import art.liminis.workbench.api.model.EvidenceDto
 import art.liminis.workbench.api.model.FoundPlaceDto
 import art.liminis.workbench.api.model.PeopleToReviewDto
+import art.liminis.workbench.api.model.PersonConnectionDto
 import art.liminis.workbench.api.model.PersonPreviewDto
 import art.liminis.workbench.api.model.PersonSummaryDto
 import art.liminis.workbench.api.model.ReviewFilterDto
@@ -21,10 +23,20 @@ class PeopleController(
     private val people: People,
     private val review: PeopleReview,
     private val previews: PersonPreviews,
+    private val connections: PersonConnections,
     private val mapper: PeopleApiMapper,
+    private val claimMapper: ClaimApiMapper,
 ) : PeopleApi {
 
-    override fun findPeople(q: String, limit: Int): List<PersonSummaryDto> = people.find(q, limit).map(mapper::toDto)
+    override fun findPeople(q: String, limit: Int): List<PersonSummaryDto> {
+        val found = people.find(q, limit)
+        val held = connections.held(found.map { it.person })
+        return found.map { mapper.toDto(it, fetched = it.person !in held) }
+    }
+
+    override fun listPersonConnections(qid: String): List<PersonConnectionDto> = connections.of(qid).map {
+        PersonConnectionDto(claimMapper.toDto(it.claim), it.claim.version!!, mapper.toDto(it.other))
+    }
 
     override fun getEvidence(qid: String): EvidenceDto = mapper.toDto(people.evidence(qid))
 

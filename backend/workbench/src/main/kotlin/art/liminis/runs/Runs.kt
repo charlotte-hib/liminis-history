@@ -3,6 +3,7 @@ package art.liminis.runs
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.DisposableBean
 import org.springframework.stereotype.Service
+import art.liminis.curation.ConnectionImport
 import art.liminis.curation.OccupationProposals
 import art.liminis.curation.PersonFactsProposals
 import art.liminis.dataset.DatasetExport
@@ -23,7 +24,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Runs imports, mappings, exports, proposals, drafts and translations in the background, one at a time: they share Wikimedia's pace and the
+ * Runs imports, mappings, exports, proposals, drafts, translations and the connections' import in the background, one at a time: they share Wikimedia's pace and the
  * dataset. Kept in memory: a run stopped by a restart is started again by hand, and an import resumes where it was.
  */
 @Service
@@ -35,6 +36,7 @@ class Runs(
     private val occupations: OccupationProposals,
     private val drafting: StoryDrafting,
     private val translating: Translating,
+    private val connections: ConnectionImport,
     private val moments: MomentRepository,
 ) : DisposableBean {
 
@@ -91,6 +93,7 @@ class Runs(
         RunKindDto.OCCUPATION_CLAIMS -> occupations.propose().toString()
         RunKindDto.STORY_DRAFT -> drafting.draft(run.moment!!)
         RunKindDto.TRANSLATIONS -> translating.translate(run.record)
+        RunKindDto.CONNECTION_IMPORT -> connections.import()
     }
 
     override fun destroy() {

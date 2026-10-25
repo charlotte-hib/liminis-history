@@ -87,6 +87,17 @@ class Claims(
     }
 
     /**
+     * Each of [decisions] as [decide] takes it, in one transaction: all of them, or none when one is refused. The
+     * claims, in order, have their new versions once it commits.
+     */
+    @Transactional
+    fun decideAll(decisions: List<ClaimDecision>, by: Actor): List<ClaimDetail> = decisions.map { decide(it.claim, it.version, it.decision, by) }
+
+    /** Each of [claims] undone as [undo] does, in one transaction: all of them, or none when one is refused. */
+    @Transactional
+    fun undoAll(claims: List<ClaimVersion>, by: Actor): List<ClaimDetail> = claims.map { undo(it.claim, it.version, by) }
+
+    /**
      * Puts back the claim as it was before the curator's last decision, if that is the claim's last decision and the
      * claim is still at [version].
      */

@@ -262,6 +262,89 @@ paths:
         "428":
           $ref: "#/components/responses/PreconditionRequired"
 
+  /api/decisions:
+    post:
+      tags: [claims]
+      operationId: decideAll
+      security:
+        - auth: ["curation:write"]
+      summary: Decide on several claims at once
+      description: |
+        Each decision as on its own claim (`decide`), with the claim's version in the request: all of them, or none
+        when one is refused. A person's page approves their facts and the connections changed on it in one go.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              maxItems: 100
+              items:
+                $ref: "#/components/schemas/ClaimDecision"
+      responses:
+        "200":
+          description: Each claim's new version, in the order asked.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClaimVersion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
+
+  /api/decisions/undo:
+    post:
+      tags: [claims]
+      operationId: undoAll
+      security:
+        - auth: ["curation:write"]
+      summary: Undo the last decision on several claims at once
+      description: |
+        Each undone as on its own claim (`undo`), at the version given: all of them, or none when one is refused.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              maxItems: 100
+              items:
+                $ref: "#/components/schemas/ClaimVersion"
+      responses:
+        "200":
+          description: Each claim's new version, in the order asked.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClaimVersion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
+
   /api/claims/{id}/holder:
     put:
       tags: [claims]
@@ -362,7 +445,7 @@ paths:
       summary: Find people by name
       description: |
         The fetched people whose English or French label contains `q`, ignoring case and accents, those it starts with
-        first, then the best known. A Q-id finds that person.
+        first, then the best known. A Q-id finds that person. Each says whether the release holds them yet.
       parameters:
         - name: q
           in: query
@@ -424,6 +507,36 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /api/people/{qid}/connections:
+    get:
+      tags: [people]
+      operationId: listPersonConnections
+      security:
+        - auth: ["curation:read"]
+      summary: A person's connections
+      description: |
+        The connection claims naming the person, rejected ones left out, by year, each with the other person: as the
+        dataset gives them, else by Q-id alone.
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Qid"
+      responses:
+        "200":
+          description: Their connections.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonConnection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /api/people/{qid}/facts:
     post:
@@ -1766,8 +1879,10 @@ components:
 
     Connection:
       type: object
-      description: Two people linked at a date, in one plain sentence.
-      required: [type, people, kind, year, text]
+      description: |
+        Two people linked at a date, in one plain sentence, and where it was read or heard. `people` in the order
+        `kind` reads ("sculptor and subject": the sculptor first).
+      required: [type, people, kind, year, text, source]
       properties:
         type:
           type: string
@@ -1788,6 +1903,8 @@ components:
           type: string
           minLength: 1
           maxLength: 250
+        source:
+          $ref: "#/components/schemas/Source"
 
     Event:
       type: object
@@ -2766,8 +2883,10 @@ components:
         those most held as a first occupation first, then the classes nobody holds directly. `STORY_DRAFT` drafts a moment's story with Claude and proposes it as the
         moment's `STORY` claim; its result says what the draft cost. `TRANSLATIONS` drafts in French with Claude every
         record of the data repository's `main` with no French yet, or whose English changed since, and proposes each as
-        a `TRANSLATION` claim; its result says what it cost.
-      enum: [WIKIDATA_IMPORT, DATASET_MAPPING, DATASET_EXPORT, PERSON_FACTS_CLAIMS, OCCUPATION_CLAIMS, STORY_DRAFT, TRANSLATIONS]
+        a `TRANSLATION` claim; its result says what it cost. `CONNECTION_IMPORT` adds every line of the data
+        repository's `data/connections.jsonl` on `main` as an approved `CONNECTION` claim, once: lines whose claim exists
+        are left as they are; a person named by id in `people.jsonl` needs a Q-id there.
+      enum: [WIKIDATA_IMPORT, DATASET_MAPPING, DATASET_EXPORT, PERSON_FACTS_CLAIMS, OCCUPATION_CLAIMS, STORY_DRAFT, TRANSLATIONS, CONNECTION_IMPORT]
 
     Run:
       type: object
@@ -2813,6 +2932,68 @@ components:
         occupation:
           type: string
           description: The first occupation's label, the one the site shows.
+        fetched:
+          type: boolean
+          description: Whether the dataset holds them and the release doesn't yet.
+
+    PersonConnection:
+      type: object
+      description: A connection claim about a person, at its version, with the other person in it.
+      required: [claim, version, other]
+      properties:
+        claim:
+          $ref: "#/components/schemas/Claim"
+        version:
+          type: integer
+          format: int64
+          description: The claim's version, to send with a decision on it.
+        other:
+          $ref: "#/components/schemas/ConnectionPerson"
+
+    ConnectionPerson:
+      type: object
+      description: |
+        The other person in a connection: as the dataset gives them, else as the release writes them, else by Q-id
+        alone.
+      required: [person, label, fetched]
+      properties:
+        person:
+          $ref: "#/components/schemas/Qid"
+        label:
+          type: string
+        born:
+          $ref: "#/components/schemas/Year"
+        died:
+          $ref: "#/components/schemas/Year"
+        occupation:
+          type: string
+        fetched:
+          type: boolean
+          description: Whether the release doesn't hold them yet, so that the connection waits for them at publishing.
+
+    ClaimDecision:
+      type: object
+      required: [claim, version, decision]
+      properties:
+        claim:
+          type: string
+          example: person-facts:Q535
+        version:
+          type: integer
+          format: int64
+        decision:
+          $ref: "#/components/schemas/NewDecision"
+
+    ClaimVersion:
+      type: object
+      required: [claim, version]
+      properties:
+        claim:
+          type: string
+          example: person-facts:Q535
+        version:
+          type: integer
+          format: int64
 
     FoundPlace:
       type: object
@@ -2919,7 +3100,7 @@ components:
 
     Publication:
       type: object
-      required: [base, files, people, occupations, anecdotes, moments, translations, withoutEffect, heldBack, maxAge]
+      required: [base, files, people, occupations, anecdotes, connections, moments, translations, withoutEffect, heldBack, maxAge]
       properties:
         base:
           type: string
@@ -2945,6 +3126,11 @@ components:
           description: The anecdotes added, changed or removed, by the name of whom they are about, then by year.
           items:
             $ref: "#/components/schemas/AnecdoteChange"
+        connections:
+          type: array
+          description: The connections added, changed or removed, by the names of their people, then by kind.
+          items:
+            $ref: "#/components/schemas/ConnectionChange"
         moments:
           type: array
           description: The moments whose header or story changes, by id.
@@ -2964,7 +3150,7 @@ components:
             $ref: "#/components/schemas/Qid"
         heldBack:
           type: array
-          description: Approved stories, moment pages, anecdotes and translations not published, and why.
+          description: Approved stories, moment pages, anecdotes, connections and translations not published, and why.
           items:
             $ref: "#/components/schemas/HeldBack"
         maxAge:
@@ -3086,6 +3272,54 @@ components:
             $ref: "#/components/schemas/AnecdoteFieldChange"
 
     AnecdoteFieldChange:
+      type: object
+      required: [field]
+      properties:
+        field:
+          type: string
+          enum: [YEAR, TEXT, SOURCE]
+        before:
+          type: string
+        after:
+          type: string
+          description: A source as its title, where in it, and its link, joined by commas.
+
+    ConnectionChange:
+      type: object
+      description: |
+        A connection whose line in `connections.jsonl` changes, between `people` (named `names`) as `kind` (once
+        published, else on `main`), with its fields that change, in words: all of them when added or removed. A
+        connection whose kind changes is removed under the old one and added under the new.
+      required: [connection, people, names, kind, change, fields]
+      properties:
+        connection:
+          type: string
+          description: The connection's two people and its kind, as the file sorts it.
+          example: "Q296|Q171730:friends"
+        people:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            type: string
+          description: The two people as the file names them, by Q-id, or by id in `people.jsonl`.
+        names:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            type: string
+          description: Their names as written by hand in `people.jsonl`, else as the dataset gives them.
+        kind:
+          type: string
+        change:
+          $ref: "#/components/schemas/Change"
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConnectionFieldChange"
+
+    ConnectionFieldChange:
       type: object
       required: [field]
       properties:
@@ -3235,7 +3469,7 @@ components:
       properties:
         id:
           type: string
-          description: The moment's id, for its story or page, the anecdote's claim id, or the translated record's key.
+          description: The moment's id, for its story or page, the anecdote's or the connection's claim id, or the translated record's key.
           example: edo-1830s
         reason:
           type: string

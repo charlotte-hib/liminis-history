@@ -105,7 +105,7 @@ class ClaimsApiTests(
     fun `adds a connection with two sources, the same whichever order its people come in`() {
         val connection = """
             {"payload": {"type": "CONNECTION", "people": ["Q535", "Q504"], "kind": "friends", "year": 1878,
-                         "text": "Zola wrote to Hugo in 1878."},
+                         "text": "Zola wrote to Hugo in 1878.", "source": {"kind": "WEB", "url": "https://example.org/zola"}},
              "sources": [{"kind": "BOOK", "title": "The Timetables of History", "page": "214", "quote": "a quote"},
                          {"kind": "WEB", "url": "https://example.org/zola"}]}
         """.trimIndent()
@@ -126,7 +126,8 @@ class ClaimsApiTests(
             // No year 0.
             anecdote.replace("1851", "0"),
             // A connection links two different people.
-            """{"payload": {"type": "CONNECTION", "people": ["Q535", "Q535"], "kind": "self", "year": 1850, "text": "t"},
+            """{"payload": {"type": "CONNECTION", "people": ["Q535", "Q535"], "kind": "self", "year": 1850, "text": "t",
+                            "source": {"kind": "WEB", "url": "https://example.org"}},
                 "sources": [{"kind": "WEB", "url": "https://example.org"}]}""",
             // A person's facts come from Wikidata only.
             """{"payload": {"type": "PERSON_FACTS", "person": "Q535", "label": "Hugo", "born": 1802, "bornPrecision": 9,
@@ -185,6 +186,68 @@ class ClaimsApiTests(
             signedIn()
             ifMatch(etag(anecdoteId))
         }.andExpect { status { isConflict() } }
+    }
+
+    private val connection = """
+        {"payload": {"type": "CONNECTION", "people": ["Q504", "Q535"], "kind": "admirer and poet", "year": 1885,
+                     "text": "Zola wrote of Hugo's funeral.", "source": {"kind": "BOOK", "title": "Choses vues", "page": "3"}},
+         "sources": [{"kind": "BOOK", "title": "Choses vues", "page": "3"}]}
+    """.trimIndent()
+
+    private val connectionId = "connection:Q504|Q535:admirer-and-poet"
+
+    private fun version(id: String) = etag(id).removeSurrounding("\"").toLong()
+
+    @Test
+    fun `decides on several claims at once, all of them or none, and undoes them together`() {
+        mockMvc.post("/api/claims") { json(anecdote) }
+        mockMvc.post("/api/claims") { json(connection) }
+        val edited = """{"type": "CONNECTION", "people": ["Q504", "Q535"], "kind": "admirer and poet", "year": 1885,
+            "text": "Zola wrote of the two million at Hugo's funeral.", "source": {"kind": "WEB", "url": "https://example.org/funeral"}}"""
+
+        // One at a version it is no longer at: none is decided.
+        mockMvc.post("/api/decisions") {
+            json("""[{"claim": "$anecdoteId", "version": ${version(anecdoteId)}, "decision": {"action": "APPROVE"}},
+                     {"claim": "$connectionId", "version": ${version(connectionId) - 1}, "decision": {"action": "APPROVE"}}]""")
+        }.andExpect { status { isPreconditionFailed() } }
+        mockMvc.get("/api/claims/{id}", anecdoteId) { signedIn() }.andExpect { jsonPath("$.status") { value("CANDIDATE") } }
+
+        val decided = mockMvc.post("/api/decisions") {
+            json("""[{"claim": "$anecdoteId", "version": ${version(anecdoteId)}, "decision": {"action": "APPROVE"}},
+                     {"claim": "$connectionId", "version": ${version(connectionId)}, "decision": {"action": "APPROVE", "payload": $edited}}]""")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$[0].claim") { value(anecdoteId) }
+            jsonPath("$[0].version") { value(version(anecdoteId).toInt()) }
+            jsonPath("$[1].version") { value(version(connectionId).toInt()) }
+        }.andReturn().response.contentAsString
+        mockMvc.get("/api/claims/{id}", connectionId) { signedIn() }.andExpect {
+            jsonPath("$.status") { value("APPROVED") }
+            jsonPath("$.payload.source.url") { value("https://example.org/funeral") }
+        }
+
+        // Each claim at the version the decisions left it at, as they answered.
+        mockMvc.post("/api/decisions/undo") { json(decided) }.andExpect { status { isOk() } }
+        for (id in listOf(anecdoteId, connectionId)) {
+            mockMvc.get("/api/claims/{id}", id) { signedIn() }.andExpect { jsonPath("$.status") { value("CANDIDATE") } }
+        }
+    }
+
+    @Test
+    fun `lists a person's connections with the other person, and says whom the release holds`() {
+        mockMvc.post("/api/claims") { json(connection) }
+
+        mockMvc.get("/api/people/{qid}/connections", "Q504") { signedIn() }.andExpect {
+            status { isOk() }
+            jsonPath("$.length()") { value(1) }
+            jsonPath("$[0].claim.id") { value(connectionId) }
+            jsonPath("$[0].version") { value(version(connectionId).toInt()) }
+            jsonPath("$[0].other.person") { value("Q535") }
+            jsonPath("$[0].other.label") { value("Victor Hugo") }
+            jsonPath("$[0].other.fetched") { value(false) }
+        }
+        mockMvc.get("/api/people/{qid}/connections", "Q517") { signedIn() }.andExpect { jsonPath("$.length()") { value(0) } }
+        mockMvc.get("/api/people?q=hugo") { signedIn() }.andExpect { jsonPath("$[0].fetched") { value(false) } }
     }
 
     @Test

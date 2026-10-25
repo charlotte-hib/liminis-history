@@ -17,10 +17,12 @@ import art.liminis.moments.Moments
 import art.liminis.support.StaleException
 import art.liminis.web.WorkbenchSecurity.Companion.currentActor
 import art.liminis.workbench.api.ClaimsApi
+import art.liminis.workbench.api.model.ClaimDecisionDto
 import art.liminis.workbench.api.model.ClaimDetailDto
 import art.liminis.workbench.api.model.ClaimDto
 import art.liminis.workbench.api.model.ClaimStatusDto
 import art.liminis.workbench.api.model.ClaimTypeDto
+import art.liminis.workbench.api.model.ClaimVersionDto
 import art.liminis.workbench.api.model.FlagDto
 import art.liminis.workbench.api.model.HoldsDto
 import art.liminis.workbench.api.model.NewHolderDto
@@ -73,6 +75,13 @@ class ClaimController(
 
     override fun undo(id: String, ifMatch: String?): ClaimDetailDto = answer(claims.undo(id, version(id, ifMatch), currentActor()))
 
+    // Read once the service's transaction committed: a claim's version goes up when its change is written.
+    override fun decideAll(claimDecisionDto: List<ClaimDecisionDto>): List<ClaimVersionDto> =
+        claims.decideAll(claimDecisionDto.map(mapper::toModel), currentActor()).map(::versionOf)
+
+    override fun undoAll(claimVersionDto: List<ClaimVersionDto>): List<ClaimVersionDto> =
+        claims.undoAll(claimVersionDto.map(mapper::toModel), currentActor()).map(::versionOf)
+
     override fun takeClaim(id: String, newHolderDto: NewHolderDto?): ClaimDetailDto {
         val actor = currentActor()
         val holder = newHolderDto?.username ?: actor.name
@@ -84,6 +93,8 @@ class ClaimController(
     override fun releaseClaim(id: String): ClaimDetailDto = answer(claims.release(id, currentActor()))
 
     override fun releaseHolder(username: String): HoldsDto = mapper.toDto(claims.releaseAllHeldBy(username))
+
+    private fun versionOf(detail: ClaimDetail) = ClaimVersionDto(detail.claim.id, detail.claim.version!!)
 
     /** The claim as the API shows it, with its version as the ETag. */
     private fun answer(detail: ClaimDetail): ClaimDetailDto {

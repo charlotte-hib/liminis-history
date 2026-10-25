@@ -48,6 +48,13 @@ interface ClaimRepository : JpaRepository<Claim, String> {
     @Query(nativeQuery = true, value = "select * from curation.claim where type = 'ANECDOTE' and payload ->> 'person' = :person order by seq")
     fun anecdotesAbout(person: String): List<Claim>
 
+    /** The connections naming [person] but those rejected, in the order they were proposed. */
+    @Query(
+        nativeQuery = true,
+        value = "select * from curation.claim where type = 'CONNECTION' and status <> 'REJECTED' and jsonb_exists(payload -> 'people', :person) order by seq",
+    )
+    fun connectionsOf(person: String): List<Claim>
+
     /** The occupations' approved domains, as publishing writes them into `occupations.jsonl`. */
     @Query(
         nativeQuery = true,

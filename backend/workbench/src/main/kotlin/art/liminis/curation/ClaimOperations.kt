@@ -15,6 +15,12 @@ data class NewClaim(val payload: Payload, val sources: List<SourceRef>, val note
 
 enum class Verdict { APPROVE, REJECT, NEEDS_WORK }
 
+/** A decision on [claim], taken only if it is still at [version]. */
+data class ClaimDecision(val claim: String, val version: Long, val decision: NewDecision)
+
+/** A claim and the version it is at. */
+data class ClaimVersion(val claim: String, val version: Long)
+
 /** Approve (with an edited [payload], if given), reject or keep for later, with a note saying why. */
 data class NewDecision(val verdict: Verdict, val payload: Payload? = null, val note: String? = null)
 

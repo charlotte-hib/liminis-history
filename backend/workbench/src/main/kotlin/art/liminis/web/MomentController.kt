@@ -111,6 +111,7 @@ interface MomentApiMapper {
     @Mapping(target = "died", source = "person.died")
     @Mapping(target = "occupation", source = "person.occupation")
     @Mapping(target = "sitelinks", source = "person.sitelinks")
+    @Mapping(target = "fetched", ignore = true)
     fun toDto(person: MomentPerson): MomentPersonDto
 
     fun toDto(preview: StoryPreview): StoryPreviewDto

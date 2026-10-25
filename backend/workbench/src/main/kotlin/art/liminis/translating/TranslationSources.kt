@@ -17,7 +17,7 @@ import art.liminis.support.UnavailableException
 
 /**
  * The records of `data/` to translate, with the English publishing will write: the data repository's `main`, with the
- * headers, stories and anecdotes approved since in it. French translated from them still matches once they are
+ * headers, stories, anecdotes and connections approved since in it. French translated from them still matches once they are
  * published.
  */
 @Component
@@ -52,6 +52,18 @@ class TranslationSources(
                 val record = approved.anecdote
                 val node = jsonMapper.valueToTree<ObjectNode>(AnecdoteRecord(approved.id, record.person, record.year, record.text, approved.source!!))
                 DataRecord(kind, published[approved.id]?.let { RecordTexts.carry(kind, it, node) } ?: node)
+            }
+        }
+        RecordKind.CONNECTION -> {
+            // Rebuilt from their claims too, once those written by hand were imported; else as main has them.
+            val published = lines(github.file(kind.path, base))
+            val approved = dataFiles.connections()
+            if (approved.isEmpty()) return published.map { DataRecord(kind, it) }
+            val french = published.associateBy { DataRecord(kind, it).key }
+            approved.map { connection ->
+                val node = jsonMapper.valueToTree<ObjectNode>(connection.record)
+                val record = DataRecord(kind, node)
+                DataRecord(kind, french[record.key]?.let { RecordTexts.carry(kind, it, node) } ?: node)
             }
         }
         else -> lines(github.file(kind.path, base)).map { DataRecord(kind, it) }
