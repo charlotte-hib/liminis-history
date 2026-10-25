@@ -479,6 +479,29 @@ export interface components {
          * @enum {string}
          */
         LifeLineKind: "BIRTH" | "ERA" | "EVENT" | "OWN_EVENT" | "ANECDOTE" | "DEATH";
+        /**
+         * @description What a place was to them, as Wikidata states it.
+         * @enum {string}
+         */
+        PlaceKind: "BIRTH" | "WORK" | "RESIDENCE" | "DEATH";
+        /** @description One thing a place was to them, with its years when known. A birth's year is their birth year, a death's their death year. */
+        PlaceRole: {
+            kind: components["schemas"]["PlaceKind"];
+            /** Format: int32 */
+            startYear: number | null;
+            /** Format: int32 */
+            endYear: number | null;
+        };
+        /** @description A place in a person's life, with every role it had, e.g. Giverny, where Monet lived and worked, then died. */
+        PersonPlace: {
+            /** @description The place as Wikidata names it, a town, a house or a street. */
+            name: string;
+            /** @description The country it lies in today. */
+            country: string | null;
+            roles: components["schemas"]["PlaceRole"][];
+            /** @description The language of `name`. */
+            lang: components["schemas"]["Language"];
+        };
         /** @description Where an anecdote was read or heard. A book has a title and a page; a podcast, a video or a documentary a title, and an episode, a minute or a URL; a web page a URL. */
         AnecdoteSource: {
             title: string | null;
@@ -529,6 +552,8 @@ export interface components {
             world: components["schemas"]["WorldAround"] | null;
             worldMoment: components["schemas"]["MomentSummary"] | null;
             lifeline: components["schemas"]["LifeLine"][];
+            /** @description Where they were born, worked, lived and died, one line per place, in the order they were there; places with no year last. */
+            places: components["schemas"]["PersonPlace"][];
             /** @description Sourced links to other people, curated ones first, then shared documented events. */
             connections: components["schemas"]["Connection"][];
             /** @description People alive in their region that year, or tied to it by a place, the most written about first, up to 12. */

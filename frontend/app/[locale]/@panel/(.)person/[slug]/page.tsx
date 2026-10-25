@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Connections } from "@/components/connections";
 import { LifeChip } from "@/components/life";
 import { LifeInTime } from "@/components/life-in-time";
+import { Places } from "@/components/places";
 import { PersonChip } from "@/components/person-chip";
 import { PersonAbout, PersonHeader } from "@/components/person-header";
 import { FullPageButton, TrailStep } from "@/components/person-panel";
@@ -26,6 +27,7 @@ export default async function PersonPanelPage({ params, searchParams }: PageProp
 
   const { person, year } = detail;
   const t = await getTranslations("person");
+  const places = await getTranslations("places");
   const years = yearWords(await getTranslations("years"));
   // A plain address with the language in it: the full page is loaded, not navigated to (see FullPageButton).
   const href = getPathname({ href: { pathname: `/person/${person.slug}`, query: { year } }, locale });
@@ -44,6 +46,12 @@ export default async function PersonPanelPage({ params, searchParams }: PageProp
       <Section title={t("lifeInTime")}>
         <LifeInTime lines={detail.lifeline} />
       </Section>
+
+      {detail.places.length > 0 && (
+        <Section title={places("title")}>
+          <Places places={detail.places} />
+        </Section>
+      )}
 
       {detail.connections.length > 0 && (
         <Section title={t("connected")}>

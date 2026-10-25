@@ -126,6 +126,25 @@
     "episode": "episode {episode}",
     "minute": "at {minute}"
   },
+  "places": {
+    "title": "In their footsteps",
+    "born": "born",
+    "worked": "worked",
+    "lived": "lived",
+    "died": "died",
+    "until": "until {year}",
+    "from": "from {year}",
+    "bornIn": "Born in <place></place>",
+    "diedIn": "died in <place></place>",
+    "diedOnly": "Died in <place></place>",
+    "workedIn": "worked in <places></places>",
+    "livedIn": "lived in <places></places>",
+    "bornAt": "born in <places></places>",
+    "diedAt": "died in <places></places>",
+    "undated": "Also <parts></parts><more></more>, years unknown.",
+    "more": " and {count} more",
+    "separator": "; "
+  },
   "life": {
     "typical": "typical life",
     "notReal": "A typical life of the period, illustrated rather than documented: not a real person.",

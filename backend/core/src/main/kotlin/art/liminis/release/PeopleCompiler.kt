@@ -151,10 +151,13 @@ internal class PeopleCompiler(private val release: Release) {
     }
 
     private fun places(row: PersonRow): List<PersonPlace> = row.places.map {
+        val place = dataset!!.places[it.place]
         PersonPlace(
             placeQid = it.place,
+            name = place?.label ?: it.place,
+            nameFr = place?.labelFr,
             kind = PlaceKind.valueOf(PlaceProperty.of(it.property).name),
-            regionCode = dataset!!.places[it.place]?.let(::country),
+            regionCode = place?.let(::country),
             startYear = it.startYear,
             endYear = it.endYear,
         )

@@ -63,6 +63,8 @@ data class PersonPlaceRow(
     val personId: String,
     val position: Int,
     val placeQid: String,
+    val name: String,
+    val nameFr: String?,
     val kind: String,
     val regionCode: String?,
     val startYear: Int?,
@@ -207,6 +209,8 @@ abstract class ReleaseRowMapper {
     abstract fun person(entity: Person): PersonRow
 
     @Mapping(target = "personId", source = "person.id")
+    @Mapping(target = "name", source = "place.name")
+    @Mapping(target = "nameFr", source = "place.nameFr")
     abstract fun place(place: PersonPlace, person: Person, position: Int): PersonPlaceRow
 
     @Mapping(target = "eraId", source = "era.id")

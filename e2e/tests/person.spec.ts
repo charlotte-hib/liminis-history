@@ -62,3 +62,20 @@ test("an anecdote is told among the years of their life, with its source", async
   await page.getByRole("option", { name: /Katsushika Hokusai/ }).click();
   await expect(page.getByRole("dialog", { name: "Someone who lived it" }).getByText(daruma)).toBeVisible();
 });
+
+// Relies on sample/dataset: Hugo's 16 places (Jersey his one undated work place), Monet's 9 undated ones.
+test("a person's page says where they were born, worked, lived and died", async ({ page }) => {
+  await page.goto("/person/victor-hugo");
+  await expect(page.getByText("Born in Besançon · died in Paris")).toBeVisible();
+  const places = page.locator("section").filter({ has: page.getByRole("heading", { name: "In their footsteps" }) });
+  await expect(places.getByRole("listitem").filter({ hasText: "Hauteville House" })).toContainText("1856–1870");
+  await expect(places.getByRole("listitem").filter({ hasText: "Paris" })).toContainText("Worked · died 1885");
+  await expect(places).toContainText("Also worked in Jersey");
+
+  await page.goto("/person/claude-monet");
+  const monet = page.locator("section").filter({ has: page.getByRole("heading", { name: "In their footsteps" }) });
+  await expect(monet.getByRole("listitem").filter({ hasText: "Giverny" })).toContainText("Lived 1883–1926 · worked · died 1926");
+  await expect(monet.getByRole("listitem").filter({ hasText: "Argenteuil" })).toContainText("Lived until 1878 · worked");
+  await monet.getByRole("button", { name: "and 3 more" }).click();
+  await expect(monet).toContainText("London");
+});

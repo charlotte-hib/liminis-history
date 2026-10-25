@@ -151,7 +151,7 @@ abstract class ApiMapper {
         }
 
     /** A region's name in [language], when the release has it in French. */
-    protected fun regionName(region: Region, language: Language): String = region.nameFr?.inFrench(language) ?: region.name
+    fun regionName(region: Region, language: Language): String = region.nameFr?.inFrench(language) ?: region.name
 
     private fun <T> T.inFrench(language: Language): T? = takeIf { language == Language.FR }
 

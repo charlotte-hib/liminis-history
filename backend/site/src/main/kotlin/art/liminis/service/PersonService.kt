@@ -22,6 +22,7 @@ import art.liminis.web.dto
 import art.liminis.api.model.ConnectionDto
 import art.liminis.api.model.PersonDetailDto
 import art.liminis.api.model.PersonDto
+import java.util.Locale
 import kotlin.math.abs
 
 /** The age a person is shown at when no year is asked for: well into their adult life. */
@@ -72,6 +73,7 @@ class PersonService(
                 mapper,
                 language,
             ),
+            places = placesOf(person, language, countries(person, language)),
             connections = connectionsOf(person, language),
             aroundPeople = people.findTiedAliveBetween(region, ref, ref, Limit.of(AROUND + 1)).filter { it.slug != slug }.take(AROUND)
                 .map { mapper.toDto(it, language) },
@@ -80,6 +82,22 @@ class PersonService(
             moments = momentService.overlapping(region, person.birthYear, end, language),
             aboutLang = aboutLanguage.dto(),
         )
+    }
+
+    /**
+     * The names of the countries [person]'s places lie in: the release's regions where it holds them in [language],
+     * else the country's name in [language].
+     */
+    private fun countries(person: Person, language: Language): (String) -> String? {
+        val held = regions.findAllById(person.places.mapNotNull { it.regionCode }.toSet()).associateBy { it.code }
+        return { code ->
+            val named = Locale.of("", code).getDisplayCountry(if (language == Language.FR) Locale.FRENCH else Locale.ENGLISH).takeIf { it != code }
+            when (val region = held[code]) {
+                null -> named
+                // A region the release names in English only is named in French after its code.
+                else -> if (language == Language.FR && region.nameFr == null) named ?: region.name else mapper.regionName(region, language)
+            }
+        }
     }
 
     /**

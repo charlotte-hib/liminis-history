@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 import { PersonAvatar } from "@/components/person-avatar";
+import { BornAndDied } from "@/components/places";
 import { Badge } from "@/components/ui/badge";
 import { DOMAINS } from "@/lib/domains";
 import type { PersonDetail } from "@/lib/types";
@@ -22,6 +23,7 @@ export function PersonHeader({ detail, className }: { detail: PersonDetail; clas
           {person.occupations.length > 0 && <span lang={person.lang}> · {person.occupations.join(", ")}</span>}
           {person.region && <span> · {person.region}</span>}
         </p>
+        <BornAndDied places={detail.places} />
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary" className={cn(domain.soft, domain.text)}>{domains(person.domain)}</Badge>
           <span className="text-sm text-lamp tabular-nums">

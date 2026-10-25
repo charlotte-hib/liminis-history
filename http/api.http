@@ -90,6 +90,25 @@ Accept: application/json
     });
 %}
 
+### Person's places: Victor Hugo's, a line per place, in the order he was there
+GET {{baseUrl}}/api/people/victor-hugo
+Accept: application/json
+
+> {%
+    client.test("200 with JSON", () => {
+        client.assert(response.status === 200, `status ${response.status}`);
+        client.assert(response.contentType.mimeType === "application/json", `content type ${response.contentType.mimeType}`);
+    });
+    client.test("Born in Besançon, lived at Hauteville House 1856 to 1870, worked and died in Paris", () => {
+        const places = response.body.places;
+        client.assert(places[0].name === "Besançon" && places[0].roles[0].kind === "BIRTH", `first ${places[0].name}`);
+        const hauteville = places.find(p => p.name === "Hauteville House");
+        client.assert(hauteville.roles[0].startYear === 1856 && hauteville.roles[0].endYear === 1870, "Hauteville House's years");
+        const paris = places.find(p => p.name === "Paris");
+        client.assert(paris.roles.map(r => r.kind).join(",") === "WORK,DEATH", `Paris ${paris.roles.map(r => r.kind)}`);
+    });
+%}
+
 ### Search: people and moments, ignoring accents
 GET {{baseUrl}}/api/search?q=zola
 Accept: application/json

@@ -118,6 +118,9 @@ enum class PlaceKind { BIRTH, DEATH, WORK, RESIDENCE }
 data class PersonPlace @Default constructor(
     /** Wikidata's id of the place, e.g. "Q90" for Paris. */
     val placeQid: String,
+    /** Its name as Wikidata labels it in English, else in any language. */
+    val name: String,
+    val nameFr: String?,
     @Enumerated(EnumType.STRING) val kind: PlaceKind,
     /** The region it lies in today, when known: any country, not only those with eras. */
     val regionCode: String?,
