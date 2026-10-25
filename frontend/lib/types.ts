@@ -26,6 +26,7 @@ export type LifeLine = Schemas["LifeLine"];
 export type AnecdoteSource = Schemas["AnecdoteSource"];
 export type PersonPlace = Schemas["PersonPlace"];
 export type PlaceKind = Schemas["PlaceKind"];
+export type PlaceRole = Schemas["PlaceRole"];
 export type Connection = Schemas["Connection"];
 export type PersonDetail = Schemas["PersonDetail"];
 export type SearchResults = Schemas["SearchResults"];

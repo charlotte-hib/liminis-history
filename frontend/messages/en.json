@@ -127,11 +127,13 @@
     "minute": "at {minute}"
   },
   "places": {
-    "title": "Where they lived",
-    "born": "Born",
-    "worked": "Worked",
-    "lived": "Lived",
-    "died": "Died",
+    "title": "In their footsteps",
+    "born": "born",
+    "worked": "worked",
+    "lived": "lived",
+    "died": "died",
+    "until": "until {year}",
+    "from": "from {year}",
     "bornIn": "Born in <place></place>",
     "diedIn": "died in <place></place>",
     "diedOnly": "Died in <place></place>",

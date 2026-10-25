@@ -127,11 +127,13 @@
     "minute": "à {minute}"
   },
   "places": {
-    "title": "Les lieux de sa vie",
-    "born": "Naissance",
-    "worked": "Travail",
-    "lived": "Résidence",
-    "died": "Décès",
+    "title": "Sur ses pas",
+    "born": "naissance",
+    "worked": "travail",
+    "lived": "résidence",
+    "died": "décès",
+    "until": "jusqu’en {year}",
+    "from": "à partir de {year}",
     "bornIn": "Naissance : <place></place>",
     "diedIn": "décès : <place></place>",
     "diedOnly": "Décès : <place></place>",
