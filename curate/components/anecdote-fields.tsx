@@ -16,12 +16,17 @@ const KINDS = [
 
 type Kind = (typeof KINDS)[number]["kind"];
 
-/** An anecdote being written: its year, its text and where it was heard or read, as typed. */
-export function useAnecdoteDraft() {
+const EMPTY = { title: "", episode: "", minute: "", page: "", url: "", quote: "" };
+
+/**
+ * An anecdote being written: its year, its text and where it was heard or read, as typed; or only where, for a
+ * connection, starting from its [start] source when edited.
+ */
+export function useAnecdoteDraft(start?: Partial<Source>) {
   const [when, setWhen] = useState("");
   const [text, setText] = useState("");
-  const [kind, setKind] = useState<Kind>("MEDIA");
-  const [source, setSource] = useState({ title: "", episode: "", minute: "", page: "", url: "", quote: "" });
+  const [kind, setKind] = useState<Kind>(KINDS.find((k) => k.kind === start?.kind)?.kind ?? "MEDIA");
+  const [source, setSource] = useState({ ...EMPTY, ...Object.fromEntries(Object.entries(start ?? {}).filter(([key, v]) => key !== "kind" && typeof v === "string")) });
 
   const parsedYear = Number(when);
   const given = (value: string) => value.trim() !== "";
@@ -34,25 +39,32 @@ export function useAnecdoteDraft() {
         : given(source.url) ? null : "a link";
   const complete = Number.isInteger(parsedYear) && parsedYear !== 0 && given(when) && given(text) && !sourceNeeds;
 
-  /** The claim to add about [person], once [complete]. */
-  const claim = (person: string, note?: string): NewClaim => {
+  /** The source as typed, with the fields its kind has, once it needs nothing more. */
+  const cited = (): Source => {
     const fields: Partial<Source> =
       kind === "MEDIA"
         ? { title: source.title, episode: source.episode, minute: source.minute, url: source.url }
         : kind === "BOOK"
           ? { title: source.title, page: source.page }
           : { title: source.title, url: source.url };
-    const filled = Object.fromEntries(Object.entries({ ...fields, quote: source.quote }).filter(([, v]) => typeof v === "string" && v.trim()));
-    return { payload: { type: "ANECDOTE", person, year: parsedYear, text: text.trim() }, sources: [{ kind, ...filled }], note: note?.trim() || undefined };
+    const filled = Object.fromEntries(Object.entries({ ...fields, quote: source.quote }).filter(([, v]) => typeof v === "string" && v.trim()).map(([k, v]) => [k, (v as string).trim()]));
+    return { kind, ...filled };
   };
+
+  /** The claim to add about [person], once [complete]. */
+  const claim = (person: string, note?: string): NewClaim => ({
+    payload: { type: "ANECDOTE", person, year: parsedYear, text: text.trim() },
+    sources: [cited()],
+    note: note?.trim() || undefined,
+  });
 
   const clear = () => {
     setWhen("");
     setText("");
-    setSource({ title: "", episode: "", minute: "", page: "", url: "", quote: "" });
+    setSource(EMPTY);
   };
 
-  return { when, setWhen, text, setText, kind, setKind, source, setSource, sourceNeeds, complete, claim, clear };
+  return { when, setWhen, text, setText, kind, setKind, source, setSource, sourceNeeds, complete, cited, claim, clear };
 }
 
 type Draft = ReturnType<typeof useAnecdoteDraft>;

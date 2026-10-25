@@ -114,6 +114,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide on several claims at once
+         * @description Each decision as on its own claim (`decide`), with the claim's version in the request: all of them, or none
+         *     when one is refused. A person's page approves their facts and the connections changed on it in one go.
+         */
+        post: operations["decideAll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/decisions/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo the last decision on several claims at once
+         * @description Each undone as on its own claim (`undo`), at the version given: all of them, or none when one is refused.
+         */
+        post: operations["undoAll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/claims/{id}/holder": {
         parameters: {
             query?: never;
@@ -171,7 +212,7 @@ export interface paths {
         /**
          * Find people by name
          * @description The fetched people whose English or French label contains `q`, ignoring case and accents, those it starts with
-         *     first, then the best known. A Q-id finds that person.
+         *     first, then the best known. A Q-id finds that person. Each says whether the release holds them yet.
          */
         get: operations["findPeople"];
         put?: never;
@@ -196,6 +237,27 @@ export interface paths {
          *     Wikipedia articles.
          */
         get: operations["getEvidence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/people/{qid}/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A person's connections
+         * @description The connection claims naming the person, rejected ones left out, by year, each with the other person: as the
+         *     dataset gives them, else as the release writes them, else by Q-id alone.
+         */
+        get: operations["listPersonConnections"];
         put?: never;
         post?: never;
         delete?: never;
@@ -847,7 +909,10 @@ export interface components {
             startYear?: components["schemas"]["Year"];
             endYear?: components["schemas"]["Year"];
         };
-        /** @description Two people linked at a date, in one plain sentence. */
+        /**
+         * @description Two people linked at a date, in one plain sentence, and where it was read or heard. `people` in the order
+         *     `kind` reads ("sculptor and subject": the sculptor first).
+         */
         Connection: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -859,6 +924,7 @@ export interface components {
             kind: string;
             year: components["schemas"]["Year"];
             text: string;
+            source: components["schemas"]["Source"];
         };
         /** @description Something that happened in a region in a year. */
         Event: {
@@ -1394,10 +1460,12 @@ export interface components {
          *     those most held as a first occupation first, then the classes nobody holds directly. `STORY_DRAFT` drafts a moment's story with Claude and proposes it as the
          *     moment's `STORY` claim; its result says what the draft cost. `TRANSLATIONS` drafts in French with Claude every
          *     record of the data repository's `main` with no French yet, or whose English changed since, and proposes each as
-         *     a `TRANSLATION` claim; its result says what it cost.
+         *     a `TRANSLATION` claim; its result says what it cost. `CONNECTION_IMPORT` adds every line of the data
+         *     repository's `data/connections.jsonl` on `main` as an approved `CONNECTION` claim, once: lines whose claim exists
+         *     are left as they are; a person named by id in `people.jsonl` needs a Q-id there.
          * @enum {string}
          */
-        RunKind: "WIKIDATA_IMPORT" | "DATASET_MAPPING" | "DATASET_EXPORT" | "PERSON_FACTS_CLAIMS" | "OCCUPATION_CLAIMS" | "STORY_DRAFT" | "TRANSLATIONS";
+        RunKind: "WIKIDATA_IMPORT" | "DATASET_MAPPING" | "DATASET_EXPORT" | "PERSON_FACTS_CLAIMS" | "OCCUPATION_CLAIMS" | "STORY_DRAFT" | "TRANSLATIONS" | "CONNECTION_IMPORT";
         Run: {
             /** Format: int64 */
             id: number;
@@ -1422,6 +1490,44 @@ export interface components {
             died: components["schemas"]["Year"];
             /** @description The first occupation's label, the one the site shows. */
             occupation?: string;
+            /** @description Whether the dataset holds them and the release doesn't yet. */
+            fetched?: boolean;
+        };
+        /** @description A connection claim about a person, at its version, with the other person in it. */
+        PersonConnection: {
+            claim: components["schemas"]["Claim"];
+            /**
+             * Format: int64
+             * @description The claim's version, to send with a decision on it.
+             */
+            version: number;
+            other: components["schemas"]["ConnectionPerson"];
+        };
+        /**
+         * @description The other person in a connection: as the dataset gives them, else as the release writes them, else by Q-id
+         *     alone.
+         */
+        ConnectionPerson: {
+            person: components["schemas"]["Qid"];
+            label: string;
+            born?: components["schemas"]["Year"];
+            died?: components["schemas"]["Year"];
+            occupation?: string;
+            /** @description Whether the release doesn't hold them yet, so that the connection waits for them at publishing. */
+            fetched: boolean;
+        };
+        ClaimDecision: {
+            /** @example person-facts:Q535 */
+            claim: string;
+            /** Format: int64 */
+            version: number;
+            decision: components["schemas"]["NewDecision"];
+        };
+        ClaimVersion: {
+            /** @example person-facts:Q535 */
+            claim: string;
+            /** Format: int64 */
+            version: number;
         };
         FoundPlace: {
             place: components["schemas"]["Qid"];
@@ -1494,6 +1600,8 @@ export interface components {
             occupations: components["schemas"]["OccupationChange"][];
             /** @description The anecdotes added, changed or removed, by the name of whom they are about, then by year. */
             anecdotes: components["schemas"]["AnecdoteChange"][];
+            /** @description The connections added, changed or removed, by the names of their people, then by kind. */
+            connections: components["schemas"]["ConnectionChange"][];
             /** @description The moments whose header or story changes, by id. */
             moments: components["schemas"]["MomentChange"][];
             /** @description The records whose French changes, by key. */
@@ -1501,7 +1609,7 @@ export interface components {
             pullRequest?: components["schemas"]["PullRequest"];
             /** @description People written by hand in `people.jsonl` with a correction, which their record overrides. */
             withoutEffect: components["schemas"]["Qid"][];
-            /** @description Approved stories, moment pages, anecdotes and translations not published, and why. */
+            /** @description Approved stories, moment pages, anecdotes, connections and translations not published, and why. */
             heldBack: components["schemas"]["HeldBack"][];
             /**
              * Format: int32
@@ -1589,6 +1697,32 @@ export interface components {
             after?: string;
         };
         /**
+         * @description A connection whose line in `connections.jsonl` changes, between `people` (named `names`) as `kind` (once
+         *     published, else on `main`), with its fields that change, in words: all of them when added or removed. A
+         *     connection whose kind changes is removed under the old one and added under the new.
+         */
+        ConnectionChange: {
+            /**
+             * @description The connection's two people and its kind, as the file sorts it.
+             * @example Q296|Q171730:friends
+             */
+            connection: string;
+            /** @description The two people as the file names them, by Q-id, or by id in `people.jsonl`. */
+            people: string[];
+            /** @description Their names as written by hand in `people.jsonl`, else as the dataset gives them. */
+            names: string[];
+            kind: string;
+            change: components["schemas"]["Change"];
+            fields: components["schemas"]["ConnectionFieldChange"][];
+        };
+        /** @description One field's value on `main` and once published; a source as its title, where in it, and its link, joined by commas. */
+        ConnectionFieldChange: {
+            /** @enum {string} */
+            field: "YEAR" | "TEXT" | "SOURCE";
+            before?: string;
+            after?: string;
+        };
+        /**
          * @description A moment whose header or story changes. Its hook and its painting (none when they stay as they are), the lines of its world around
          *     that change, and its cards added, removed, changed or moved, in the story's new order, removed ones last. A card
          *     is the same card before and after when it shows the same person, life or event (a scene card: the same type),
@@ -1667,7 +1801,7 @@ export interface components {
         };
         HeldBack: {
             /**
-             * @description The moment's id, for its story or page, the anecdote's claim id, or the translated record's key.
+             * @description The moment's id, for its story or page, the anecdote's or the connection's claim id, or the translated record's key.
              * @example edo-1830s
              */
             id: string;
@@ -1984,6 +2118,66 @@ export interface operations {
             428: components["responses"]["PreconditionRequired"];
         };
     };
+    decideAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimDecision"][];
+            };
+        };
+        responses: {
+            /** @description Each claim's new version, in the order asked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimVersion"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    undoAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimVersion"][];
+            };
+        };
+        responses: {
+            /** @description Each claim's new version, in the order asked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimVersion"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
     takeClaim: {
         parameters: {
             query?: never;
@@ -2117,6 +2311,30 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listPersonConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                qid: components["schemas"]["Qid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Their connections. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonConnection"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     proposeFacts: {

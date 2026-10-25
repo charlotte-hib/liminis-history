@@ -17,7 +17,7 @@ import art.liminis.support.UnavailableException
 
 /**
  * The records of `data/` to translate, with the English publishing will write: the data repository's `main`, with the
- * headers, stories and anecdotes approved since in it. French translated from them still matches once they are
+ * headers, stories, anecdotes and connections approved since in it. French translated from them still matches once they are
  * published.
  */
 @Component
@@ -54,6 +54,20 @@ class TranslationSources(
                 DataRecord(kind, published[approved.id]?.let { RecordTexts.carry(kind, it, node) } ?: node)
             }
         }
+        RecordKind.CONNECTION -> {
+            // Rebuilt from their claims too, once those written by hand were imported; else as main has them.
+            val published = lines(github.file(kind.path, base))
+            val approved = dataFiles.connections()
+            if (approved.isEmpty()) return published.map { DataRecord(kind, it) }
+            // main's lines written by hand name people by id: keyed by Q-id, as the claims' are, their French carries.
+            val qids = dataFiles.qids(github.file(PEOPLE, base))
+            val french = published.associateBy { line -> DataRecord(kind, line.deepCopy().also { byQid(it, qids) }).key }
+            approved.map { connection ->
+                val node = jsonMapper.valueToTree<ObjectNode>(connection.record)
+                val record = DataRecord(kind, node)
+                DataRecord(kind, french[record.key]?.let { RecordTexts.carry(kind, it, node) } ?: node)
+            }
+        }
         else -> lines(github.file(kind.path, base)).map { DataRecord(kind, it) }
     }
 
@@ -72,9 +86,15 @@ class TranslationSources(
     private inline fun <reified T> approved(type: ClaimType): List<T> =
         claims.findByTypeAndStatusOrderById(type, ClaimStatus.APPROVED).map { it.payload as T }
 
+    private fun byQid(line: ObjectNode, qids: Map<String, String>) {
+        val people = line.withArray("people")
+        for (i in 0 until people.size()) qids[people[i].asString()]?.let { people.set(i, it) }
+    }
+
     private fun lines(text: String?): List<ObjectNode> = text.orEmpty().lines().filter { it.isNotBlank() }.map { jsonMapper.readTree(it) as ObjectNode }
 
     private companion object {
         val QID = Regex("Q[1-9][0-9]*")
+        const val PEOPLE = "data/people.jsonl"
     }
 }

@@ -7,6 +7,8 @@ import {
   outcome,
   workbench,
   type CardSubject,
+  type ClaimDecision,
+  type ClaimVersion,
   type FoundOccupation,
   type FoundPlace,
   type Holds,
@@ -17,6 +19,7 @@ import {
   type PersonSummary,
   type MomentPageText,
   type PaintingSearch,
+  type PersonConnection,
   type Publication,
   type StoryPreview,
   type SubjectType,
@@ -39,6 +42,24 @@ export async function decide(id: string, version: string, decision: NewDecision)
 
 export async function undo(id: string, version: string): Promise<Decided> {
   return versioned(workbench.POST("/api/claims/{id}/undo", { params: { path: { id }, header: { "If-Match": version } } }));
+}
+
+/** Several decisions at once, each at its claim's version: all of them, or none. Each claim's new version, in order. */
+export async function decideAll(decisions: ClaimDecision[]): Promise<Outcome<ClaimVersion[]>> {
+  return outcome(workbench.POST("/api/decisions", { body: decisions }));
+}
+
+/** Undoes several claims' last decisions at once: all of them, or none. */
+export async function undoAll(claims: ClaimVersion[]): Promise<Outcome<ClaimVersion[]>> {
+  return outcome(workbench.POST("/api/decisions/undo", { body: claims }));
+}
+
+/** The connections naming the person, rejected ones left out, each with the other person. */
+export async function connectionsOf(qid: string): Promise<PersonConnection[]> {
+  const { data, error } = await workbench.GET("/api/people/{qid}/connections", { params: { path: { qid } } });
+  // Never an empty list for a failure: approving the page would leave the connections out unsaid.
+  if (!data) throw new Error(`The workbench did not list the connections of ${qid}: ${JSON.stringify(error)}`);
+  return data;
 }
 
 export async function addClaim(claim: NewClaim): Promise<Outcome<{ id: string }>> {

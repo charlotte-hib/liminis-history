@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import tools.jackson.databind.json.JsonMapper
 import art.liminis.support.ConflictException
+import art.liminis.support.InvalidRequestException
 import art.liminis.support.NotFoundException
 import art.liminis.support.StaleException
 import java.time.OffsetDateTime
@@ -57,16 +58,17 @@ class Claims(
 
     /**
      * Adds a claim the curator wrote from [proposal], the text as it stands, and approves it at once as [payload]: the
-     * log keeps both. Refused when the claim exists: decide on it instead.
+     * log keeps both, and [by] holds it, unless [held] is false (a run's import: nobody holds what it brings in).
+     * Refused when the claim exists: decide on it instead.
      */
     @Transactional
-    fun addApproved(payload: Payload, proposal: Payload, by: String, note: String?): ClaimDetail {
+    fun addApproved(payload: Payload, proposal: Payload, by: String, note: String?, held: Boolean = true): ClaimDetail {
         val id = ClaimRules.idOf(payload)
         if (claims.existsById(id)) throw ConflictException("$id exists already: decide on it")
         // Approved by the same rules as a decision on the proposal, edited.
         val approved = ClaimRules.decide(ClaimState(ClaimStatus.CANDIDATE, proposal, proposal, emptyList()), NewDecision(Verdict.APPROVE, payload, note))
         val claim = Claim(id, ClaimRules.typeOf(payload), approved.status, Origin.MANUAL, approved.payload, proposal, approved.flags)
-        val added = claims.save(claim.also { hold(it, by) })
+        val added = claims.save(claim.also { if (held) hold(it, by) })
         decisions.save(Decision(id, by, null, added.status, proposal, added.payload, note))
         events.publishEvent(Approved(added.id, added.payload))
         return detail(added)
@@ -84,6 +86,28 @@ class Claims(
         claim.state = decided
         if (decided.status == ClaimStatus.APPROVED) events.publishEvent(Approved(id, decided.payload))
         return detail(claim)
+    }
+
+    /**
+     * Each of [decisions] as [decide] takes it, in one transaction: all of them, or none when one is refused. The
+     * claims, in order, have their new versions once it commits.
+     */
+    @Transactional
+    fun decideAll(decisions: List<ClaimDecision>, by: Actor): List<ClaimDetail> {
+        once(decisions.map { it.claim })
+        return decisions.map { decide(it.claim, it.version, it.decision, by) }
+    }
+
+    /** Each of [claims] undone as [undo] does, in one transaction: all of them, or none when one is refused. */
+    @Transactional
+    fun undoAll(claims: List<ClaimVersion>, by: Actor): List<ClaimDetail> {
+        once(claims.map { it.claim })
+        return claims.map { undo(it.claim, it.version, by) }
+    }
+
+    /** Refuses a claim named twice: its version is checked before the first change to it is written. */
+    private fun once(ids: List<String>) {
+        ids.groupingBy { it }.eachCount().filterValues { it > 1 }.keys.firstOrNull()?.let { throw InvalidRequestException("$it is named twice") }
     }
 
     /**

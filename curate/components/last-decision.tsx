@@ -2,8 +2,11 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-/** The last decision taken on a person's page, with the claim's version after it and where it was taken, to undo it. */
-export type LastDecision = { id: string; title: string; version: string; verdict: string; href: string };
+/**
+ * The last decision taken on a person's page, with the claim's version after it and where it was taken, to undo it;
+ * with the connections decided with it, [others], undone with it.
+ */
+export type LastDecision = { id: string; title: string; version: string; verdict: string; href: string; others?: { claim: string; version: number }[] };
 
 const LastDecisionContext = createContext<{ last: LastDecision | null; setLast: (last: LastDecision | null) => void }>({
   last: null,

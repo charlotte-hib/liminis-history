@@ -71,7 +71,8 @@ class CurationStorageTests(@Autowired private val claims: Claims, @Autowired pri
     fun `reads a connection, an event and an anecdote as stored on 2026-10-11`() {
         insertClaim(
             "connection:Q504|Q535:friends", "CONNECTION", "APPROVED", "MANUAL",
-            """{"type": "CONNECTION", "people": ["Q535", "Q504"], "kind": "friends", "year": 1878, "text": "Zola wrote to Hugo."}""",
+            """{"type": "CONNECTION", "people": ["Q535", "Q504"], "kind": "friends", "year": 1878, "text": "Zola wrote to Hugo.",
+                "source": {"kind": "WEB", "url": "https://example.org/zola"}}""",
         )
         insertClaim(
             "event:FR:1885:hugo-s-funeral", "EVENT", "NEEDS_WORK", "BOOK",
@@ -85,7 +86,7 @@ class CurationStorageTests(@Autowired private val claims: Claims, @Autowired pri
         )
 
         assertEquals(
-            Connection(listOf("Q535", "Q504"), "friends", 1878, "Zola wrote to Hugo."),
+            Connection(listOf("Q535", "Q504"), "friends", 1878, "Zola wrote to Hugo.", SourceRef(SourceKind.WEB, url = "https://example.org/zola")),
             claims.detail("connection:Q504|Q535:friends").claim.payload,
         )
         assertEquals(

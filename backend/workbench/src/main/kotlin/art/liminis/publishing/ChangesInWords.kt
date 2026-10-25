@@ -12,10 +12,11 @@ import art.liminis.domain.CardType
 import art.liminis.domain.Domain
 import art.liminis.domain.PlaceKind
 import art.liminis.release.AnecdoteRecord
-import art.liminis.release.AnecdoteSourceRecord
 import art.liminis.release.ArtRecord
 import art.liminis.release.CardRecord
+import art.liminis.release.CitedSourceRecord
 import art.liminis.release.ClearedField
+import art.liminis.release.ConnectionRecord
 import art.liminis.release.CorrectionPlaceRecord
 import art.liminis.release.CorrectionRecord
 import art.liminis.release.WorldRecord
@@ -77,6 +78,23 @@ data class AnecdoteChange(val anecdote: String, val person: String, val name: St
 data class AnecdoteFieldChange(val field: AnecdoteField, val before: String?, val after: String?)
 
 enum class AnecdoteField { YEAR, TEXT, SOURCE }
+
+/**
+ * A connection added, removed or changed, between [people] (their [names]) as [kind], once published, else on main, with
+ * its fields that change. One whose kind changes is removed under the old kind and added under the new.
+ */
+data class ConnectionChange(
+    val connection: String,
+    val people: List<String>,
+    val names: List<String>,
+    val kind: String,
+    val change: Change,
+    val fields: List<ConnectionFieldChange>,
+)
+
+data class ConnectionFieldChange(val field: ConnectionField, val before: String?, val after: String?)
+
+enum class ConnectionField { YEAR, TEXT, SOURCE }
 
 /**
  * The changes of a publish in words, for the curator to read before publishing and in the pull request: people by
@@ -199,6 +217,31 @@ class ChangesInWords(
         }.filter { it.change != Change.CHANGED || it.fields.isNotEmpty() }.sortedWith(compareBy(byName) { it: AnecdoteChange -> it.name }.thenBy { it.year }.thenBy { it.anecdote })
     }
 
+    /**
+     * The connections of [changes], those of `connections.jsonl`, by the names of their people, then by kind. A line
+     * written by hand on main names its people by id: they are named as such.
+     */
+    fun connections(changes: List<RecordChange>, byHand: Map<String, String>): List<ConnectionChange> {
+        val records = changes.associate { it.id to (it.before?.let(dataFiles::readConnection) to it.after?.let(dataFiles::readConnection)) }
+        val names = names(records.values.flatMap { (before, after) -> (after ?: before)!!.people }, byHand)
+        return changes.map { change ->
+            val (before, after) = records.getValue(change.id)
+            val connection = (after ?: before)!!
+            val fields = listOf(
+                ConnectionField.YEAR to { record: ConnectionRecord -> year(record.year) },
+                ConnectionField.TEXT to { record -> record.text },
+                ConnectionField.SOURCE to { record -> source(record.source) },
+            ).mapNotNull { (field, value) ->
+                val old = before?.let(value)
+                val new = after?.let(value)
+                if (old == new) null else ConnectionFieldChange(field, old, new)
+            }
+            ConnectionChange(change.id, connection.people, connection.people.map(names::getValue), connection.kind, change.change, fields)
+        // A line whose French alone changes is told with the translations.
+        }.filter { it.change != Change.CHANGED || it.fields.isNotEmpty() }
+            .sortedWith(compareBy(byName) { it: ConnectionChange -> it.names[0] }.thenBy(byName) { it.names[1] }.thenBy { it.kind })
+    }
+
     /** The names of the people of [qids]: as written by hand in `people.jsonl` ([byHand]), else as the dataset has them, else their Q-id. */
     fun names(qids: Collection<String>, byHand: Map<String, String>): Map<String, String> {
         val fetched = qids.filter { it !in byHand }.distinct()
@@ -294,6 +337,7 @@ class ChangesInWords(
         people: List<PersonChange>,
         occupations: List<OccupationChange>,
         anecdotes: List<AnecdoteChange>,
+        connections: List<ConnectionChange>,
         moments: List<MomentChange>,
         translations: List<TranslationChange>,
     ): String {
@@ -326,6 +370,18 @@ class ChangesInWords(
                     Change.CHANGED -> anecdote.fields.joinToString(", ") { ANECDOTE_FIELDS.getValue(it.field) } + " changed"
                 }
                 "- ${anecdote.name} (${anecdote.person}), ${year(anecdote.year)}: $change"
+            }
+        }
+        if (connections.isNotEmpty()) {
+            if (lines.isNotEmpty()) lines += ""
+            lines += "**Connections** (${connections.size})"
+            lines += connections.map { connection ->
+                val change = when (connection.change) {
+                    Change.ADDED -> "added"
+                    Change.REMOVED -> "removed"
+                    Change.CHANGED -> connection.fields.joinToString(", ") { CONNECTION_FIELDS.getValue(it.field) } + " changed"
+                }
+                "- ${connection.names[0]} and ${connection.names[1]}, ${connection.kind}: $change"
             }
         }
         if (moments.isNotEmpty()) {
@@ -376,7 +432,7 @@ class ChangesInWords(
     }
 
     /** A source in words: its title, where in it, and its link. */
-    private fun source(source: AnecdoteSourceRecord) = listOfNotNull(
+    private fun source(source: CitedSourceRecord) = listOfNotNull(
         source.title, source.page?.let { "p. $it" }, source.episode?.let { "episode $it" }, source.minute?.let { "at $it" }, source.url,
     ).joinToString(", ")
 
@@ -417,6 +473,7 @@ class ChangesInWords(
             WorldPart.MEANWHILE to "meanwhile, elsewhere",
         )
         val ANECDOTE_FIELDS = mapOf(AnecdoteField.YEAR to "year", AnecdoteField.TEXT to "text", AnecdoteField.SOURCE to "source")
+        val CONNECTION_FIELDS = mapOf(ConnectionField.YEAR to "year", ConnectionField.TEXT to "text", ConnectionField.SOURCE to "source")
         val CARD_FIELDS = mapOf(
             CardField.KICKER to "kicker", CardField.TITLE to "title", CardField.TEXT to "what visitors read", CardField.YEAR to "year",
             CardField.PAINTING to "painting",

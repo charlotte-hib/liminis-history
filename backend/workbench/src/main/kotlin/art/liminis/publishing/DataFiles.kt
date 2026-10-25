@@ -9,6 +9,7 @@ import art.liminis.curation.ClaimRepository
 import art.liminis.curation.ClaimSources
 import art.liminis.curation.ClaimStatus
 import art.liminis.curation.ClaimType
+import art.liminis.curation.Connection
 import art.liminis.curation.OccupationChoice
 import art.liminis.curation.OccupationDomain
 import art.liminis.curation.PersonFacts
@@ -17,9 +18,10 @@ import art.liminis.curation.SourceRef
 import art.liminis.domain.Domain
 import art.liminis.domain.PlaceKind
 import art.liminis.release.AnecdoteRecord
-import art.liminis.release.AnecdoteSourceRecord
+import art.liminis.release.CitedSourceRecord
 import art.liminis.release.ClearedField
 import art.liminis.release.CorrectionPlaceRecord
+import art.liminis.release.ConnectionRecord
 import art.liminis.release.CorrectionRecord
 import art.liminis.release.OccupationRecord
 import art.liminis.support.UnavailableException
@@ -30,20 +32,27 @@ enum class DataFile(val path: String) {
     OCCUPATIONS("data/occupations.jsonl"),
     CORRECTIONS("data/corrections.jsonl"),
     ANECDOTES("data/anecdotes.jsonl"),
+    CONNECTIONS("data/connections.jsonl"),
 }
 
-/** A file's records as lines of JSON, by id, sorted by id as the release format wants them. */
+/**
+ * A file's records as lines of JSON, by id, sorted by id as the release format wants them: connections, which have
+ * none, by [ConnectionLines.key], in [ConnectionLines.ORDER].
+ */
 typealias Lines = Map<String, String>
 
 /** The file's text: one line per record, or none at all when there are no records, and the file goes. */
 fun Lines.text(): String? = if (isEmpty()) null else values.joinToString("\n", postfix = "\n")
 
 /** An approved anecdote, with the source the site names: none when it rests on none. */
-data class ApprovedAnecdote(val id: String, val anecdote: Anecdote, val source: AnecdoteSourceRecord?)
+data class ApprovedAnecdote(val id: String, val anecdote: Anecdote, val source: CitedSourceRecord?)
+
+/** An approved connection, by its claim's id, as its line writes it. */
+data class ApprovedConnection(val id: String, val record: ConnectionRecord)
 
 /**
  * What the approved claims make of [DataFile]s: the domain of each occupation mapped, the curator's corrections to
- * people's facts, and the anecdotes publishing does not hold back. A correction holds only the fields approved
+ * people's facts, and the anecdotes and connections publishing does not hold back. A correction holds only the fields approved
  * otherwise than Wikidata proposed them; facts approved as proposed need none. Corrections for people written by hand
  * in `people.jsonl` are written too, though the release gives them no effect: they are the curator's decisions all the
  * same. A French name, an article or the death's precision removed in curate is cleared. The dates' precisions are
@@ -55,13 +64,14 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
     // Each record's fields in the order of its class, id first, as in the files written by hand.
     private val lineMapper = jsonMapper.rebuild().disable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY).build()
 
-    fun build(anecdotes: List<AnecdoteRecord>): Map<DataFile, Lines> = mapOf(
+    fun build(anecdotes: List<AnecdoteRecord>, connections: List<ConnectionRecord>): Map<DataFile, Lines> = mapOf(
         DataFile.OCCUPATIONS to approved(ClaimType.OCCUPATION_DOMAIN).map { it.payload as OccupationDomain }
             .associate { it.occupation to occupation(it) },
         DataFile.CORRECTIONS to approved(ClaimType.PERSON_FACTS).mapNotNull { correction(it.payload as PersonFacts, it.proposal as PersonFacts) }
             .associate { it.id to lineMapper.writeValueAsString(it) },
         DataFile.ANECDOTES to anecdotes.associate { it.id to lineMapper.writeValueAsString(it) },
-    ).mapValues { (_, lines) -> lines.toSortedMap() }
+        DataFile.CONNECTIONS to connections.associate { ConnectionLines.key(it) to lineMapper.writeValueAsString(it) },
+    ).mapValues { (file, lines) -> sorted(file, lines) }
 
     /**
      * The approved anecdotes, each with the source the site names: its first one but Wikidata (a book's page, a
@@ -72,19 +82,42 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
     fun anecdotes(): List<ApprovedAnecdote> = approved(ClaimType.ANECDOTE).map { claim ->
         val sources = sources.of(claim)
         val named = sources.firstOrNull { it.kind != SourceKind.WIKIDATA } ?: sources.firstOrNull()
-        ApprovedAnecdote(claim.id, claim.payload as Anecdote, named?.let(::anecdoteSource))
+        ApprovedAnecdote(claim.id, claim.payload as Anecdote, named?.let(::citedSource))
     }
 
-    /** The lines of [text], the file at [path] in the release format, by their records' ids. */
-    fun read(path: String, text: String?): Lines = records(text).associateBy { line ->
-        lineMapper.readTree(line)["id"]?.asString() ?: throw UnavailableException("$path holds a line without an id: $line")
-    }.toSortedMap()
+    /**
+     * The approved connections, as their lines write them: each with its source as the site names it, a book's quotes
+     * left in the workbench.
+     */
+    fun connections(): List<ApprovedConnection> = approved(ClaimType.CONNECTION).map { claim ->
+        val connection = claim.payload as Connection
+        ApprovedConnection(claim.id, ConnectionRecord(connection.people, connection.kind, connection.year, connection.text, citedSource(connection.source)))
+    }
+
+    /** The lines of [text], [file] in the release format, by their records' ids. */
+    fun read(file: DataFile, text: String?): Lines = sorted(file, records(text).associateBy { line ->
+        if (file == DataFile.CONNECTIONS) return@associateBy ConnectionLines.key(readConnection(line))
+        lineMapper.readTree(line)["id"]?.asString() ?: throw UnavailableException("${file.path} holds a line without an id: $line")
+    })
 
     /** A line of `corrections.jsonl`. */
     fun readCorrection(line: String): CorrectionRecord = lineMapper.readValue(line, CorrectionRecord::class.java)
 
     /** A line of `anecdotes.jsonl`. */
     fun readAnecdote(line: String): AnecdoteRecord = lineMapper.readValue(line, AnecdoteRecord::class.java)
+
+    /** [record] as its line of `connections.jsonl`. */
+    fun line(record: ConnectionRecord): String = lineMapper.writeValueAsString(record)
+
+    /** A line of `connections.jsonl`. */
+    fun readConnection(line: String): ConnectionRecord = lineMapper.readValue(line, ConnectionRecord::class.java)
+
+    /** The lines of `connections.jsonl`'s [text]. */
+    fun readConnections(text: String?): List<ConnectionRecord> = records(text).map(::readConnection)
+
+    /** The Q-ids of the people of [text], `people.jsonl`, by their ids: those written by hand who have one. */
+    fun qids(text: String?): Map<String, String> = records(text).map(lineMapper::readTree)
+        .mapNotNull { person -> person["qid"]?.asString()?.let { person["id"].asString() to it } }.toMap()
 
     /** A line of `occupations.jsonl`. */
     fun readOccupation(line: String): OccupationRecord = lineMapper.readValue(line, OccupationRecord::class.java)
@@ -94,6 +127,8 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
         .mapNotNull { person -> person["qid"]?.asString()?.let { it to person["name"].asString() } }.toMap()
 
     private fun records(text: String?) = text.orEmpty().lines().filter { it.isNotBlank() }
+
+    private fun sorted(file: DataFile, lines: Lines): Lines = if (file == DataFile.CONNECTIONS) lines.toSortedMap(ConnectionLines.ORDER) else lines.toSortedMap()
 
     private fun occupation(claim: OccupationDomain): String {
         val domain = when (claim.domain!!) {
@@ -105,13 +140,13 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
         return lineMapper.writeValueAsString(OccupationRecord(claim.occupation, domain))
     }
 
-    private fun anecdoteSource(source: SourceRef) = when (source.kind) {
-        SourceKind.WIKIDATA -> AnecdoteSourceRecord(url = "https://www.wikidata.org/wiki/${source.entity}")
+    private fun citedSource(source: SourceRef) = when (source.kind) {
+        SourceKind.WIKIDATA -> CitedSourceRecord(url = "https://www.wikidata.org/wiki/${source.entity}")
         // Non-ASCII letters percent-encoded, as Wikipedia's own links are.
-        SourceKind.WIKIPEDIA -> AnecdoteSourceRecord(url = URI("https", "${source.language}.wikipedia.org", "/wiki/${source.title!!.replace(' ', '_')}", null).toASCIIString())
-        SourceKind.BOOK -> AnecdoteSourceRecord(title = source.title, page = source.page)
-        SourceKind.WEB -> AnecdoteSourceRecord(title = source.title, url = source.url)
-        SourceKind.MEDIA -> AnecdoteSourceRecord(title = source.title, episode = source.episode, minute = source.minute, url = source.url)
+        SourceKind.WIKIPEDIA -> CitedSourceRecord(url = URI("https", "${source.language}.wikipedia.org", "/wiki/${source.title!!.replace(' ', '_')}", null).toASCIIString())
+        SourceKind.BOOK -> CitedSourceRecord(title = source.title, page = source.page, url = source.url)
+        SourceKind.WEB -> CitedSourceRecord(title = source.title, url = source.url)
+        SourceKind.MEDIA -> CitedSourceRecord(title = source.title, episode = source.episode, minute = source.minute, url = source.url)
     }
 
     private fun approved(type: ClaimType) = claims.findByTypeAndStatusOrderById(type, ClaimStatus.APPROVED)

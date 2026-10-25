@@ -1,6 +1,7 @@
 package art.liminis.web
 
 import org.mapstruct.Mapper
+import org.mapstruct.Mapping
 import org.mapstruct.MappingConstants
 import org.mapstruct.ReportingPolicy
 import org.mapstruct.ValueMapping
@@ -11,6 +12,7 @@ import art.liminis.dataset.ArticleRow
 import art.liminis.dataset.FoundPlace
 import art.liminis.dataset.PersonSummary
 import art.liminis.dataset.Rank
+import art.liminis.people.ConnectionPerson
 import art.liminis.people.Evidence
 import art.liminis.people.EvidenceStatement
 import art.liminis.people.PeopleToReview
@@ -21,6 +23,7 @@ import art.liminis.people.ReviewFilter
 import art.liminis.people.ReviewNeighbours
 import art.liminis.workbench.api.model.ArticleDto
 import art.liminis.workbench.api.model.ClaimStatusDto
+import art.liminis.workbench.api.model.ConnectionPersonDto
 import art.liminis.workbench.api.model.EvidenceDto
 import art.liminis.workbench.api.model.FlagReasonDto
 import art.liminis.workbench.api.model.FoundPlaceDto
@@ -39,7 +42,13 @@ import art.liminis.workbench.api.model.StatementDto
 @Mapper(unmappedTargetPolicy = ReportingPolicy.ERROR)
 abstract class PeopleApiMapper {
 
+    abstract fun toDto(person: PersonSummary, fetched: Boolean): PersonSummaryDto
+
+    // Elsewhere (an occupation's examples), whether the release holds them is not asked.
+    @Mapping(target = "fetched", ignore = true)
     abstract fun toDto(person: PersonSummary): PersonSummaryDto
+
+    abstract fun toDto(person: ConnectionPerson): ConnectionPersonDto
 
     abstract fun toDto(place: FoundPlace): FoundPlaceDto
 

@@ -56,8 +56,11 @@ data class Place(
 
 enum class PlaceRole { BIRTH, DEATH, WORK, RESIDENCE }
 
-/** Two people linked at a date, in one plain sentence. */
-data class Connection(val people: List<String>, val kind: String, val year: Int, val text: String) : Payload
+/**
+ * Two people linked at a date, in one plain sentence, and where it was read or heard: the site names its [source] under
+ * it. [people] by Q-id, in the order [kind] reads ("sculptor and subject": the sculptor first).
+ */
+data class Connection(val people: List<String>, val kind: String, val year: Int, val text: String, val source: SourceRef) : Payload
 
 /** Something that happened in a region in a year. */
 data class Event(

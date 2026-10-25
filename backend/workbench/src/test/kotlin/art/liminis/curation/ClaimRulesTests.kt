@@ -32,7 +32,7 @@ class ClaimRulesTests {
         assertEquals(ClaimRules.idOf(anecdote), ClaimRules.idOf(anecdote.copy(text = "  ${anecdote.text}\n")))
         assertEquals(
             "connection:Q504|Q535:sculptor-and-subject",
-            ClaimRules.idOf(Connection(listOf("Q535", "Q504"), "Sculptor and subject", 1878, "t")),
+            ClaimRules.idOf(Connection(listOf("Q535", "Q504"), "Sculptor and subject", 1878, "t", SourceRef(SourceKind.WEB, url = "https://example.org"))),
         )
         assertEquals(
             "event:FR:-52:vercingetorix-surrenders-at-alesia",
@@ -51,7 +51,9 @@ class ClaimRulesTests {
         val refused = listOf(
             NewClaim(facts, listOf(web)),
             NewClaim(anecdote.copy(year = 0), listOf(web)),
-            NewClaim(Connection(listOf("Q535", "Q535"), "self", 1850, "t"), listOf(web)),
+            NewClaim(Connection(listOf("Q535", "Q535"), "self", 1850, "t", web), listOf(web)),
+            // A connection's own source holds together as a claim's does.
+            NewClaim(Connection(listOf("Q535", "Q504"), "friends", 1850, "t", SourceRef(SourceKind.BOOK, title = "No page")), listOf(web)),
             NewClaim(anecdote, listOf(SourceRef(SourceKind.BOOK, title = "No page"))),
             NewClaim(anecdote, listOf(SourceRef(SourceKind.MEDIA, title = "A podcast"))),
         )

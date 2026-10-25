@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
+import { connectionsOf } from "@/app/actions";
 import { FrenchDesk } from "@/components/french-desk";
 import { LanguageTabs } from "@/components/language-tabs";
 import { PersonDesk, ProposeFacts } from "@/components/person-desk";
@@ -31,12 +32,13 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   // A moment the release no longer has (an old link): the person among everyone.
   if (scope.moment && !moments.some((m) => m.id === scope.moment)) redirect(personHref(qid, { ...scope, moment: undefined }));
   // Only people written by hand have texts of their own to translate: the others' French comes from Wikidata.
-  const [current, neighbours, preview, who, french] = await Promise.all([
+  const [current, neighbours, preview, who, french, connections] = await Promise.all([
     review(`person-facts:${qid}`),
     neighboursOf(qid, scope),
     workbench.GET("/api/people/{qid}/preview", { params: { path: { qid }, query: { moment: scope.moment } } }),
     viewer(),
     frenchOf(`person:${qid}`),
+    connectionsOf(qid),
   ]);
   if (preview.response.status === 404) notFound();
   if (!preview.data) throw new Error(`The workbench did not preview ${qid}: ${JSON.stringify(preview.error)}`);
@@ -99,7 +101,16 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   return (
     <div className="flex flex-1 flex-col">
       {tabs}
-      <PersonDesk key={`${qid} ${current.version}`} review={current} preview={preview.data} neighbours={neighbours} scope={scope} moment={moment} viewer={who} />
+      <PersonDesk
+        key={`${qid} ${current.version}`}
+        review={current}
+        preview={preview.data}
+        neighbours={neighbours}
+        scope={scope}
+        moment={moment}
+        viewer={who}
+        connections={connections}
+      />
     </div>
   );
 }

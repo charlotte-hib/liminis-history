@@ -1,3 +1,4 @@
+import type { PreviewConnection } from "@/components/connections-desk";
 import type { components } from "@/lib/api-schema";
 import { year } from "@/lib/years";
 
@@ -51,13 +52,15 @@ type Props = {
   approximate: boolean;
   occupations: string[];
   preview: PersonPreview;
+  /** Their connections as edited on the page, a waiting one marked. */
+  connections?: PreviewConnection[];
 };
 
 /**
  * A person as the site's panel shows them (frontend/components/person-header.tsx and life-in-time.tsx), on paper: the
  * name, years and occupations being edited, the rest as the workbench builds it for those facts.
  */
-export function PersonPreviewCard({ name, born, died, approximate, occupations, preview }: Props) {
+export function PersonPreviewCard({ name, born, died, approximate, occupations, preview, connections = [] }: Props) {
   const domain = DOMAINS[preview.domain];
   return (
     <div className="flex flex-col gap-4 rounded border border-line bg-panel p-5 shadow-[0_18px_40px_-24px_rgba(35,30,24,0.55)]">
@@ -123,6 +126,28 @@ export function PersonPreviewCard({ name, born, died, approximate, occupations, 
           ))}
         </ol>
       </section>
+      {connections.length > 0 && (
+        <section aria-label="Connected to" className="flex flex-col">
+          <h3 className="pb-1.5 text-[11.5px] tracking-widest text-muted uppercase">Connected to</h3>
+          <ul className="flex flex-col gap-3">
+            {connections.map((c, index) => (
+              <li key={index} className={`flex flex-col gap-0.5 text-sm ${c.waits ? "opacity-60" : ""}`}>
+                <span>
+                  <span className="font-medium">{c.name}</span>
+                  <span className="text-lamp"> · {c.kind}</span>
+                </span>
+                <span>
+                  <span className="font-mono text-xs text-muted">{year(c.year)}</span> {c.text}
+                </span>
+                <span className="text-xs text-muted">
+                  Source: {c.source}
+                  {c.note && <span className="text-conflict"> · {c.note}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

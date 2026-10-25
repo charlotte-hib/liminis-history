@@ -108,7 +108,11 @@ data class ConnectionRow(
     val kind: String,
     val connectionYear: Int,
     val text: String,
-    val sourceUrl: String,
+    val sourceTitle: String?,
+    val sourcePage: String?,
+    val sourceEpisode: String?,
+    val sourceMinute: String?,
+    val sourceUrl: String?,
     val kindFr: String?,
     val textFr: String?,
 )
@@ -238,6 +242,11 @@ abstract class ReleaseRowMapper {
     @Mapping(target = "firstId", source = "entity.first.id")
     @Mapping(target = "secondId", source = "entity.second.id")
     @Mapping(target = "connectionYear", source = "entity.year")
+    @Mapping(target = "sourceTitle", source = "entity.source.title")
+    @Mapping(target = "sourcePage", source = "entity.source.page")
+    @Mapping(target = "sourceEpisode", source = "entity.source.episode")
+    @Mapping(target = "sourceMinute", source = "entity.source.minute")
+    @Mapping(target = "sourceUrl", source = "entity.source.url")
     @Mapping(target = "kindFr", source = "entity.fr.kind")
     @Mapping(target = "textFr", source = "entity.fr.text")
     abstract fun connection(entity: Connection, rowId: Long): ConnectionRow

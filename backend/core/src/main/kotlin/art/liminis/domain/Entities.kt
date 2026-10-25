@@ -221,7 +221,13 @@ class Connection @Default constructor(
     val kind: String,
     @Column(name = "connection_year") val year: Int,
     @Column(length = LONG_TEXT) val text: String,
-    @Column(length = LONG_TEXT) val sourceUrl: String,
+    @Embedded
+    @AttributeOverride(name = "title", column = Column(name = "source_title", length = LONG_TEXT))
+    @AttributeOverride(name = "page", column = Column(name = "source_page"))
+    @AttributeOverride(name = "episode", column = Column(name = "source_episode"))
+    @AttributeOverride(name = "minute", column = Column(name = "source_minute"))
+    @AttributeOverride(name = "url", column = Column(name = "source_url", length = LONG_TEXT))
+    val source: CitedSource,
     @Embedded val fr: ConnectionFrench? = null,
 ) {
     /** The person on the other side of the link from [person]. */
@@ -241,13 +247,16 @@ class Anecdote @Default constructor(
     @ManyToOne(fetch = FetchType.LAZY) val person: Person,
     @Column(name = "anecdote_year") val year: Int,
     @Column(length = LONG_TEXT) val text: String,
-    @Embedded val source: AnecdoteSource,
+    @Embedded val source: CitedSource,
     @Column(length = LONG_TEXT) val textFr: String? = null,
 )
 
-/** A book (title, page), a podcast, a video or a documentary (title, episode, minute), or a web page (url). */
+/**
+ * Where an anecdote or a connection comes from: a book (title, page), a podcast, a video or a documentary (title,
+ * episode, minute), or a web page (url).
+ */
 @Embeddable
-data class AnecdoteSource @Default constructor(
+data class CitedSource @Default constructor(
     @Column(length = LONG_TEXT) val title: String?,
     val page: String?,
     val episode: String?,

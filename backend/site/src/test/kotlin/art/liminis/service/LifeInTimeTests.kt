@@ -2,7 +2,7 @@ package art.liminis.service
 
 import org.junit.jupiter.api.Test
 import art.liminis.domain.Anecdote
-import art.liminis.domain.AnecdoteSource
+import art.liminis.domain.CitedSource
 import art.liminis.domain.Domain
 import art.liminis.domain.Era
 import art.liminis.domain.EraFrench
@@ -54,7 +54,7 @@ class LifeInTimeTests {
 
     @Test
     fun `anecdotes take their place by year, with their source, and an age only within their life`() {
-        val source = AnecdoteSource("A book", "112", null, null, null)
+        val source = CitedSource("A book", "112", null, null, null)
         val told = listOf(
             Anecdote("a", augustus, -44, "He hears of Caesar's death.", source),
             Anecdote("b", augustus, 14, "His last words.", source),
@@ -74,8 +74,8 @@ class LifeInTimeTests {
             .participant(augustus, "victor", "vainqueur")
         val untold = Event("e1", french, "Event 1", -30, "", "")
         val told = listOf(
-            Anecdote("a", augustus, -44, "He hears of Caesar's death.", AnecdoteSource("A book", "112", null, null, null), "Il apprend la mort de César."),
-            Anecdote("b", augustus, 14, "His last words.", AnecdoteSource("A book", "113", null, null, null)),
+            Anecdote("a", augustus, -44, "He hears of Caesar's death.", CitedSource("A book", "112", null, null, null), "Il apprend la mort de César."),
+            Anecdote("b", augustus, 14, "His last words.", CitedSource("A book", "113", null, null, null)),
         )
         val lines = lifeInTime(augustus, listOf(republic, french), listOf(actium, untold), told, mapper, Language.FR)
 

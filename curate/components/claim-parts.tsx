@@ -85,6 +85,7 @@ export function PayloadView({ payload, person }: { payload: Payload; person: Per
             ["Kind", payload.kind],
             ["Year", year(payload.year)],
             ["Sentence", payload.text],
+            ["Source", [payload.source.title, payload.source.page && `p. ${payload.source.page}`, payload.source.url].filter(Boolean).join(", ")],
           ]
         : payload.type === "EVENT"
           ? [

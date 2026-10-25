@@ -34,6 +34,8 @@ Usage: wb <command>
   claims          propose the facts of the people of the release's moments for review
   occupations     propose a domain to choose for every occupation the dataset's people hold, the most held first,
                   then their classes
+  connections     import the connections written by hand in the data repository's main as approved claims, once:
+                  publishing then writes connections.jsonl from the claims
   draft <moment>  draft a moment's story cards and header with Claude, for review in curate; an approved header is
                   kept (needs ANTHROPIC_API_KEY where the workbench runs)
   translate       draft in French with Claude every record of the data repository's main with no French yet, or
@@ -176,6 +178,7 @@ case "${1:-}" in
     python3 -I "$repo/backend/workbench/sample_dataset.py" --written-only "$export_dir" "$2" ;;
   claims) start '{"kind": "PERSON_FACTS_CLAIMS"}' ;;
   occupations) start '{"kind": "OCCUPATION_CLAIMS"}' ;;
+  connections) start '{"kind": "CONNECTION_IMPORT"}' ;;
   draft)
     [[ -n "${2:-}" ]] || { usage >&2; exit 2; }
     start "{\"kind\": \"STORY_DRAFT\", \"moment\": \"$2\"}"

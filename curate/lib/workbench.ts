@@ -7,6 +7,8 @@ import { readSession, SESSION_COOKIE } from "@/lib/auth";
 
 export type CardSubject = components["schemas"]["CardSubject"];
 export type Claim = components["schemas"]["Claim"];
+export type ClaimDecision = components["schemas"]["ClaimDecision"];
+export type ClaimVersion = components["schemas"]["ClaimVersion"];
 export type ClaimDetail = components["schemas"]["ClaimDetail"];
 export type ClaimType = components["schemas"]["ClaimType"];
 export type Evidence = components["schemas"]["Evidence"];
@@ -21,6 +23,7 @@ export type Painting = components["schemas"]["Painting"];
 export type PaintingSearch = components["schemas"]["PaintingSearch"];
 export type Payload = components["schemas"]["Payload"];
 export type PeopleToReview = components["schemas"]["PeopleToReview"];
+export type PersonConnection = components["schemas"]["PersonConnection"];
 export type PersonFacts = components["schemas"]["PersonFacts"];
 export type PersonPreview = components["schemas"]["PersonPreview"];
 export type PersonSummary = components["schemas"]["PersonSummary"];

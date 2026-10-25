@@ -39,13 +39,13 @@ class WorkbenchSecurity {
             authorizeHttpRequests {
                 for (path in listOf(
                     "/api/queues", "/api/claims", "/api/claims/*", "/api/people", "/api/people/review", "/api/people/*/evidence",
-                    "/api/people/*/neighbours", "/api/people/*/preview", "/api/places", "/api/occupations", "/api/occupations/*",
+                    "/api/people/*/neighbours", "/api/people/*/preview", "/api/people/*/connections", "/api/places", "/api/occupations", "/api/occupations/*",
                     "/api/moments", "/api/moments/*", "/api/moments/*/people", "/api/moments/*/preview", "/api/moments/*/subjects",
                     "/api/paintings", "/api/translations/run", "/api/translations/*",
                 )) {
                     authorize(GET, path, hasAuthority(CURATION_READ))
                 }
-                for (path in listOf("/api/claims", "/api/claims/*/decisions", "/api/claims/*/undo", "/api/people/*/facts", "/api/moments/*/story", "/api/moments/*/page", "/api/translations/run", "/api/translations/*", "/api/translations/*/run")) {
+                for (path in listOf("/api/claims", "/api/claims/*/decisions", "/api/claims/*/undo", "/api/decisions", "/api/decisions/undo", "/api/people/*/facts", "/api/moments/*/story", "/api/moments/*/page", "/api/translations/run", "/api/translations/*", "/api/translations/*/run")) {
                     authorize(POST, path, hasAuthority(CURATION_WRITE))
                 }
                 for (path in listOf("/api/claims/*/holder", "/api/moments/*/holder")) {

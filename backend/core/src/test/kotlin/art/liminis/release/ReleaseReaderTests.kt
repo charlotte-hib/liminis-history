@@ -25,7 +25,7 @@ class ReleaseReaderTests {
         "events.jsonl" to "",
         "connections.jsonl" to """
             {"people":["paul-cezanne","emile-zola"],"kind":"school friends","year":1852,"text":"Friends.","source":"https://example.org/a"}
-            {"people":["paul-cezanne","emile-zola"],"kind":"wrote about","year":1886,"text":"A novel.","source":"https://example.org/b"}
+            {"people":["paul-cezanne","emile-zola"],"kind":"wrote about","year":1886,"text":"A novel.","source":{"title":"L'Œuvre","page":"12"}}
         """,
         "moments/paris-1870s.json" to """{"id":"paris-1870s","region":"FR","place":"Paris","period":"1870s","start":1870,"end":1880,"focus":1875,"status":"PUBLISHED","hook":"A republic."}""",
     )
@@ -44,7 +44,8 @@ class ReleaseReaderTests {
 
         assertEquals(listOf("emile-zola", "paul-cezanne"), release.people.map { it.id })
         assertEquals(false, release.people[0].approximate)
-        assertEquals(2, release.connections.size)
+        // A connection's source is written as an address alone, or as a source with a title.
+        assertEquals(listOf(CitedSourceRecord(url = "https://example.org/a"), CitedSourceRecord(title = "L'Œuvre", page = "12")), release.connections.map { it.source })
         assertEquals(emptyList(), release.moments.single().cards)
     }
 
@@ -73,8 +74,8 @@ class ReleaseReaderTests {
 
         assertEquals(
             listOf(
-                AnecdoteRecord("anecdote:Q504:1898:aaaa", "Q504", 1898, "He leaves for London.", AnecdoteSourceRecord(title = "A podcast", episode = "12", minute = "14:20")),
-                AnecdoteRecord("anecdote:Q504:1902:bbbb", "Q504", 1902, "He dies at home.", AnecdoteSourceRecord(url = "https://example.org/zola")),
+                AnecdoteRecord("anecdote:Q504:1898:aaaa", "Q504", 1898, "He leaves for London.", CitedSourceRecord(title = "A podcast", episode = "12", minute = "14:20")),
+                AnecdoteRecord("anecdote:Q504:1902:bbbb", "Q504", 1902, "He dies at home.", CitedSourceRecord(url = "https://example.org/zola")),
             ),
             anecdotes,
         )

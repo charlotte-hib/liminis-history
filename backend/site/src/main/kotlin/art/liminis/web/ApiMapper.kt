@@ -5,8 +5,8 @@ import org.mapstruct.Mapper
 import org.mapstruct.Mapping
 import org.mapstruct.Named
 import org.mapstruct.NullValueCheckStrategy
-import art.liminis.api.model.AnecdoteSourceDto
 import art.liminis.api.model.ArtworkDto
+import art.liminis.api.model.CitedSourceDto
 import art.liminis.api.model.ConnectionDto
 import art.liminis.api.model.DoorDto
 import art.liminis.api.model.EraDto
@@ -20,8 +20,8 @@ import art.liminis.api.model.PersonDto
 import art.liminis.api.model.RegionDto
 import art.liminis.api.model.StoryCardDto
 import art.liminis.api.model.WorldAroundDto
-import art.liminis.domain.AnecdoteSource
 import art.liminis.domain.Artwork
+import art.liminis.domain.CitedSource
 import art.liminis.domain.Connection
 import art.liminis.domain.Door
 import art.liminis.domain.Era
@@ -47,7 +47,7 @@ abstract class ApiMapper {
 
     abstract fun toDto(art: LifeArt): LifeArtDto
     abstract fun toDto(artwork: Artwork): ArtworkDto
-    abstract fun toDto(source: AnecdoteSource): AnecdoteSourceDto
+    abstract fun toDto(source: CitedSource): CitedSourceDto
 
     @Named("english")
     @Mapping(target = "lang", constant = "en")

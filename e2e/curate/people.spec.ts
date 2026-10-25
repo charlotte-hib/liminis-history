@@ -185,3 +185,40 @@ test("a fetched person's French name and article are edited on the Français tab
   await page.getByRole("button", { name: "Discard my changes" }).click();
   await expect(name).toHaveValue(before);
 });
+
+// A connection is added on one person's page, approved with their facts and undone with them, then shown approved on
+// the other person's page.
+test("a connection is added on a person's page, approved with their facts, and undone with them", async ({ page }) => {
+  await page.goto("/people/Q296");
+  await expect(page.getByRole("heading", { level: 1, name: "Claude Monet" })).toBeVisible();
+  // A new text every run, so the claim is new too.
+  const text = `Monet and Hugo met in Paris, as the test says (${Date.now()}).`;
+  const kind = `painter and poet ${Date.now()}`;
+
+  await page.getByRole("button", { name: "+ Add a connection" }).click();
+  const form = page.getByRole("form", { name: "Add a connection" });
+  await form.getByLabel("With whom").fill("victor hugo");
+  await page.getByRole("option", { name: /Victor Hugo/ }).first().click();
+  await form.getByLabel(/How they were connected/).fill(kind);
+  await form.getByLabel("Year").fill("1870");
+  await form.getByLabel(/What happened/).fill(text);
+  await form.getByRole("radio", { name: "Web page" }).click();
+  await form.getByLabel("Link").fill("https://example.org/monet-hugo");
+  await form.getByRole("button", { name: "Add the connection" }).click();
+
+  const row = page.getByRole("article", { name: "Connection with Victor Hugo" }).filter({ hasText: text });
+  await expect(row).toContainText("waiting");
+  await expect(preview(page).getByRole("region", { name: "Connected to" })).toContainText(text);
+
+  // Approved with the facts, then undone with them from the next person's page.
+  await page.getByRole("button", { name: /^Approve/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Claude Monet" })).toBeHidden();
+  await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Claude Monet" })).toBeVisible();
+  await expect(row).toContainText("waiting");
+
+  await page.getByRole("button", { name: /^Approve/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Claude Monet" })).toBeHidden();
+  await page.goto("/people/Q535");
+  await expect(page.getByRole("article", { name: "Connection with Claude Monet" }).filter({ hasText: text })).toContainText("approved");
+});

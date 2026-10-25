@@ -1,9 +1,9 @@
 package art.liminis.release
 
 import org.junit.jupiter.api.Test
-import art.liminis.domain.AnecdoteSource
 import art.liminis.domain.ArtFit
 import art.liminis.domain.CardType
+import art.liminis.domain.CitedSource
 import art.liminis.domain.Domain
 import art.liminis.domain.LifeArt
 import art.liminis.domain.LifeIcon
@@ -29,7 +29,7 @@ class ReleaseCompilerTests {
         events = listOf(
             EventRecord("jaccuse", "FR", 1898, "J'accuse", "An open letter.", "https://example.org/jaccuse", listOf(ParticipantRecord("emile-zola", "author"))),
         ),
-        connections = listOf(ConnectionRecord(listOf("paul-cezanne", "emile-zola"), "school friends", 1852, "Friends.", "https://example.org/friends")),
+        connections = listOf(ConnectionRecord(listOf("paul-cezanne", "emile-zola"), "school friends", 1852, "Friends.", CitedSourceRecord(url = "https://example.org/friends"))),
         moments = listOf(
             MomentRecord(
                 "paris-1870s", "FR", "Paris", period = "1870s", start = 1870, end = 1880, focus = 1875, status = PublicationStatus.PUBLISHED, hook = "A republic.",
@@ -148,21 +148,39 @@ class ReleaseCompilerTests {
 
     @Test
     fun `a connection links two different people`() {
-        val connection = ConnectionRecord(listOf("emile-zola", "emile-zola"), "friends", 1860, "Himself.", "https://example.org")
+        val connection = ConnectionRecord(listOf("emile-zola", "emile-zola"), "friends", 1860, "Himself.", CitedSourceRecord(url = "https://example.org"))
         assertEquals("connections.jsonl emile-zola emile-zola friends: a connection links two different people", problem(release.copy(connections = listOf(connection))))
+        assertEquals(
+            "connections.jsonl Q504 emile-zola friends: a connection links two different people",
+            problem(release.copy(connections = listOf(connection.copy(people = listOf("Q504", "emile-zola"))))),
+        )
+    }
+
+    @Test
+    fun `a connection names its people by Q-id or by id, with a source that has a title or a URL`() {
+        val connection = ConnectionRecord(listOf("paul-cezanne", "Q504"), "school friends", 1852, "Friends.", CitedSourceRecord(title = "A letter", page = "3"))
+        val compiled = ReleaseCompiler.compile(release.copy(connections = listOf(connection)))
+
+        assertEquals(listOf("paul-cezanne", "emile-zola"), compiled.connections.single().let { listOf(it.first.slug, it.second.slug) })
+        assertEquals(CitedSource("A letter", "3", null, null, null), compiled.connections.single().source)
+        assertEquals("connections.jsonl paul-cezanne Q999 school friends: no person Q999", problem(release.copy(connections = listOf(connection.copy(people = listOf("paul-cezanne", "Q999"))))))
+        assertEquals(
+            "connections.jsonl paul-cezanne Q504 school friends: the source has a title or a URL",
+            problem(release.copy(connections = listOf(connection.copy(source = CitedSourceRecord(page = "3"))))),
+        )
     }
 
     @Test
     fun `an anecdote is tied to its person by Q-id, with a source that has a title or a URL`() {
-        val anecdote = AnecdoteRecord("anecdote:Q504:1898:aaaa", "Q504", 1898, "He leaves for London.", AnecdoteSourceRecord(title = "A book", page = "112"))
+        val anecdote = AnecdoteRecord("anecdote:Q504:1898:aaaa", "Q504", 1898, "He leaves for London.", CitedSourceRecord(title = "A book", page = "112"))
         val compiled = ReleaseCompiler.compile(release.copy(anecdotes = listOf(anecdote)))
 
         assertEquals(compiled.people.first(), compiled.anecdotes.single().person)
-        assertEquals(AnecdoteSource("A book", "112", null, null, null), compiled.anecdotes.single().source)
+        assertEquals(CitedSource("A book", "112", null, null, null), compiled.anecdotes.single().source)
         assertEquals("anecdotes.jsonl anecdote:Q504:1898:aaaa: no person Q999", problem(release.copy(anecdotes = listOf(anecdote.copy(person = "Q999")))))
         assertEquals(
             "anecdotes.jsonl anecdote:Q504:1898:aaaa: the source has a title or a URL",
-            problem(release.copy(anecdotes = listOf(anecdote.copy(source = AnecdoteSourceRecord(page = "112"))))),
+            problem(release.copy(anecdotes = listOf(anecdote.copy(source = CitedSourceRecord(page = "112"))))),
         )
     }
 

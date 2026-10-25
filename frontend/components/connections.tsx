@@ -1,6 +1,5 @@
-import { useTranslations } from "next-intl";
+import { CitedSource } from "@/components/cited-source";
 import { PersonAvatar } from "@/components/person-avatar";
-import { sourceLabel } from "@/components/event-details";
 import { Link } from "@/i18n/navigation";
 import type { Connection } from "@/lib/types";
 import { useYears } from "@/lib/years";
@@ -13,7 +12,6 @@ type Props = {
 
 /** The people someone is documented to have known: how, when, and the source. Each one leads to that person. */
 export function Connections({ connections, replace }: Props) {
-  const t = useTranslations("common");
   const years = useYears();
   return (
     <ul className="grid gap-4">
@@ -33,9 +31,7 @@ export function Connections({ connections, replace }: Props) {
               <span className="font-mono text-xs text-muted-foreground tabular-nums">{years.year(connection.year)}</span>{" "}
               <span lang={connection.lang}>{connection.text}</span>
             </p>
-            <a href={connection.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:underline">
-              {t("sourceOf", { source: sourceLabel(connection.sourceUrl) })}
-            </a>
+            <CitedSource source={connection.source} />
           </div>
         </li>
       ))}

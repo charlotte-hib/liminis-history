@@ -24,7 +24,7 @@
           "type" : "string"
         },
         "source" : {
-          "$ref" : "#/$defs/AnecdoteSourceRecord"
+          "$ref" : "#/$defs/CitedSourceRecord"
         },
         "text" : {
           "type" : "string"
@@ -34,27 +34,6 @@
         }
       },
       "required" : [ "id", "person", "source", "text", "year" ],
-      "additionalProperties" : false
-    },
-    "AnecdoteSourceRecord" : {
-      "type" : "object",
-      "properties" : {
-        "episode" : {
-          "type" : "string"
-        },
-        "minute" : {
-          "type" : "string"
-        },
-        "page" : {
-          "type" : "string"
-        },
-        "title" : {
-          "type" : "string"
-        },
-        "url" : {
-          "type" : "string"
-        }
-      },
       "additionalProperties" : false
     },
     "ArtFit" : {
@@ -133,6 +112,27 @@
       "type" : "string",
       "enum" : [ "SCENE", "PERSON", "LIFE", "EVENT" ]
     },
+    "CitedSourceRecord" : {
+      "type" : "object",
+      "properties" : {
+        "episode" : {
+          "type" : "string"
+        },
+        "minute" : {
+          "type" : "string"
+        },
+        "page" : {
+          "type" : "string"
+        },
+        "title" : {
+          "type" : "string"
+        },
+        "url" : {
+          "type" : "string"
+        }
+      },
+      "additionalProperties" : false
+    },
     "ClearedField" : {
       "type" : "string",
       "enum" : [ "NAME_FR", "DIED_PRECISION", "WIKIPEDIA", "WIKIPEDIA_FR" ]
@@ -166,7 +166,7 @@
           }
         },
         "source" : {
-          "type" : "string"
+          "$ref" : "#/$defs/CitedSourceRecord"
         },
         "text" : {
           "type" : "string"

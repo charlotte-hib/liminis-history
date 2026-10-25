@@ -17,14 +17,14 @@ At startup the backend reads the directory in `app.release.dir`, checks it (`Rel
 | `corrections.jsonl` (optional) | person of the dataset, by their Wikidata id: the fields the curator corrected (`name`, `nameFr`, `born` and `bornPrecision`, `died`, `diedPrecision` and `diedEstimated` (Wikidata's precisions, which the site does not show), `approximate`, `occupations`, Wikidata ids in order, `places`, each a `kind`, a `place` by Wikidata id and its `start` and `end` years when known, the first birthplace giving the region), the others left out; `cleared` names those emptied (`NAME_FR`, `DIED_PRECISION`, and `WIKIPEDIA` or `WIKIPEDIA_FR` for an article Wikidata links that is not theirs). Written by the workbench's publish, never by hand | |
 | `lives.jsonl` | typical life, set in the era that covers its `start`, drawn with a public-domain `art` (`url`, `credit`, `source`, and optionally `position`, two percentages as in CSS `object-position`, and `fit`, `COVER` or `CONTAIN`) or else an `icon` | region |
 | `events.jsonl` | dated, sourced event, set in the era that covers its `year` | region, people |
-| `connections.jsonl` | two people, how they knew each other, when, and the source | people |
+| `connections.jsonl` | two people, by their Wikidata id (or their id in `people.jsonl`), in the order the `kind` reads ("sculptor and subject": the sculptor first), how they knew each other, when, and the `source`, as an anecdote's (a title or a URL; an address alone is read as `{"url": …}`). Written by the workbench's publish | people |
 | `anecdotes.jsonl` (optional) | short story about a person, by their Wikidata id, in a `year`, with its `source`: a book (`title`, `page`), a podcast, a video or a documentary (`title`, `episode`, `minute`), or a web page (`url`), at least a title or a URL. Shown among the years of their life. Written by the workbench's publish | people |
 | `moments/<id>.json` | moment: the world around it, its story cards and its doors, and the Wikidata id of its place (`placeQid`) | region, people, lives, events, moments |
 | `dataset/` (optional) | the fetched dataset, as the workbench's `wb export` writes it: `manifest.json`, then `people`, `articles`, `places` and `occupations` as gzipped JSON Lines. Here only a slice, written by `wb sample`: the people above, and the 30 most written about of each moment's place | |
 
 ## Rules
 
-- **One record per line, sorted by `id`**, so a change to one record is a change to one line. Connections have no id: they are sorted by their two people, then by `kind`. Moments are nested, so each one is a file of its own, named after its id.
+- **One record per line, sorted by `id`**, so a change to one record is a change to one line. Connections have no id: they are sorted by their two people as written, then by `kind`. Moments are nested, so each one is a file of its own, named after its id.
 - **References are ids**: `"region": "FR"`, `"person": "emile-zola"`. Every one must resolve.
 - **Years are integers**, negative for BCE. There is no year 0.
 - **Optional fields are left out** rather than set to `null` or `false`.

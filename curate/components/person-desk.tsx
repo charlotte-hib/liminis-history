@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
-import { addClaim, decide, findOccupations, findPlaces, previewPerson, proposeFacts, undo } from "@/app/actions";
+import { addClaim, decide, decideAll, findOccupations, findPlaces, previewPerson, proposeFacts, undo, undoAll } from "@/app/actions";
 import { AnecdoteSource, AnecdoteText, AnecdoteYear, useAnecdoteDraft } from "@/components/anecdote-fields";
 import { History } from "@/components/claim-parts";
+import { ConnectionsDesk, useConnections, type PersonConnection } from "@/components/connections-desk";
 import { DatasetSearch, type Found } from "@/components/dataset-search";
 import { KeyButton, ProblemBanner, UndoBar, VERDICTS } from "@/components/decision-parts";
 import { parseYear, PRECISIONS } from "@/components/edit-forms";
@@ -67,6 +68,7 @@ type Props = {
   scope: ReviewScope;
   moment?: { id: string; name: string };
   viewer: Viewer;
+  connections: PersonConnection[];
 };
 
 /**
@@ -75,7 +77,7 @@ type Props = {
  * R rejects, N keeps for later, J or → the next person, K or ← the one before, U undoes the last decision; anywhere,
  * ⌘⏎ approves and Esc drops the changes.
  */
-export function PersonDesk({ review, preview: first, neighbours, scope, moment, viewer }: Props) {
+export function PersonDesk({ review, preview: first, neighbours, scope, moment, viewer, connections }: Props) {
   const router = useRouter();
   const { claim, version, evidence } = review;
   const proposed = claim.payload as PersonFacts;
@@ -96,6 +98,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
   const [anecdotes, setAnecdotes] = useState(0);
   const [pending, startTransition] = useTransition();
   const { last, setLast } = useLastDecision();
+  const links = useConnections(connections);
   // Held by someone else: read, and move on, but no decision.
   const locked = lockedFor(claim.heldBy, viewer);
 
@@ -110,7 +113,8 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
           ? "A place's years run backwards."
           : null;
   const edited: PersonFacts = { ...facts, born: bornYear ?? proposed.born, died: diedYear ?? proposed.died };
-  const changed = JSON.stringify(edited) !== JSON.stringify(proposed) || born.trim() !== String(proposed.born) || died.trim() !== String(proposed.died);
+  const factsChanged = JSON.stringify(edited) !== JSON.stringify(proposed) || born.trim() !== String(proposed.born) || died.trim() !== String(proposed.died);
+  const changed = factsChanged || links.changed;
 
   const here = personHref(qid, scope);
   const list = listHref(scope);
@@ -161,15 +165,28 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
     setYearTexts({});
     setBorn(String(proposed.born));
     setDied(String(proposed.died));
+    links.discard();
   };
 
   const decideOn = (action: Action, why?: string) => {
     if (locked || (action === "APPROVE" && invalid)) return;
+    // Only an approval takes the connections with it: other verdicts on the facts leave their changes behind.
+    if (action !== "APPROVE" && links.changed && !window.confirm("Your changes to the connections go only with an approval. Decide on the facts and drop them?")) return;
     startTransition(async () => {
-      const payload = action === "APPROVE" && changed ? edited : undefined;
-      const result = await decide(claim.id, version, { action, payload, note: why?.trim() || undefined });
-      if (!result.ok) return setProblem(result);
-      setLast({ id: claim.id, title: edited.label, version: result.data.version, verdict: VERDICTS[action], href: here });
+      const payload = action === "APPROVE" && factsChanged ? edited : undefined;
+      const facts = { action, payload, note: why?.trim() || undefined };
+      // Approving the page approves the connections changed or waiting on it with the facts, all at once.
+      const others = action === "APPROVE" ? links.decisions(why) : [];
+      if (others.length) {
+        const result = await decideAll([{ claim: claim.id, version: Number(version.replaceAll('"', "")), decision: facts }, ...others]);
+        if (!result.ok) return setProblem(result);
+        const [decided, ...rest] = result.data;
+        setLast({ id: claim.id, title: edited.label, version: `"${decided.version}"`, verdict: VERDICTS[action], href: here, others: rest });
+      } else {
+        const result = await decide(claim.id, version, facts);
+        if (!result.ok) return setProblem(result);
+        setLast({ id: claim.id, title: edited.label, version: result.data.version, verdict: VERDICTS[action], href: here });
+      }
       router.push(next || list);
     });
   };
@@ -177,7 +194,9 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
   const undoLast = () => {
     if (!last || !leaving()) return;
     startTransition(async () => {
-      const result = await undo(last.id, last.version);
+      const result = last.others?.length
+        ? await undoAll([{ claim: last.id, version: Number(last.version.replaceAll('"', "")) }, ...last.others])
+        : await undo(last.id, last.version);
       if (!result.ok) return setProblem(result);
       setLast(null);
       router.push(last.href);
@@ -471,6 +490,9 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
           </fieldset>
 
           <div className="grid grid-cols-[9rem_minmax(0,1fr)] gap-x-5 gap-y-6 border-t border-line pt-5">
+            <Row name="Connections">
+              <ConnectionsDesk qid={qid} name={facts.label || proposed.label} desk={links} locked={locked} />
+            </Row>
             <Row name="Anecdotes">
               <NewAnecdote qid={qid} onAdded={() => setAnecdotes((n) => n + 1)} />
             </Row>
@@ -505,6 +527,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
             occupations={facts.occupations.map((o) => o.label)}
             // A person with no occupation is filed under everyday life, whatever their claim held.
             preview={facts.occupations.length ? preview : { ...preview, domain: "EVERYDAY" }}
+            connections={links.preview}
           />
         </aside>
       </div>
