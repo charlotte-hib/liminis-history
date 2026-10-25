@@ -23,6 +23,9 @@
     "moment": "Moment",
     "source": "Source",
     "sourceOf": "Source : {source}",
+    "page": "p. {page}",
+    "episode": "épisode {episode}",
+    "minute": "à {minute}",
     "close": "Fermer",
     "documentedEvent": "Événement",
     "everydayLife": "Vie quotidienne",
@@ -121,10 +124,7 @@
     "birthUnder": "Naissance · <era>{label}</era>",
     "era": "Début : <era>{label}</era>",
     "death": "Décès",
-    "anecdote": "Anecdote",
-    "page": "p. {page}",
-    "episode": "épisode {episode}",
-    "minute": "à {minute}"
+    "anecdote": "Anecdote"
   },
   "places": {
     "title": "Sur ses pas",

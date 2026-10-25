@@ -1,8 +1,8 @@
 import { useLocale, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
+import { CitedSource } from "@/components/cited-source";
 import { EraButton } from "@/components/era-panel";
-import { sourceLabel } from "@/components/event-details";
-import type { AnecdoteSource, LifeLine } from "@/lib/types";
+import type { LifeLine } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useYears } from "@/lib/years";
 
@@ -15,32 +15,14 @@ const TEXT_STYLE: Record<LifeLine["kind"], string> = {
   DEATH: "text-foreground",
 };
 
-type Messages = ReturnType<typeof useTranslations<"lifeInTime">>;
-
-/** Where an anecdote comes from, in a few words: "A book, p. 112", "A podcast, episode 12, at 14:20", or its page. */
-function sourceText(t: Messages, { title, page, episode, minute, url }: AnecdoteSource) {
-  return [title ?? (url ? sourceLabel(url) : null), page && t("page", { page }), episode && t("episode", { episode }), minute && t("minute", { minute })]
-    .filter(Boolean)
-    .join(", ");
-}
-
 /** A story told about them: marked as one, with its source under it, linked when it has an address. */
 function Anecdote({ line }: { line: LifeLine }) {
   const t = useTranslations("lifeInTime");
-  const common = useTranslations("common");
-  const source = line.source && common("sourceOf", { source: sourceText(t, line.source) });
   return (
     <span className="grid gap-1">
       <span className="text-[11px] font-semibold tracking-wider text-lamp uppercase">{t("anecdote")}</span>
       <span lang={line.lang} className={TEXT_STYLE.ANECDOTE}>{line.text}</span>
-      {source &&
-        (line.source?.url ? (
-          <a href={line.source.url} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:underline">
-            {source}
-          </a>
-        ) : (
-          <span className="text-xs text-muted-foreground">{source}</span>
-        ))}
+      {line.source && <CitedSource source={line.source} />}
     </span>
   );
 }

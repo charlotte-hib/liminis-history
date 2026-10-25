@@ -875,8 +875,8 @@ components:
           allOf:
             - $ref: "#/components/schemas/Language"
 
-    AnecdoteSource:
-      description: Where an anecdote was read or heard. A book has a title and a page; a podcast, a video or a documentary a title, and an episode, a minute or a URL; a web page a URL.
+    CitedSource:
+      description: Where an anecdote or a connection was read or heard. A book has a title and a page; a podcast, a video or a documentary a title, and an episode, a minute or a URL; a web page a URL.
       type: object
       required: [title, page, episode, minute, url]
       properties:
@@ -925,7 +925,7 @@ components:
           description: Where an ANECDOTE line comes from; none on other lines.
           type: object
           allOf:
-            - $ref: "#/components/schemas/AnecdoteSource"
+            - $ref: "#/components/schemas/CitedSource"
           nullable: true
         lang:
           description: The language of the record's text.
@@ -936,7 +936,7 @@ components:
     Connection:
       description: Someone a person was linked to, how (a pair like "tea master and lord", or their role in a shared event), when, and the source.
       type: object
-      required: [person, kind, year, text, sourceUrl, lang]
+      required: [person, kind, year, text, source, lang]
       properties:
         person:
           $ref: "#/components/schemas/Person"
@@ -947,8 +947,8 @@ components:
           format: int32
         text:
           type: string
-        sourceUrl:
-          type: string
+        source:
+          $ref: "#/components/schemas/CitedSource"
         lang:
           description: The language of the record's text.
           allOf:

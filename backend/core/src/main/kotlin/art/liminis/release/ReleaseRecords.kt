@@ -7,6 +7,7 @@ import art.liminis.domain.LifeIcon
 import art.liminis.domain.PlaceKind
 import art.liminis.domain.PublicationStatus
 import art.liminis.dataset.FetchedDataset
+import com.fasterxml.jackson.annotation.JsonCreator
 
 // The records of a release directory, one class per kind of line (see sample/README.md). Records point at each
 // other by id; ReleaseCompiler resolves them. Years are integers, negative for BCE. Wikidata's ids (Q-ids) tie them to
@@ -105,13 +106,17 @@ data class ParticipantRecord(val person: String, val role: String, val fr: Parti
 
 data class ParticipantFrenchRecord(val role: String)
 
-/** A line of `connections.jsonl`: two different people, how they were linked, when, and the source. */
+/**
+ * A line of `connections.jsonl`: two different people, how they were linked, when, and the source. The people are
+ * named by Q-id, or by their id in `people.jsonl`, as the files written by hand before the workbench named them; in
+ * the order [kind] reads ("sculptor and subject": the sculptor first).
+ */
 data class ConnectionRecord(
     val people: List<String>,
     val kind: String,
     val year: Int,
     val text: String,
-    val source: String,
+    val source: CitedSourceRecord,
     val fr: ConnectionFrenchRecord? = null,
 )
 
@@ -126,23 +131,30 @@ data class AnecdoteRecord(
     val person: String,
     val year: Int,
     val text: String,
-    val source: AnecdoteSourceRecord,
+    val source: CitedSourceRecord,
     val fr: AnecdoteFrenchRecord? = null,
 )
 
 data class AnecdoteFrenchRecord(val text: String)
 
 /**
- * Where an anecdote comes from: a book ([title], [page]), a podcast, a video or a documentary ([title], [episode],
- * [minute]), or a web page ([url]). It has a title or a URL.
+ * Where an anecdote or a connection comes from: a book ([title], [page]), a podcast, a video or a documentary
+ * ([title], [episode], [minute]), or a web page ([url]). It has a title or a URL.
  */
-data class AnecdoteSourceRecord(
+data class CitedSourceRecord @JsonCreator(mode = JsonCreator.Mode.PROPERTIES) constructor(
     val title: String? = null,
     val page: String? = null,
     val episode: String? = null,
     val minute: String? = null,
     val url: String? = null,
-)
+) {
+    companion object {
+        /** A source written as its address alone, as connections were before they could name a title. */
+        @JvmStatic
+        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+        fun of(url: String) = CitedSourceRecord(url = url)
+    }
+}
 
 /** A file in `moments/`, named after its id. People tied to the place [placeQid] come first in its lists. */
 data class MomentRecord(

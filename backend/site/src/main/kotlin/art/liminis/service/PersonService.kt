@@ -19,6 +19,7 @@ import art.liminis.support.currentYear
 import art.liminis.support.yearsBetween
 import art.liminis.web.ApiMapper
 import art.liminis.web.dto
+import art.liminis.api.model.CitedSourceDto
 import art.liminis.api.model.ConnectionDto
 import art.liminis.api.model.PersonDetailDto
 import art.liminis.api.model.PersonDto
@@ -113,7 +114,7 @@ class PersonService(
             val told = mapper.toDto(event, language)
             told.participants
                 .filter { it.person.slug != person.slug && it.person.slug !in linked }
-                .map { ConnectionDto(it.person, it.role, event.year, "${told.title}. ${told.description}", event.sourceUrl, told.lang) }
+                .map { ConnectionDto(it.person, it.role, event.year, "${told.title}. ${told.description}", CitedSourceDto(null, null, null, null, event.sourceUrl), told.lang) }
         }
         return (curated + shared).sortedBy { it.year }
     }

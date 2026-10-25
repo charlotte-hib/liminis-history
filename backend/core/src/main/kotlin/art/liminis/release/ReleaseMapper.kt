@@ -8,8 +8,8 @@ import org.mapstruct.MappingTarget
 import org.mapstruct.Named
 import org.mapstruct.ReportingPolicy
 import art.liminis.domain.Anecdote
-import art.liminis.domain.AnecdoteSource
 import art.liminis.domain.Artwork
+import art.liminis.domain.CitedSource
 import art.liminis.domain.Connection
 import art.liminis.domain.Door
 import art.liminis.domain.Era
@@ -59,14 +59,13 @@ abstract class ReleaseMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "first", source = "people", qualifiedByName = ["first"])
     @Mapping(target = "second", source = "people", qualifiedByName = ["second"])
-    @Mapping(target = "sourceUrl", source = "source")
     abstract fun connection(record: ConnectionRecord, @Context references: References): Connection
 
     @Mapping(target = "person", source = "person", qualifiedByName = ["personByQid"])
     @Mapping(target = "textFr", source = "fr.text")
     abstract fun anecdote(record: AnecdoteRecord, @Context references: References): Anecdote
 
-    abstract fun anecdoteSource(record: AnecdoteSourceRecord): AnecdoteSource
+    abstract fun citedSource(record: CitedSourceRecord): CitedSource
 
     @Mapping(target = "startYear", source = "start")
     @Mapping(target = "endYear", source = "end")
@@ -122,8 +121,8 @@ abstract class ReleaseMapper {
     protected fun personByQid(qid: String, @Context references: References): Person = references.personByQid(qid)
 
     @Named("first")
-    protected fun first(people: List<String>, @Context references: References): Person = references.person(people[0])
+    protected fun first(people: List<String>, @Context references: References): Person = references.personNamed(people[0])
 
     @Named("second")
-    protected fun second(people: List<String>, @Context references: References): Person = references.person(people[1])
+    protected fun second(people: List<String>, @Context references: References): Person = references.personNamed(people[1])
 }

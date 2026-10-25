@@ -77,18 +77,17 @@ object ReleaseCompiler {
 
         val connections = release.connections.map {
             references.at("connections.jsonl ${it.people.joinToString(" ")} ${it.kind}") {
-                if (it.people.size != 2 || it.people[0] == it.people[1]) {
+                if (it.people.size != 2 || references.personNamed(it.people[0]) == references.personNamed(it.people[1])) {
                     throw InvalidReleaseException("${references.where}: a connection links two different people")
                 }
+                cited(references, it.source)
                 mapper.connection(it, references)
             }
         }
 
         val anecdotes = release.anecdotes.map {
             references.at("anecdotes.jsonl ${it.id}") {
-                if (it.source.title == null && it.source.url == null) {
-                    throw InvalidReleaseException("${references.where}: the source has a title or a URL")
-                }
+                cited(references, it.source)
                 mapper.anecdote(it, references)
             }
         }
@@ -117,6 +116,10 @@ object ReleaseCompiler {
         }
 
         return CompiledRelease(regions, eras, people, lives, events, connections, anecdotes, moments, doors)
+    }
+
+    private fun cited(references: References, source: CitedSourceRecord) {
+        if (source.title == null && source.url == null) throw InvalidReleaseException("${references.where}: the source has a title or a URL")
     }
 
     /** Checks that a record's French has its [field] when its English has it, and only then. */
@@ -166,6 +169,9 @@ class References {
     fun region(id: String): Region = regions[id] ?: missing("region", id)
     fun person(id: String): Person = people[id] ?: missing("person", id)
     fun personByQid(qid: String): Person = peopleByQid[qid] ?: missing("person", qid)
+
+    /** A person named by Q-id, or by their id in `people.jsonl`. */
+    fun personNamed(name: String): Person = if (QID.matches(name)) personByQid(name) else person(name)
     fun life(id: String): Life = lives[id] ?: missing("life", id)
     fun event(id: String): Event = events[id] ?: missing("event", id)
     fun moment(id: String): Moment = moments[id] ?: missing("moment", id)
@@ -176,4 +182,8 @@ class References {
             ?: throw InvalidReleaseException("$where: no era in $region covers $year")
 
     private fun missing(kind: String, id: String): Nothing = throw InvalidReleaseException("$where: no $kind $id")
+
+    private companion object {
+        val QID = Regex("Q[1-9][0-9]*")
+    }
 }

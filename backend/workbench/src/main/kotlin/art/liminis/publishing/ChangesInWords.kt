@@ -12,9 +12,9 @@ import art.liminis.domain.CardType
 import art.liminis.domain.Domain
 import art.liminis.domain.PlaceKind
 import art.liminis.release.AnecdoteRecord
-import art.liminis.release.AnecdoteSourceRecord
 import art.liminis.release.ArtRecord
 import art.liminis.release.CardRecord
+import art.liminis.release.CitedSourceRecord
 import art.liminis.release.ClearedField
 import art.liminis.release.CorrectionPlaceRecord
 import art.liminis.release.CorrectionRecord
@@ -376,7 +376,7 @@ class ChangesInWords(
     }
 
     /** A source in words: its title, where in it, and its link. */
-    private fun source(source: AnecdoteSourceRecord) = listOfNotNull(
+    private fun source(source: CitedSourceRecord) = listOfNotNull(
         source.title, source.page?.let { "p. $it" }, source.episode?.let { "episode $it" }, source.minute?.let { "at $it" }, source.url,
     ).joinToString(", ")
 

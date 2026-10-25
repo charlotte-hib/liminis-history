@@ -17,7 +17,7 @@ import art.liminis.curation.SourceRef
 import art.liminis.domain.Domain
 import art.liminis.domain.PlaceKind
 import art.liminis.release.AnecdoteRecord
-import art.liminis.release.AnecdoteSourceRecord
+import art.liminis.release.CitedSourceRecord
 import art.liminis.release.ClearedField
 import art.liminis.release.CorrectionPlaceRecord
 import art.liminis.release.CorrectionRecord
@@ -39,7 +39,7 @@ typealias Lines = Map<String, String>
 fun Lines.text(): String? = if (isEmpty()) null else values.joinToString("\n", postfix = "\n")
 
 /** An approved anecdote, with the source the site names: none when it rests on none. */
-data class ApprovedAnecdote(val id: String, val anecdote: Anecdote, val source: AnecdoteSourceRecord?)
+data class ApprovedAnecdote(val id: String, val anecdote: Anecdote, val source: CitedSourceRecord?)
 
 /**
  * What the approved claims make of [DataFile]s: the domain of each occupation mapped, the curator's corrections to
@@ -72,7 +72,7 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
     fun anecdotes(): List<ApprovedAnecdote> = approved(ClaimType.ANECDOTE).map { claim ->
         val sources = sources.of(claim)
         val named = sources.firstOrNull { it.kind != SourceKind.WIKIDATA } ?: sources.firstOrNull()
-        ApprovedAnecdote(claim.id, claim.payload as Anecdote, named?.let(::anecdoteSource))
+        ApprovedAnecdote(claim.id, claim.payload as Anecdote, named?.let(::citedSource))
     }
 
     /** The lines of [text], the file at [path] in the release format, by their records' ids. */
@@ -105,13 +105,13 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
         return lineMapper.writeValueAsString(OccupationRecord(claim.occupation, domain))
     }
 
-    private fun anecdoteSource(source: SourceRef) = when (source.kind) {
-        SourceKind.WIKIDATA -> AnecdoteSourceRecord(url = "https://www.wikidata.org/wiki/${source.entity}")
+    private fun citedSource(source: SourceRef) = when (source.kind) {
+        SourceKind.WIKIDATA -> CitedSourceRecord(url = "https://www.wikidata.org/wiki/${source.entity}")
         // Non-ASCII letters percent-encoded, as Wikipedia's own links are.
-        SourceKind.WIKIPEDIA -> AnecdoteSourceRecord(url = URI("https", "${source.language}.wikipedia.org", "/wiki/${source.title!!.replace(' ', '_')}", null).toASCIIString())
-        SourceKind.BOOK -> AnecdoteSourceRecord(title = source.title, page = source.page)
-        SourceKind.WEB -> AnecdoteSourceRecord(title = source.title, url = source.url)
-        SourceKind.MEDIA -> AnecdoteSourceRecord(title = source.title, episode = source.episode, minute = source.minute, url = source.url)
+        SourceKind.WIKIPEDIA -> CitedSourceRecord(url = URI("https", "${source.language}.wikipedia.org", "/wiki/${source.title!!.replace(' ', '_')}", null).toASCIIString())
+        SourceKind.BOOK -> CitedSourceRecord(title = source.title, page = source.page)
+        SourceKind.WEB -> CitedSourceRecord(title = source.title, url = source.url)
+        SourceKind.MEDIA -> CitedSourceRecord(title = source.title, episode = source.episode, minute = source.minute, url = source.url)
     }
 
     private fun approved(type: ClaimType) = claims.findByTypeAndStatusOrderById(type, ClaimStatus.APPROVED)

@@ -502,8 +502,8 @@ export interface components {
             /** @description The language of `name`. */
             lang: components["schemas"]["Language"];
         };
-        /** @description Where an anecdote was read or heard. A book has a title and a page; a podcast, a video or a documentary a title, and an episode, a minute or a URL; a web page a URL. */
-        AnecdoteSource: {
+        /** @description Where an anecdote or a connection was read or heard. A book has a title and a page; a podcast, a video or a documentary a title, and an episode, a minute or a URL; a web page a URL. */
+        CitedSource: {
             title: string | null;
             page: string | null;
             episode: string | null;
@@ -522,7 +522,7 @@ export interface components {
             /** @description The regime a BIRTH line was born under or an ERA line begins, to open; none on other lines. */
             era: components["schemas"]["Era"] | null;
             /** @description Where an ANECDOTE line comes from; none on other lines. */
-            source: components["schemas"]["AnecdoteSource"] | null;
+            source: components["schemas"]["CitedSource"] | null;
             /** @description The language of the record's text. */
             lang: components["schemas"]["Language"];
         };
@@ -533,7 +533,7 @@ export interface components {
             /** Format: int32 */
             year: number;
             text: string;
-            sourceUrl: string;
+            source: components["schemas"]["CitedSource"];
             /** @description The language of the record's text. */
             lang: components["schemas"]["Language"];
         };
