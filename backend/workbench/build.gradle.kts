@@ -34,7 +34,7 @@ dependencies {
 	// The curation model to the API's generated models and back (web/ClaimApiMapper.kt), as the site's ApiMapper.
 	implementation("org.mapstruct:mapstruct:$mapstructVersion")
 	kapt("org.mapstruct:mapstruct-processor:$mapstructVersion")
-	implementation("com.anthropic:anthropic-java:2.75.0")
+	implementation("com.anthropic:anthropic-java:3.3.0")
 	implementation("org.springframework.boot:spring-boot-starter-restclient")
 	// One shared pace for every call to Wikimedia: rate limiter, bulkhead and retry, configured in application.yaml.
 	implementation("io.github.resilience4j:resilience4j-spring-boot4:2.4.0")
