@@ -5,4 +5,12 @@
 #   - vulnerability: CVE-2026-12345
 #     package:
 #       name: example
-ignore: []
+ignore:
+  # A GDAL bug in its own copy of zlib's contrib/infback9 (inftree9.c), fixed in GDAL 3.11.0. Alpine's database files it
+  # under its zlib package (fixed in 1.4-r0), but libz.so is built without contrib/infback9 and Node carries its own
+  # zlib, so nothing in the frontend or curate image runs that code. Debian files it under gdal as a minor issue.
+  # Remove once node:24-alpine ships zlib 1.4-r0. Expires 2026-12-09.
+  - vulnerability: CVE-2026-4738
+    package:
+      name: zlib
+      type: apk
