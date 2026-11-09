@@ -30,7 +30,7 @@ dependencies {
 	runtimeOnly("org.flywaydb:flyway-database-postgresql")
 	runtimeOnly("org.postgresql:postgresql")
 	// A request limit per visitor, its buckets forgotten once idle (RateLimit).
-	implementation("com.bucket4j:bucket4j_jdk17-core:8.21.0")
+	implementation("com.bucket4j:bucket4j_jdk17-core:8.22.0")
 	implementation("com.github.ben-manes.caffeine:caffeine")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")
