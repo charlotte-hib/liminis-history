@@ -26,7 +26,7 @@ dependencies {
 	implementation("org.mapstruct:mapstruct:$mapstructVersion")
 	kapt("org.mapstruct:mapstruct-processor:$mapstructVersion")
 	// Swagger UI on ./gradlew bootRun only: developmentOnly stays out of the jar and the image.
-	developmentOnly("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
+	developmentOnly("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.0")
 	// Postgres on ./gradlew bootRun: starts the db service of backend/compose.yaml and connects to it.
 	developmentOnly("org.springframework.boot:spring-boot-docker-compose")
 	runtimeOnly("io.micrometer:micrometer-registry-prometheus")

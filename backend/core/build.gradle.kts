@@ -40,7 +40,7 @@ dependencies {
 	testImplementation("org.flywaydb:flyway-core")
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testImplementation("com.github.victools:jsonschema-generator:5.0.0")
-	testImplementation("com.networknt:json-schema-validator:3.0.8")
+	testImplementation("com.networknt:json-schema-validator:3.0.9")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	// Postgres for the tests of every project, in a container: PostgresTestConfiguration.
 	testFixturesImplementation(platform(SpringBootPlugin.BOM_COORDINATES))
