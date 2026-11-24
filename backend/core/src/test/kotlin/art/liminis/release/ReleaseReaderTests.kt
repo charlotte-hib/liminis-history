@@ -82,6 +82,23 @@ class ReleaseReaderTests {
     }
 
     @Test
+    fun `bios are optional, one per person, sorted by person`() {
+        assertEquals(emptyList(), read().bios)
+
+        files["bios.jsonl"] = """
+            {"person":"Q504","text":"A novelist of Paris.","fr":{"text":"Un romancier de Paris."}}
+            {"person":"Q762","text":"A painter of Florence."}
+        """
+        assertEquals(listOf(BioRecord("Q504", "A novelist of Paris.", BioFrenchRecord("Un romancier de Paris.")), BioRecord("Q762", "A painter of Florence.")), read().bios)
+
+        files["bios.jsonl"] = """
+            {"person":"Q762","text":"A painter of Florence."}
+            {"person":"Q762","text":"A painter."}
+        """
+        assertEquals("bios.jsonl:2: Q762 appears twice", problem())
+    }
+
+    @Test
     fun `records must be sorted by id`() {
         files["people.jsonl"] = files.getValue("people.jsonl").lines().reversed().joinToString("\n")
         assertEquals("people.jsonl:2: emile-zola is out of order", problem())

@@ -185,6 +185,19 @@ class ReleaseCompilerTests {
     }
 
     @Test
+    fun `a bio stands in for the person's intro, its French for the French intro only when it has one`() {
+        val bio = BioRecord("Q504", "A novelist of Paris.")
+        val zola = ReleaseCompiler.compile(release.copy(bios = listOf(bio))).people.first()
+
+        assertEquals(listOf("A novelist of Paris.", "A novelist of Paris.", null, null), listOf(zola.bioShort, zola.about, zola.bioShortFr, zola.aboutFr))
+        val french = ReleaseCompiler.compile(release.copy(bios = listOf(bio.copy(fr = BioFrenchRecord("Un romancier de Paris."))))).people.first()
+        assertEquals(listOf("Un romancier de Paris.", "Un romancier de Paris."), listOf(french.bioShortFr, french.aboutFr))
+        assertEquals("bios.jsonl Q999: no person Q999", problem(release.copy(bios = listOf(bio.copy(person = "Q999")))))
+        assertEquals("bios.jsonl Q504: a bio is at most 280 characters", problem(release.copy(bios = listOf(bio.copy(text = "a".repeat(281))))))
+        assertEquals("bios.jsonl Q504: a bio has text", problem(release.copy(bios = listOf(bio.copy(text = " ")))))
+    }
+
+    @Test
     fun `a life's art is centred and cropped unless its record says otherwise, and its icon is kept`() {
         val art = LifeArtRecord("https://example.org/laundress.jpg", "A painter, Laundresses, 1880", "https://example.org/laundresses")
         val lives = listOf(

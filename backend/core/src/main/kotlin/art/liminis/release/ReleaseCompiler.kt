@@ -54,6 +54,7 @@ object ReleaseCompiler {
 
         val people = peopleCompiler.compile(references)
         references.people(people)
+        release.bios.forEach { references.at("bios.jsonl ${it.person}") { bio(references, it) } }
 
         val lives = release.lives.map {
             references.at("lives.jsonl ${it.id}") {
@@ -116,6 +117,25 @@ object ReleaseCompiler {
         }
 
         return CompiledRelease(regions, eras, people, lives, events, connections, anecdotes, moments, doors)
+    }
+
+    /**
+     * A curated bio stands in for the person's Wikipedia intro everywhere the site shows one: it opens their panel and
+     * is their short bio, so WikipediaJob finds nothing to fill in. Its French replaces the French intro only when
+     * there is one; until then the French site keeps French Wikipedia's.
+     */
+    private fun bio(references: References, bio: BioRecord) {
+        if (bio.text.isBlank()) throw InvalidReleaseException("${references.where}: a bio has text")
+        if (listOfNotNull(bio.text, bio.fr?.text).any { it.length > BIO_LENGTH }) {
+            throw InvalidReleaseException("${references.where}: a bio is at most $BIO_LENGTH characters")
+        }
+        val person = references.personByQid(bio.person)
+        person.bioShort = bio.text
+        person.about = bio.text
+        bio.fr?.let {
+            person.bioShortFr = it.text
+            person.aboutFr = it.text
+        }
     }
 
     private fun cited(references: References, source: CitedSourceRecord) {

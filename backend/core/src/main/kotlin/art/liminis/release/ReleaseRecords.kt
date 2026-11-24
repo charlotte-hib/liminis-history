@@ -138,6 +138,17 @@ data class AnecdoteRecord(
 data class AnecdoteFrenchRecord(val text: String)
 
 /**
+ * A line of `bios.jsonl`: what the site says of one person, by Q-id, in place of their Wikipedia intro, at most
+ * [BIO_LENGTH] characters. Written by the workbench's publish from the bios the curator approved.
+ */
+data class BioRecord(val person: String, val text: String, val fr: BioFrenchRecord? = null)
+
+data class BioFrenchRecord(val text: String)
+
+/** The longest a curated bio may be: it opens the person's panel and stands in for them on cards and link previews. */
+const val BIO_LENGTH = 280
+
+/**
  * Where an anecdote or a connection comes from: a book ([title], [page]), a podcast, a video or a documentary
  * ([title], [episode], [minute]), or a web page ([url]). It has a title or a URL.
  */
@@ -256,6 +267,7 @@ data class Release(
     val events: List<EventRecord>,
     val connections: List<ConnectionRecord>,
     val anecdotes: List<AnecdoteRecord> = emptyList(),
+    val bios: List<BioRecord> = emptyList(),
     val moments: List<MomentRecord>,
 )
 

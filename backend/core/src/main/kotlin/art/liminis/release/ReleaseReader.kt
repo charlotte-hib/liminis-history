@@ -14,7 +14,7 @@ import kotlin.io.path.nameWithoutExtension
 /**
  * Reads a release directory: a JSON Lines file per kind of record, sorted by id, and a JSON file per moment; and, when
  * there is one, the fetched dataset in `dataset/` ([FetchedDatasetReader]). `occupations.jsonl`, `corrections.jsonl`,
- * `anecdotes.jsonl` and `dataset/` may be missing: a release written by hand only has none of them.
+ * `anecdotes.jsonl`, `bios.jsonl` and `dataset/` may be missing: a release written by hand only has none of them.
  * Jackson reads the records; this checks what Jackson cannot: the order and that each id appears once.
  * Strict, so that a typo fails here rather than going missing: unknown fields, missing fields, duplicates and
  * lines out of order are errors that name the file and the line.
@@ -36,6 +36,7 @@ object ReleaseReader {
             // Connections have no id: they are sorted by their two people, then by kind.
             connections = lines(dir, "connections") { it.people + it.kind },
             anecdotes = if (dir.resolve("anecdotes.jsonl").isRegularFile()) lines(dir, "anecdotes") { listOf(it.id) } else emptyList(),
+            bios = if (dir.resolve("bios.jsonl").isRegularFile()) lines(dir, "bios") { listOf(it.person) } else emptyList(),
             moments = moments(dir.resolve("moments")),
             dataset = dir.resolve("dataset").takeIf { it.isDirectory() }?.let(FetchedDatasetReader::read),
         )
