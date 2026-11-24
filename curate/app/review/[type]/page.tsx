@@ -36,8 +36,9 @@ export default async function ReviewPage({ params, searchParams }: PageProps<"/r
   }
   const current = id ? await review(id) : null;
   if (id && !current) notFound();
-  // A connection is reviewed on its first person's page, approved with their facts.
+  // A connection is reviewed on its first person's page, approved with their facts; a bio on its person's.
   if (current?.claim.payload.type === "CONNECTION") redirect(personHref(current.claim.payload.people[0], { moment, filter: "EVERYONE" }));
+  if (current?.claim.payload.type === "BIO") redirect(personHref(current.claim.payload.person, { moment, filter: "EVERYONE" }));
 
   return <ReviewScreen queue={found} later={later} moment={moment} claims={claims.map(summaryOf)} current={current} viewer={await viewer()} />;
 }

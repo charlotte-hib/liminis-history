@@ -18,6 +18,7 @@ export const KINDS: Record<string, string> = {
   event: "Event",
   connection: "Connection",
   anecdote: "Anecdote",
+  bio: "Bio",
   moment: "Moment",
 };
 
@@ -39,6 +40,8 @@ export function titleOf(payload: Payload): { title: string; detail: string } {
       return { title: payload.moment, detail: payload.hook.text };
     case "TRANSLATION":
       return { title: payload.label, detail: `${KINDS[payload.record.split(":")[0]] ?? payload.record} · ${payload.texts.length} texts` };
+    case "BIO":
+      return { title: payload.text, detail: `${payload.person} · bio` };
   }
 }
 

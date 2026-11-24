@@ -14,6 +14,7 @@ export const QUEUES: { type: ClaimType; name: string; hint: string; slug: string
   { type: "OCCUPATION_DOMAIN", name: "Occupations to map", hint: "The domain of the people who hold each occupation", slug: "occupations" },
   { type: "STORY", name: "Stories", hint: "A moment's story, drafted with Claude", slug: "stories" },
   { type: "MOMENT_PAGE", name: "Moment headers", hint: "A moment's hook and world around, drafted with Claude", slug: "moment-headers" },
+  { type: "BIO", name: "Bios", hint: "What the site says of a person, written or drafted with Claude", slug: "bios" },
   { type: "TRANSLATION", name: "Translations", hint: "A record in French, drafted with Claude, beside its English", slug: "translations" },
 ];
 

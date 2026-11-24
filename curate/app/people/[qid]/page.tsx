@@ -9,7 +9,7 @@ import { PersonFrench } from "@/components/person-french";
 import { frenchOf } from "@/lib/french";
 import { STATUS } from "@/lib/labels";
 import { momentChoices, neighboursOf } from "@/lib/people";
-import { review } from "@/lib/queue";
+import { claimOf, review } from "@/lib/queue";
 import { listHref, personHref, scopeOf } from "@/lib/review-scope";
 import { viewer } from "@/lib/viewer";
 import { workbench } from "@/lib/workbench";
@@ -32,13 +32,16 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   // A moment the release no longer has (an old link): the person among everyone.
   if (scope.moment && !moments.some((m) => m.id === scope.moment)) redirect(personHref(qid, { ...scope, moment: undefined }));
   // Only people written by hand have texts of their own to translate: the others' French comes from Wikidata.
-  const [current, neighbours, preview, who, french, connections] = await Promise.all([
+  const [current, neighbours, preview, who, french, connections, bio, bioRun, bioFrench] = await Promise.all([
     review(`person-facts:${qid}`),
     neighboursOf(qid, scope),
     workbench.GET("/api/people/{qid}/preview", { params: { path: { qid }, query: { moment: scope.moment } } }),
     viewer(),
     frenchOf(`person:${qid}`),
     connectionsOf(qid),
+    claimOf(`bio:${qid}`),
+    workbench.GET("/api/people/{qid}/bio", { params: { path: { qid } } }),
+    lang === "fr" ? frenchOf(`bio:${qid}`) : null,
   ]);
   if (preview.response.status === 404) notFound();
   if (!preview.data) throw new Error(`The workbench did not preview ${qid}: ${JSON.stringify(preview.error)}`);
@@ -70,6 +73,15 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
       )}
     </div>
   );
+  // An approved bio's French, under the person's own: translated with Claude once the English is approved.
+  const bioDesk = bioFrench && (
+    <section aria-labelledby="bio-french" className="flex flex-col gap-3 px-10 pb-8">
+      <h2 id="bio-french" className="section-title">
+        Bio
+      </h2>
+      <FrenchDesk key={`${bioFrench.review?.claim.id} ${bioFrench.review?.version}`} french={bioFrench} viewer={who} />
+    </section>
+  );
   if (lang === "fr" && !french) {
     return (
       <div className="flex flex-1 flex-col">
@@ -80,6 +92,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
           <span className="text-muted">in French</span>
         </div>
         <PersonFrench key={`${qid} ${current.version}`} review={current} english={href} viewer={who} />
+        {bioDesk}
       </div>
     );
   }
@@ -95,6 +108,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
           </div>
           <FrenchDesk key={`${french.review?.claim.id} ${french.review?.version}`} french={french} viewer={who} />
         </main>
+        {bioDesk}
       </div>
     );
   }
@@ -110,6 +124,8 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
         moment={moment}
         viewer={who}
         connections={connections}
+        bio={bio}
+        bioDraft={bioRun.data?.draft}
       />
     </div>
   );

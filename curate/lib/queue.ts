@@ -42,6 +42,14 @@ export async function review(id: string): Promise<Review | null> {
   return { claim, version: etag(response), evidence, person, occupation };
 }
 
+/** A claim and its version alone, without the evidence a review reads: none when there is no such claim. */
+export async function claimOf(id: string): Promise<{ claim: ClaimDetail; version: string } | null> {
+  const { data: claim, error, response } = await workbench.GET("/api/claims/{id}", { params: { path: { id } } });
+  if (response.status === 404) return null;
+  if (!claim) throw new Error(`The workbench did not give the claim ${id}: ${JSON.stringify(error)}`);
+  return { claim, version: etag(response) };
+}
+
 async function occupationOf(qid: string) {
   const { data } = await workbench.GET("/api/occupations/{qid}", { params: { path: { qid } } });
   return data ?? null;
