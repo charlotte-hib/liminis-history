@@ -19,6 +19,7 @@ import art.liminis.domain.CardType
     JsonSubTypes.Type(Story::class, name = "STORY"),
     JsonSubTypes.Type(MomentPage::class, name = "MOMENT_PAGE"),
     JsonSubTypes.Type(Translation::class, name = "TRANSLATION"),
+    JsonSubTypes.Type(Bio::class, name = "BIO"),
 )
 sealed interface Payload
 
@@ -75,6 +76,12 @@ data class Participant(val person: String, val role: String)
 
 /** A short story about one person, at a date. */
 data class Anecdote(val person: String, val year: Int, val text: String) : Payload
+
+/**
+ * What the site says of one person, by Q-id, in place of their Wikipedia intro: written by the curator, or drafted with
+ * Claude from the person's intros, each passage it rests on kept in [citations], which are not published.
+ */
+data class Bio(val person: String, val text: String, val citations: List<Citation> = emptyList()) : Payload
 
 /**
  * The domain of the people who hold an occupation, or a class of occupations (it then covers the narrower ones not

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { addClaim, decide, decideAll, findOccupations, findPlaces, previewPerson, proposeFacts, undo, undoAll } from "@/app/actions";
+import { BIO_LENGTH, BioDesk, useBio, type BioClaim } from "@/components/bio-desk";
 import { AnecdoteSource, AnecdoteText, AnecdoteYear, useAnecdoteDraft } from "@/components/anecdote-fields";
 import { History } from "@/components/claim-parts";
 import { ConnectionsDesk, useConnections, type PersonConnection } from "@/components/connections-desk";
@@ -69,6 +70,8 @@ type Props = {
   moment?: { id: string; name: string };
   viewer: Viewer;
   connections: PersonConnection[];
+  bio: BioClaim | null;
+  bioDraft?: components["schemas"]["Run"];
 };
 
 /**
@@ -77,7 +80,7 @@ type Props = {
  * R rejects, N keeps for later, J or → the next person, K or ← the one before, U undoes the last decision; anywhere,
  * ⌘⏎ approves and Esc drops the changes.
  */
-export function PersonDesk({ review, preview: first, neighbours, scope, moment, viewer, connections }: Props) {
+export function PersonDesk({ review, preview: first, neighbours, scope, moment, viewer, connections, bio: bioClaim, bioDraft }: Props) {
   const router = useRouter();
   const { claim, version, evidence } = review;
   const proposed = claim.payload as PersonFacts;
@@ -99,6 +102,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
   const [pending, startTransition] = useTransition();
   const { last, setLast } = useLastDecision();
   const links = useConnections(connections);
+  const bio = useBio(qid, bioClaim, viewer);
   // Held by someone else: read, and move on, but no decision.
   const locked = lockedFor(claim.heldBy, viewer);
 
@@ -111,10 +115,12 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
         ? "Born after the death."
         : facts.places.some((p) => p.startYear !== undefined && p.endYear !== undefined && p.startYear > p.endYear)
           ? "A place's years run backwards."
-          : null;
+          : bio.tooLong
+            ? `A bio is at most ${BIO_LENGTH} characters.`
+            : null;
   const edited: PersonFacts = { ...facts, born: bornYear ?? proposed.born, died: diedYear ?? proposed.died };
   const factsChanged = JSON.stringify(edited) !== JSON.stringify(proposed) || born.trim() !== String(proposed.born) || died.trim() !== String(proposed.died);
-  const changed = factsChanged || links.changed;
+  const changed = factsChanged || links.changed || bio.changed;
 
   const here = personHref(qid, scope);
   const list = listHref(scope);
@@ -166,20 +172,29 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
     setBorn(String(proposed.born));
     setDied(String(proposed.died));
     links.discard();
+    bio.discard();
   };
 
   const decideOn = (action: Action, why?: string) => {
     if (locked || (action === "APPROVE" && invalid)) return;
     // Only an approval takes the connections with it: other verdicts on the facts leave their changes behind.
-    if (action !== "APPROVE" && links.changed && !window.confirm("Your changes to the connections go only with an approval. Decide on the facts and drop them?")) return;
+    if (action !== "APPROVE" && (links.changed || bio.changed) && !window.confirm("Your changes to the bio and connections go only with an approval. Decide on the facts and drop them?")) return;
     startTransition(async () => {
       const payload = action === "APPROVE" && factsChanged ? edited : undefined;
       const facts = { action, payload, note: why?.trim() || undefined };
-      // Approving the page approves the connections changed or waiting on it with the facts, all at once.
-      const others = action === "APPROVE" ? links.decisions(why) : [];
+      // Approving the page approves the bio and the connections changed or waiting on it with the facts, all at once:
+      // a bio written here gets its claim first.
+      // A bio written here has its claim once decisions() answers: a failed approval reads the page again to decide on it.
+      const wrote = !bioClaim && !!bio.text.trim() && action === "APPROVE";
+      const bioDecisions = action === "APPROVE" ? await bio.decisions(why) : { ok: true as const, data: [] };
+      if (!bioDecisions.ok) return setProblem(bioDecisions);
+      const others = action === "APPROVE" ? [...bioDecisions.data, ...links.decisions(why)] : [];
       if (others.length) {
         const result = await decideAll([{ claim: claim.id, version: Number(version.replaceAll('"', "")), decision: facts }, ...others]);
-        if (!result.ok) return setProblem(result);
+        if (!result.ok) {
+          if (wrote) router.refresh();
+          return setProblem(result);
+        }
         const [decided, ...rest] = result.data;
         setLast({ id: claim.id, title: edited.label, version: `"${decided.version}"`, verdict: VERDICTS[action], href: here, others: rest });
       } else {
@@ -490,6 +505,9 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
           </fieldset>
 
           <div className="grid grid-cols-[9rem_minmax(0,1fr)] gap-x-5 gap-y-6 border-t border-line pt-5">
+            <Row name="Bio">
+              <BioDesk qid={qid} bio={bioClaim} draft={bioDraft} desk={bio} disabled={pending || locked} />
+            </Row>
             <Row name="Connections">
               <ConnectionsDesk qid={qid} name={facts.label || proposed.label} desk={links} locked={locked} />
             </Row>
@@ -526,7 +544,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
             approximate={facts.datesApproximate}
             occupations={facts.occupations.map((o) => o.label)}
             // A person with no occupation is filed under everyday life, whatever their claim held.
-            preview={facts.occupations.length ? preview : { ...preview, domain: "EVERYDAY" }}
+            preview={{ ...preview, about: bio.about(preview.about), ...(!facts.occupations.length && { domain: "EVERYDAY" as const }) }}
             connections={links.preview}
           />
         </aside>
@@ -565,7 +583,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
           </form>
         ) : (
           <>
-            <KeyButton keyName="A" label={changed ? "Approve with my changes" : "Approve"} primary disabled={pending || locked || !!invalid} onClick={() => decideOn("APPROVE", note)} />
+            <KeyButton keyName="A" label={changed ? "Approve with my changes" : bio.waiting ? "Approve with the bio" : "Approve"} primary disabled={pending || locked || !!invalid} onClick={() => decideOn("APPROVE", note)} />
             <KeyButton keyName="Esc" label="Discard my changes" disabled={pending || !changed} onClick={discard} />
             <KeyButton keyName="N" label="Keep for later" disabled={pending || locked} onClick={() => setAsking("NEEDS_WORK")} />
             <KeyButton keyName="R" label="Reject" disabled={pending || locked} onClick={() => setAsking("REJECT")} />

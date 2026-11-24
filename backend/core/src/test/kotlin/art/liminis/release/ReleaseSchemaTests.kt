@@ -37,6 +37,7 @@ class ReleaseSchemaTests {
             "events" to "EventRecord",
             "connections" to "ConnectionRecord",
             "anecdotes" to "AnecdoteRecord",
+            "bios" to "BioRecord",
         )
         val lines = files.flatMap { (file, record) ->
             val schema = schemaFor(record)

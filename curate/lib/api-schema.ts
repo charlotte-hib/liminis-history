@@ -356,6 +356,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/people/{qid}/bio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How the person's bio is being drafted
+         * @description The last run that drafted the person's bio with Claude, if any, for the page to follow it. The bio itself is
+         *     the person's `BIO` claim, `bio:<qid>`.
+         */
+        get: operations["getPersonBio"];
+        put?: never;
+        /**
+         * Write the person's bio by hand
+         * @description Proposes the bio the curator wrote as the person's `BIO` claim, waiting for review, held by them: approved
+         *     with their facts by `POST /api/decisions`. Refused (409) when the person has a bio claim already: decide on it
+         *     instead, with the text edited.
+         */
+        post: operations["writePersonBio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/people/{qid}/bio/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft the person's bio
+         * @description Starts the run that drafts the person's bio with Claude from their English and French Wikipedia intros and
+         *     proposes it as their `BIO` claim, each passage it rests on quoted and checked. Its result says what it cost.
+         *     Refused (409) while another run runs, or while someone else holds the bio, unless the admin asks; 404 for a
+         *     person without an intro to draft from.
+         */
+        post: operations["draftPersonBio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/moments": {
         parameters: {
             query?: never;
@@ -776,10 +826,11 @@ export interface components {
          *     `OCCUPATION_DOMAIN`: the domain of the people who hold an occupation, one claim per occupation or class.
          *     `STORY`: a moment's story cards, drafted with Claude, one claim per moment. `MOMENT_PAGE`: the hook and the world
          *     around at the top of a moment's page, drafted with Claude or written from the release's, one claim per moment.
-         *     `TRANSLATION`: a record of `data/` in French, drafted with Claude, one claim per record.
+         *     `TRANSLATION`: a record of `data/` in French, drafted with Claude, one claim per record. `BIO`: what the site says
+         *     of a person in place of their Wikipedia intro, written by hand or drafted with Claude, one claim per person.
          * @enum {string}
          */
-        ClaimType: "PERSON_FACTS" | "CONNECTION" | "EVENT" | "ANECDOTE" | "OCCUPATION_DOMAIN" | "STORY" | "MOMENT_PAGE" | "TRANSLATION";
+        ClaimType: "PERSON_FACTS" | "CONNECTION" | "EVENT" | "ANECDOTE" | "OCCUPATION_DOMAIN" | "STORY" | "MOMENT_PAGE" | "TRANSLATION" | "BIO";
         /**
          * @description `CANDIDATE` waits for review; `NEEDS_WORK` was kept for later, with a note.
          * @enum {string}
@@ -862,7 +913,7 @@ export interface components {
             note?: string;
         };
         /** @description The record as it would ship, by claim type. */
-        Payload: components["schemas"]["PersonFacts"] | components["schemas"]["Connection"] | components["schemas"]["Event"] | components["schemas"]["Anecdote"] | components["schemas"]["OccupationDomain"] | components["schemas"]["Story"] | components["schemas"]["MomentPage"] | components["schemas"]["Translation"];
+        Payload: components["schemas"]["PersonFacts"] | components["schemas"]["Connection"] | components["schemas"]["Event"] | components["schemas"]["Anecdote"] | components["schemas"]["OccupationDomain"] | components["schemas"]["Story"] | components["schemas"]["MomentPage"] | components["schemas"]["Translation"] | components["schemas"]["Bio"];
         /**
          * @description A person's facts as Wikidata states them. Whether each statement has a reference shows in the claim's flags,
          *     not here: a reference added later does not change the facts.
@@ -953,6 +1004,27 @@ export interface components {
             type: "ANECDOTE";
             person: components["schemas"]["Qid"];
             year: components["schemas"]["Year"];
+            text: string;
+        };
+        /**
+         * @description What the site says of a person in place of their Wikipedia intro: it opens their panel and stands in for them
+         *     on story cards and link previews. A draft keeps the passages of their intros it rests on, not published.
+         */
+        Bio: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "BIO";
+            person: components["schemas"]["Qid"];
+            text: string;
+            citations?: components["schemas"]["Citation"][];
+        };
+        PersonBio: {
+            draft?: components["schemas"]["Run"];
+        };
+        /** @description A bio the curator wrote, at most 280 characters. */
+        BioText: {
             text: string;
         };
         /**
@@ -1163,7 +1235,7 @@ export interface components {
         };
         /** @enum {string} */
         CardType: "SCENE" | "PERSON" | "LIFE" | "EVENT";
-        /** @description A passage copied from one of the texts the story was drafted from. Not published. */
+        /** @description A passage copied from one of the texts a story or a bio was drafted from. Not published. */
         Citation: {
             /**
              * @description The text's id, by what it is about.
@@ -1451,6 +1523,7 @@ export interface components {
             moment?: string;
             /** @description The one record to translate, for `TRANSLATIONS`; every one with no French yet without it. */
             record?: string;
+            person?: components["schemas"]["Qid"];
         };
         /**
          * @description `WIKIDATA_IMPORT` fetches Wikidata's people, or resumes the import that stopped. `DATASET_MAPPING` maps the last
@@ -1462,10 +1535,11 @@ export interface components {
          *     record of the data repository's `main` with no French yet, or whose English changed since, and proposes each as
          *     a `TRANSLATION` claim; its result says what it cost. `CONNECTION_IMPORT` adds every line of the data
          *     repository's `data/connections.jsonl` on `main` as an approved `CONNECTION` claim, once: lines whose claim exists
-         *     are left as they are; a person named by id in `people.jsonl` needs a Q-id there.
+         *     are left as they are; a person named by id in `people.jsonl` needs a Q-id there. `BIO_DRAFT` drafts a person's
+         *     bio with Claude and proposes it as their `BIO` claim; its result says what it cost.
          * @enum {string}
          */
-        RunKind: "WIKIDATA_IMPORT" | "DATASET_MAPPING" | "DATASET_EXPORT" | "PERSON_FACTS_CLAIMS" | "OCCUPATION_CLAIMS" | "STORY_DRAFT" | "TRANSLATIONS" | "CONNECTION_IMPORT";
+        RunKind: "WIKIDATA_IMPORT" | "DATASET_MAPPING" | "DATASET_EXPORT" | "PERSON_FACTS_CLAIMS" | "OCCUPATION_CLAIMS" | "STORY_DRAFT" | "TRANSLATIONS" | "CONNECTION_IMPORT" | "BIO_DRAFT";
         Run: {
             /** Format: int64 */
             id: number;
@@ -1473,6 +1547,7 @@ export interface components {
             moment?: string;
             /** @description The record a `TRANSLATIONS` run translates, when only one. */
             record?: string;
+            person?: components["schemas"]["Qid"];
             /** @enum {string} */
             status: "RUNNING" | "SUCCEEDED" | "FAILED";
             /** Format: date-time */
@@ -1602,6 +1677,8 @@ export interface components {
             anecdotes: components["schemas"]["AnecdoteChange"][];
             /** @description The connections added, changed or removed, by the names of their people, then by kind. */
             connections: components["schemas"]["ConnectionChange"][];
+            /** @description The bios added, changed or removed, by the name of whom they are about. */
+            bios: components["schemas"]["BioChange"][];
             /** @description The moments whose header or story changes, by id. */
             moments: components["schemas"]["MomentChange"][];
             /** @description The records whose French changes, by key. */
@@ -1671,6 +1748,18 @@ export interface components {
             change: components["schemas"]["Change"];
             before?: components["schemas"]["OccupationChoice"];
             after?: components["schemas"]["OccupationChoice"];
+        };
+        /**
+         * @description A bio whose line in `bios.jsonl` changes, about `person` (once published, else on `main`), its text before and
+         *     after. Removed, the site shows the person's Wikipedia intro again.
+         */
+        BioChange: {
+            person: components["schemas"]["Qid"];
+            /** @description The person's name as written by hand in `people.jsonl`, else as the dataset gives it. */
+            name: string;
+            change: components["schemas"]["Change"];
+            before?: string;
+            after?: string;
         };
         /**
          * @description An anecdote whose line in `anecdotes.jsonl` changes, about `person` in `year` (once published, else on `main`),
@@ -2462,6 +2551,86 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getPersonBio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                qid: components["schemas"]["Qid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The person's bio draft. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonBio"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    writePersonBio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                qid: components["schemas"]["Qid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BioText"];
+            };
+        };
+        responses: {
+            /** @description The bio's claim, at its first version. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimVersion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    draftPersonBio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                qid: components["schemas"]["Qid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run, started. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listMoments: {

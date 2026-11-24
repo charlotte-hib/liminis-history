@@ -22,6 +22,7 @@ type PersonChange = Publication["people"][number];
 type OccupationChange = Publication["occupations"][number];
 type AnecdoteChange = Publication["anecdotes"][number];
 type ConnectionChange = Publication["connections"][number];
+type BioChange = Publication["bios"][number];
 type MomentChange = Publication["moments"][number];
 type TranslationChange = Publication["translations"][number];
 type CardChange = MomentChange["cards"][number];
@@ -147,6 +148,11 @@ function Changes({ publication }: { publication: Publication }) {
           <Connections connections={publication.connections} />
         </Section>
       )}
+      {publication.bios.length > 0 && (
+        <Section title="Bios" count={lineCounts(publication.bios)} files={fileLines((path) => path === "data/bios.jsonl")}>
+          <Bios bios={publication.bios} />
+        </Section>
+      )}
       {publication.occupations.length > 0 && (
         <Section title="Occupations" count={lineCounts(publication.occupations)} files={fileLines((path) => path === "data/occupations.jsonl")}>
           <Occupations occupations={publication.occupations} />
@@ -157,7 +163,7 @@ function Changes({ publication }: { publication: Publication }) {
           title="French"
           count={lineCounts(publication.translations)}
           files={fileLines(
-            (path) => !["data/corrections.jsonl", "data/anecdotes.jsonl", "data/connections.jsonl", "data/occupations.jsonl"].includes(path) && !path.startsWith("data/moments/"),
+            (path) => !["data/corrections.jsonl", "data/anecdotes.jsonl", "data/connections.jsonl", "data/bios.jsonl", "data/occupations.jsonl"].includes(path) && !path.startsWith("data/moments/"),
           )}
         >
           <Translations translations={publication.translations} />
@@ -263,6 +269,32 @@ function Anecdotes({ anecdotes }: { anecdotes: AnecdoteChange[] }) {
                 ),
               )}
           </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Each bio added, removed or rewritten, by whom it is about: a removed one gives Wikipedia's paragraph back. */
+function Bios({ bios }: { bios: BioChange[] }) {
+  return (
+    <ul className="flex flex-col border-t border-line">
+      {bios.map((bio) => (
+        <li key={bio.person} className="flex flex-wrap gap-x-5 gap-y-1 border-b border-line py-3">
+          <span className="flex basis-60 flex-col gap-0.5">
+            <span className="flex items-baseline gap-2">
+              <span className="font-serif text-[18px]">{bio.name}</span>
+              <span className="font-mono text-[11.5px] text-quiet">{bio.person}</span>
+            </span>
+            <span className="text-muted">
+              {bio.change === "ADDED" && <span className="text-ok">added</span>}
+              {bio.change === "CHANGED" && "rewritten"}
+              {bio.change === "REMOVED" && <span className="text-conflict">removed: Wikipedia&apos;s paragraph instead</span>}
+            </span>
+          </span>
+          <p className="flex-1 basis-96 font-serif text-[16px] leading-relaxed">
+            <WordDiff before={bio.before} after={bio.after} />
+          </p>
         </li>
       ))}
     </ul>
@@ -483,7 +515,7 @@ function FileLines({ file }: { file: FileChanges }) {
 
 const changed = (count: number) => `${count.toLocaleString("en")} changed`;
 
-function lineCounts(changes: (Change | OccupationChange | AnecdoteChange | ConnectionChange | TranslationChange)[]): string {
+function lineCounts(changes: (Change | OccupationChange | AnecdoteChange | ConnectionChange | BioChange | TranslationChange)[]): string {
   return (["ADDED", "CHANGED", "REMOVED"] as const)
     .map((kind) => [changes.filter((change) => change.change === kind).length, kind.toLowerCase()] as const)
     .filter(([count]) => count > 0)

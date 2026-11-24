@@ -20,9 +20,9 @@ import art.liminis.curation.TranslatedText
 import art.liminis.curation.Translation
 import art.liminis.dataset.DatasetStore
 import art.liminis.drafting.DraftingProperties
+import art.liminis.release.BIO_LENGTH
 import art.liminis.support.NotFoundException
 import java.math.BigDecimal
-import java.math.RoundingMode
 import java.util.Locale
 
 /**
@@ -33,7 +33,7 @@ import java.util.Locale
  * translated again, keeping the French of the texts whose English stayed the same; one the curator rejected is
  * drafted again from nothing, Claude told why. People's names are Wikidata's French labels, not translated. Short
  * records go first, so the longer ones are translated with their French in the glossary: regions, eras, people, lives,
- * events, connections, anecdotes, then moments. Each batch is proposed as soon as it is translated: a batch that fails
+ * events, connections, anecdotes, bios, then moments. Each batch is proposed as soon as it is translated: a batch that fails
  * is named in the result and loses no other. Needs an Anthropic API key in the environment.
  */
 @Component
@@ -84,7 +84,10 @@ class Translating(
                     val translation = Translation(missing.record.key, missing.record.label, texts)
                     // Short labels translated now are the glossary of the longer records after them.
                     glossary += terms(translation)
-                    val problems = TranslationValidator.problems(texts, terms) + texts.filter { it.fr.isBlank() }.map { "${it.path}: not translated" }
+                    val problems = TranslationValidator.problems(texts, terms) + texts.filter { it.fr.isBlank() }.map { "${it.path}: not translated" } +
+                        // A bio's French stands in for French Wikipedia's paragraph: as short as the English must be.
+                        texts.filter { missing.record.kind == RecordKind.BIO && it.fr.trim().length > BIO_LENGTH }
+                            .map { "${it.path}: ${it.fr.trim().length} characters, more than a bio's $BIO_LENGTH: shorten it" }
                     Proposal(translation, Origin.CLAUDE, problems.map { FlagReason(Flag.ODD, it) }, emptyList())
                 }
                 counts += claims.propose(proposals)
@@ -170,8 +173,7 @@ class Translating(
         }
 
         /** At the model's price, in dollars, to the cent. */
-        fun dollars(): BigDecimal =
-            (properties.price.input * BigDecimal(input) + properties.price.output * BigDecimal(output)).divide(MILLION, 2, RoundingMode.HALF_UP)
+        fun dollars(): BigDecimal = properties.price.dollars(input, output)
     }
 
     private operator fun ProposalCounts.plus(other: ProposalCounts) = ProposalCounts(added + other.added, refreshed + other.refreshed, unchanged + other.unchanged)
@@ -180,6 +182,5 @@ class Translating(
         const val TEXTS_PER_CALL = 60
         const val TERM = 60
         val TERMS = setOf("name", "label", "period", "place", "kind")
-        val MILLION = BigDecimal(1_000_000)
     }
 }

@@ -38,6 +38,8 @@ Usage: wb <command>
                   publishing then writes connections.jsonl from the claims
   draft <moment>  draft a moment's story cards and header with Claude, for review in curate; an approved header is
                   kept (needs ANTHROPIC_API_KEY where the workbench runs)
+  bio <qid>       draft a person's bio with Claude from their Wikipedia intros, for review on their page in curate
+                  (needs ANTHROPIC_API_KEY where the workbench runs)
   translate       draft in French with Claude every record of the data repository's main with no French yet, or
                   whose English changed, for review in curate (needs ANTHROPIC_API_KEY where the workbench runs)
   runs [id]       the runs since the workbench started, or one of them
@@ -182,6 +184,10 @@ case "${1:-}" in
   draft)
     [[ -n "${2:-}" ]] || { usage >&2; exit 2; }
     start "{\"kind\": \"STORY_DRAFT\", \"moment\": \"$2\"}"
+    ;;
+  bio)
+    [[ "${2:-}" =~ ^Q[1-9][0-9]*$ ]] || { usage >&2; exit 2; }
+    start "{\"kind\": \"BIO_DRAFT\", \"person\": \"$2\"}"
     ;;
   translate) start '{"kind": "TRANSLATIONS"}' ;;
   runs)

@@ -1,6 +1,7 @@
 package art.liminis.curation
 
 import art.liminis.domain.CardType
+import art.liminis.release.BIO_LENGTH
 import art.liminis.support.InvalidRequestException
 import art.liminis.support.slugify
 import java.security.MessageDigest
@@ -40,13 +41,14 @@ object ClaimRules {
         is Story -> ClaimType.STORY
         is MomentPage -> ClaimType.MOMENT_PAGE
         is Translation -> ClaimType.TRANSLATION
+        is Bio -> ClaimType.BIO
     }
 
     /**
      * A claim's id, from what it is about, so the same thing proposed again lands on the same claim:
      * `person-facts:Q535`, `connection:Q296|Q535:friends`, `event:FR:-52:vercingetorix-surrenders-at-alesia`,
      * `anecdote:Q535:1851:` and the start of the text's SHA-256, `occupation:Q1028181`, `story:paris-1870s`,
-     * `moment-page:paris-1870s`, `translation:moment:paris-1870s`.
+     * `moment-page:paris-1870s`, `translation:moment:paris-1870s`, `bio:Q535`.
      */
     fun idOf(payload: Payload): String = when (payload) {
         is PersonFacts -> factsId(payload.person)
@@ -57,7 +59,11 @@ object ClaimRules {
         is Story -> storyId(payload.moment)
         is MomentPage -> pageId(payload.moment)
         is Translation -> translationId(payload.record)
+        is Bio -> bioId(payload.person)
     }
+
+    /** The id of the claim on [person]'s bio. */
+    fun bioId(person: String) = "bio:$person"
 
     /** The id of the claim on [person]'s facts. */
     fun factsId(person: String) = "person-facts:$person"
@@ -93,6 +99,7 @@ object ClaimRules {
         is Story -> payload.moment
         is MomentPage -> payload.moment
         is Translation -> payload.record
+        is Bio -> payload.person
     }
 
     /**
@@ -125,7 +132,7 @@ object ClaimRules {
             }
             check(payload)
             if (payload is PersonFacts) checkArticles(payload, state.proposal as PersonFacts)
-        } else if (decision.verdict == Verdict.APPROVE && (payload is Story || payload is MomentPage || payload is Translation)) {
+        } else if (decision.verdict == Verdict.APPROVE && (payload is Story || payload is MomentPage || payload is Translation || payload is Bio)) {
             // A draft is checked by the validator, which only flags: approved as drafted, it must still hold together.
             check(payload)
         }
@@ -153,8 +160,8 @@ object ClaimRules {
     /**
      * What a new [proposal] makes of a claim in [state], keeping the conflicts earlier refreshes found until the
      * curator decides again. A claim not yet decided takes the new proposal, unless the curator edited it. An approved
-     * one goes back to review, flagged: what it rests on changed. A rejected one stays rejected. A story and a moment's
-     * page are drafted again only when the curator asks: [redraft]; an approved page is kept ([keeps]).
+     * one goes back to review, flagged: what it rests on changed. A rejected one stays rejected. A story, a moment's
+     * page and a bio are drafted again only when the curator asks: [redraft]; an approved page is kept ([keeps]).
      */
     fun refresh(state: ClaimState, proposal: Proposal): ClaimState {
         if (keeps(state, proposal)) return state
@@ -162,7 +169,7 @@ object ClaimRules {
         val flags = proposal.flags + conflicts
         if (state.proposal == proposal.payload) return state.copy(flags = flags)
         val refreshed = state.copy(proposal = proposal.payload)
-        if (proposal.payload is Story || proposal.payload is MomentPage) return redraft(refreshed, state, flags)
+        if (proposal.payload is Story || proposal.payload is MomentPage || proposal.payload is Bio) return redraft(refreshed, state, flags)
         if (proposal.payload is Translation) return retranslated(refreshed, state, flags)
         return when {
             state.status == ClaimStatus.REJECTED -> refreshed.copy(flags = flags)
@@ -174,12 +181,14 @@ object ClaimRules {
     }
 
     /**
-     * A new draft of a story or a moment's page, whatever became of the last one, waits for review: in place of the last
+     * A new draft of a story, a moment's page or a bio, whatever became of the last one, waits for review: in place of the last
      * one, unless the curator edited it (and did not reject it), which keeps the edits, flagged. One approved is flagged
      * too.
      */
     private fun redraft(refreshed: ClaimState, state: ClaimState, flags: List<FlagReason>): ClaimState {
-        val edited = state.payload != state.proposal && state.status != ClaimStatus.REJECTED
+        // A bio written by hand rests on no passage: it is the curator's, as an edited draft is.
+        val byHand = state.payload is Bio && state.payload.citations.isEmpty()
+        val edited = (state.payload != state.proposal || byHand) && state.status != ClaimStatus.REJECTED
         val conflict = when {
             edited -> CHANGED_SINCE_EDITED
             state.status == ClaimStatus.APPROVED -> CHANGED_SINCE_APPROVED
@@ -207,7 +216,7 @@ object ClaimRules {
 
     /**
      * What the spec cannot say: no year 0, two different people in a connection with a whole source, a story's cards naming what they
-     * show, a moment's page with every line written, and every painting credited.
+     * show, a moment's page with every line written, every painting credited, and a bio short enough to stand in for an intro.
      */
     private fun check(payload: Payload) {
         val years = when (payload) {
@@ -219,6 +228,7 @@ object ClaimRules {
             is Story -> payload.cards.mapNotNull { it.year }
             is MomentPage -> emptyList()
             is Translation -> emptyList()
+            is Bio -> emptyList()
         }
         if (0 in years) invalid("There is no year 0: 1 BCE is followed by 1 CE")
         if (payload is Connection) {
@@ -232,6 +242,13 @@ object ClaimRules {
             if (payload.art?.credit?.isBlank() == true) invalid("The moment's painting needs a credit")
         }
         if (payload is Translation && payload.texts.any { it.fr.isBlank() }) invalid("Write every text in French")
+        if (payload is Translation && payload.record.startsWith("bio:") && payload.texts.any { it.fr.trim().length > BIO_LENGTH }) {
+            invalid("A bio is at most $BIO_LENGTH characters, in French too")
+        }
+        if (payload is Bio) {
+            if (payload.text.isBlank()) invalid("Write the bio, or reject it")
+            if (payload.text.length > BIO_LENGTH) invalid("A bio is at most $BIO_LENGTH characters: this one has ${payload.text.length}")
+        }
     }
 
     /** A person's Wikipedia articles are Wikidata's: an edit may remove one that is not theirs, never name another. */

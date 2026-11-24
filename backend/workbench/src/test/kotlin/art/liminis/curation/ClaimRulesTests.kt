@@ -257,4 +257,29 @@ class ClaimRulesTests {
         val rejected = ClaimRules.refresh(state(ClaimStatus.REJECTED, translation, translation), proposal(again))
         assertEquals(listOf(ClaimStatus.CANDIDATE, again, emptyList<FlagReason>()), listOf(rejected.status, rejected.payload, rejected.flags))
     }
+
+    @Test
+    fun `a bio is one claim per person, written by hand or drafted again like a story, and short enough for the site`() {
+        val bio = Bio("Q535", "A poet and novelist of Paris, exiled for twenty years.")
+        assertEquals("bio:Q535", ClaimRules.idOf(bio))
+        assertEquals(emptyList(), ClaimRules.flagsOfNew(NewClaim(bio, emptyList())))
+        for (text in listOf(" ", "a".repeat(281))) {
+            assertThrows<InvalidRequestException> { ClaimRules.flagsOfNew(NewClaim(bio.copy(text = text), emptyList())) }
+        }
+
+        val drafted = Bio("Q535", "Drafted.", listOf(Citation("wikipedia:en", "Victor Hugo", "a French Romantic writer")))
+        val approved = ClaimRules.refresh(state(ClaimStatus.APPROVED, drafted, drafted), proposal(drafted.copy(text = "Again.")))
+        assertEquals(listOf(ClaimStatus.CANDIDATE, drafted.copy(text = "Again."), listOf(changedSinceApproved)), listOf(approved.status, approved.payload, approved.flags))
+        // One written by hand, which rests on no passage, is the curator's: a draft waits beside it.
+        val byHand = ClaimRules.refresh(state(ClaimStatus.APPROVED, bio, bio), proposal(drafted))
+        assertEquals(listOf(ClaimStatus.CANDIDATE, bio, drafted, listOf(changedSinceEdited)), listOf(byHand.status, byHand.payload, byHand.proposal, byHand.flags))
+        val edited = ClaimRules.refresh(state(ClaimStatus.CANDIDATE, bio, drafted), proposal(drafted.copy(text = "Again.")))
+        assertEquals(listOf(bio, listOf(changedSinceEdited)), listOf(edited.payload, edited.flags))
+        // A draft approved as it came is checked all the same.
+        val long = state(ClaimStatus.CANDIDATE, bio.copy(text = "a".repeat(300)), bio.copy(text = "a".repeat(300)))
+        assertThrows<InvalidRequestException> { ClaimRules.decide(long, NewDecision(Verdict.APPROVE, null, null)) }
+        // Its French stands in for French Wikipedia's paragraph: as short.
+        val french = Translation("bio:Q535", "A poet", listOf(TranslatedText("text", bio.text, "a".repeat(281))))
+        assertThrows<InvalidRequestException> { ClaimRules.decide(state(ClaimStatus.CANDIDATE, french, french), NewDecision(Verdict.APPROVE, null, null)) }
+    }
 }

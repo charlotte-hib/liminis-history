@@ -8,6 +8,7 @@ import art.liminis.curation.OccupationProposals
 import art.liminis.curation.PersonFactsProposals
 import art.liminis.dataset.DatasetExport
 import art.liminis.dataset.DatasetMapping
+import art.liminis.drafting.BioDrafting
 import art.liminis.drafting.StoryDrafting
 import art.liminis.repository.MomentRepository
 import art.liminis.translating.Translating
@@ -24,7 +25,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Runs imports, mappings, exports, proposals, drafts, translations and the connections' import in the background, one at a time: they share Wikimedia's pace and the
+ * Runs imports, mappings, exports, proposals, drafts (stories and bios), translations and the connections' import in the background, one at a time: they share Wikimedia's pace and the
  * dataset. Kept in memory: a run stopped by a restart is started again by hand, and an import resumes where it was.
  */
 @Service
@@ -35,6 +36,7 @@ class Runs(
     private val personFacts: PersonFactsProposals,
     private val occupations: OccupationProposals,
     private val drafting: StoryDrafting,
+    private val bios: BioDrafting,
     private val translating: Translating,
     private val connections: ConnectionImport,
     private val moments: MomentRepository,
@@ -55,11 +57,16 @@ class Runs(
     /** The last run that drafted [moment]'s story, if any. */
     fun lastDraft(moment: String): RunDto? = all().firstOrNull { it.kind == RunKindDto.STORY_DRAFT && it.moment == moment }
 
+    /** The last run that drafted [person]'s bio, if any. */
+    fun lastBio(person: String): RunDto? = all().firstOrNull { it.kind == RunKindDto.BIO_DRAFT && it.person == person }
+
     @Synchronized
-    fun start(kind: RunKindDto, moment: String?, record: String? = null): RunDto {
+    fun start(kind: RunKindDto, moment: String?, record: String? = null, person: String? = null): RunDto {
         if (kind == RunKindDto.STORY_DRAFT && (moment == null || !moments.existsById(moment))) {
             throw InvalidRequestException("A story draft needs a moment of the release")
         }
+        // Refused at once, rather than failing in the background: a person with no intro has nothing to draft from.
+        if (kind == RunKindDto.BIO_DRAFT) bios.sources(person ?: throw InvalidRequestException("A bio draft needs a person"))
         runs.values.firstOrNull { it.status == RunDto.Status.RUNNING }?.let {
             throw ConflictException("Run ${it.id} (${it.kind.value}) is still running")
         }
@@ -67,6 +74,7 @@ class Runs(
             id = ids.incrementAndGet(), kind = kind, status = RunDto.Status.RUNNING, startedAt = now(),
             moment = moment.takeIf { kind == RunKindDto.STORY_DRAFT },
             record = record.takeIf { kind == RunKindDto.TRANSLATIONS },
+            person = person.takeIf { kind == RunKindDto.BIO_DRAFT },
         )
         runs[run.id] = run
         executor.execute { finish(run) }
@@ -94,6 +102,7 @@ class Runs(
         RunKindDto.STORY_DRAFT -> drafting.draft(run.moment!!)
         RunKindDto.TRANSLATIONS -> translating.translate(run.record)
         RunKindDto.CONNECTION_IMPORT -> connections.import()
+        RunKindDto.BIO_DRAFT -> bios.draft(run.person!!)
     }
 
     override fun destroy() {

@@ -72,6 +72,9 @@ data class CardFieldChange(val field: CardField, val before: String?, val after:
 
 enum class CardField { KICKER, TITLE, TEXT, YEAR, PAINTING }
 
+/** A person's bio added, removed or changed (once published, else on main), its text before and after. */
+data class BioChange(val person: String, val name: String, val change: Change, val before: String?, val after: String?)
+
 /** An anecdote added, removed or changed, about [person] in [year] (once published, else on main), with its fields that change. */
 data class AnecdoteChange(val anecdote: String, val person: String, val name: String, val change: Change, val year: Int, val fields: List<AnecdoteFieldChange>)
 
@@ -217,6 +220,14 @@ class ChangesInWords(
         }.filter { it.change != Change.CHANGED || it.fields.isNotEmpty() }.sortedWith(compareBy(byName) { it: AnecdoteChange -> it.name }.thenBy { it.year }.thenBy { it.anecdote })
     }
 
+    /** The bios of [changes], those of `bios.jsonl`, by the name of whom they are about. A change of French alone is a translation's. */
+    fun bios(changes: List<RecordChange>, byHand: Map<String, String>): List<BioChange> {
+        val names = names(changes.map { it.id }, byHand)
+        return changes.map { change ->
+            BioChange(change.id, names.getValue(change.id), change.change, change.before?.let(dataFiles::readBio)?.text, change.after?.let(dataFiles::readBio)?.text)
+        }.filter { it.before != it.after }.sortedWith(compareBy(byName) { it: BioChange -> it.name }.thenBy { it.person })
+    }
+
     /**
      * The connections of [changes], those of `connections.jsonl`, by the names of their people, then by kind. A line
      * written by hand on main names its people by id: they are named as such.
@@ -330,7 +341,7 @@ class ChangesInWords(
 
     /**
      * The publication in words, as Markdown for the pull request and its commit: each person's facts, the
-     * occupations changed or removed one by one and the ones added by domain, each anecdote, and each moment's header
+     * occupations changed or removed one by one and the ones added by domain, each anecdote, connection and bio, and each moment's header
      * and cards. Cut short within GitHub's limit on a pull request's body.
      */
     fun summary(
@@ -338,6 +349,7 @@ class ChangesInWords(
         occupations: List<OccupationChange>,
         anecdotes: List<AnecdoteChange>,
         connections: List<ConnectionChange>,
+        bios: List<BioChange>,
         moments: List<MomentChange>,
         translations: List<TranslationChange>,
     ): String {
@@ -382,6 +394,18 @@ class ChangesInWords(
                     Change.CHANGED -> connection.fields.joinToString(", ") { CONNECTION_FIELDS.getValue(it.field) } + " changed"
                 }
                 "- ${connection.names[0]} and ${connection.names[1]}, ${connection.kind}: $change"
+            }
+        }
+        if (bios.isNotEmpty()) {
+            if (lines.isNotEmpty()) lines += ""
+            lines += "**Bios** (${bios.size})"
+            lines += bios.map { bio ->
+                val change = when (bio.change) {
+                    Change.ADDED -> "added"
+                    Change.REMOVED -> "removed, Wikipedia's intro instead"
+                    Change.CHANGED -> "rewritten"
+                }
+                "- ${bio.name} (${bio.person}): $change"
             }
         }
         if (moments.isNotEmpty()) {

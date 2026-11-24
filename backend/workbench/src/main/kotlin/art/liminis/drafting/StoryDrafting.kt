@@ -39,7 +39,16 @@ data class DraftingProperties(
     val price: Price,
 )
 
-data class Price(val input: BigDecimal, val output: BigDecimal)
+data class Price(val input: BigDecimal, val output: BigDecimal) {
+
+    /** What [inputTokens] and [outputTokens] cost at this price, in dollars, to the cent. */
+    fun dollars(inputTokens: Long, outputTokens: Long): BigDecimal =
+        (input * BigDecimal(inputTokens) + output * BigDecimal(outputTokens)).divide(MILLION, 2, RoundingMode.HALF_UP)
+
+    private companion object {
+        val MILLION = BigDecimal(1_000_000)
+    }
+}
 
 /**
  * Drafts one moment's story with Claude (`wb draft edo-1830s`, or curate's moment page) and proposes it for review as
@@ -86,7 +95,7 @@ class StoryDrafting(
         )
         val found = pageFlags.size + storyFlags.size
 
-        val cost = cost(drafted)
+        val cost = properties.price.dollars(drafted.inputTokens, drafted.outputTokens)
         log.info("Drafted {} with {}: {} cards, {} problems, {} input and {} output tokens, \${}", momentId, drafted.model,
             story.cards.size, found, drafted.inputTokens, drafted.outputTokens, cost)
         // A refusal can hand the draft to a fallback model, at its own price: the cost is then only a guide.
@@ -165,13 +174,4 @@ class StoryDrafting(
     private fun articles(citations: List<Citation>, byId: Map<String, Source>): List<SourceRef> =
         citations.map { it.sourceId }.distinct().mapNotNull { byId[it]?.article }.distinct()
             .map { SourceRef(kind = SourceKind.WIKIPEDIA, language = "en", title = it) }
-
-    /** What the draft cost at the model's price, in dollars, to the cent. */
-    private fun cost(drafted: Drafted): BigDecimal =
-        (properties.price.input * BigDecimal(drafted.inputTokens) + properties.price.output * BigDecimal(drafted.outputTokens))
-            .divide(MILLION, 2, RoundingMode.HALF_UP)
-
-    private companion object {
-        val MILLION = BigDecimal(1_000_000)
-    }
 }

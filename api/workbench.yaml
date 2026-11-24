@@ -719,6 +719,105 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/people/{qid}/bio:
+    get:
+      tags: [people]
+      operationId: getPersonBio
+      security:
+        - auth: ["curation:read"]
+      summary: How the person's bio is being drafted
+      description: |
+        The last run that drafted the person's bio with Claude, if any, for the page to follow it. The bio itself is
+        the person's `BIO` claim, `bio:<qid>`.
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Qid"
+      responses:
+        "200":
+          description: The person's bio draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonBio"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [people]
+      operationId: writePersonBio
+      security:
+        - auth: ["curation:write"]
+      summary: Write the person's bio by hand
+      description: |
+        Proposes the bio the curator wrote as the person's `BIO` claim, waiting for review, held by them: approved
+        with their facts by `POST /api/decisions`. Refused (409) when the person has a bio claim already: decide on it
+        instead, with the text edited.
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Qid"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BioText"
+      responses:
+        "201":
+          description: The bio's claim, at its first version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimVersion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/people/{qid}/bio/draft:
+    post:
+      tags: [people]
+      operationId: draftPersonBio
+      security:
+        - auth: ["curation:write"]
+      summary: Draft the person's bio
+      description: |
+        Starts the run that drafts the person's bio with Claude from their English and French Wikipedia intros and
+        proposes it as their `BIO` claim, each passage it rests on quoted and checked. Its result says what it cost.
+        Refused (409) while another run runs, or while someone else holds the bio, unless the admin asks; 404 for a
+        person without an intro to draft from.
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Qid"
+      responses:
+        "202":
+          description: The run, started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /api/moments:
     get:
       tags: [moments]
@@ -1559,7 +1658,7 @@ components:
       description: A record of `data/`, by kind and id, e.g. `moment:paris-1870s`.
       schema:
         type: string
-        pattern: "^(region|era|person|life|event|connection|anecdote|moment):.+$"
+        pattern: "^(region|era|person|life|event|connection|anecdote|bio|moment):.+$"
         maxLength: 300
     ReviewMoment:
       name: moment
@@ -1635,8 +1734,9 @@ components:
         `OCCUPATION_DOMAIN`: the domain of the people who hold an occupation, one claim per occupation or class.
         `STORY`: a moment's story cards, drafted with Claude, one claim per moment. `MOMENT_PAGE`: the hook and the world
         around at the top of a moment's page, drafted with Claude or written from the release's, one claim per moment.
-        `TRANSLATION`: a record of `data/` in French, drafted with Claude, one claim per record.
-      enum: [PERSON_FACTS, CONNECTION, EVENT, ANECDOTE, OCCUPATION_DOMAIN, STORY, MOMENT_PAGE, TRANSLATION]
+        `TRANSLATION`: a record of `data/` in French, drafted with Claude, one claim per record. `BIO`: what the site says
+        of a person in place of their Wikipedia intro, written by hand or drafted with Claude, one claim per person.
+      enum: [PERSON_FACTS, CONNECTION, EVENT, ANECDOTE, OCCUPATION_DOMAIN, STORY, MOMENT_PAGE, TRANSLATION, BIO]
 
     ClaimStatus:
       type: string
@@ -1790,6 +1890,7 @@ components:
         - $ref: "#/components/schemas/Story"
         - $ref: "#/components/schemas/MomentPage"
         - $ref: "#/components/schemas/Translation"
+        - $ref: "#/components/schemas/Bio"
       discriminator:
         propertyName: type
         mapping:
@@ -1801,6 +1902,7 @@ components:
           STORY: "#/components/schemas/Story"
           MOMENT_PAGE: "#/components/schemas/MomentPage"
           TRANSLATION: "#/components/schemas/Translation"
+          BIO: "#/components/schemas/Bio"
 
     PersonFacts:
       type: object
@@ -1959,6 +2061,43 @@ components:
           minLength: 1
           maxLength: 400
 
+    Bio:
+      type: object
+      description: |
+        What the site says of a person in place of their Wikipedia intro: it opens their panel and stands in for them
+        on story cards and link previews. A draft keeps the passages of their intros it rests on, not published.
+      required: [type, person, text]
+      properties:
+        type:
+          type: string
+        person:
+          $ref: "#/components/schemas/Qid"
+        text:
+          type: string
+          minLength: 1
+          maxLength: 280
+        citations:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/Citation"
+
+    PersonBio:
+      type: object
+      properties:
+        draft:
+          $ref: "#/components/schemas/Run"
+
+    BioText:
+      type: object
+      description: A bio the curator wrote, at most 280 characters.
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 280
+
     OccupationDomain:
       type: object
       description: |
@@ -2035,7 +2174,7 @@ components:
           type: string
           description: The record, by kind and id.
           example: moment:paris-1870s
-          pattern: "^(region|era|person|life|event|connection|anecdote|moment):.+$"
+          pattern: "^(region|era|person|life|event|connection|anecdote|bio|moment):.+$"
           maxLength: 300
         label:
           type: string
@@ -2330,7 +2469,7 @@ components:
 
     Citation:
       type: object
-      description: A passage copied from one of the texts the story was drafted from. Not published.
+      description: A passage copied from one of the texts a story or a bio was drafted from. Not published.
       required: [source, title, quote]
       properties:
         source:
@@ -2870,8 +3009,10 @@ components:
         record:
           type: string
           description: The one record to translate, for `TRANSLATIONS`; every one with no French yet without it.
-          pattern: "^(region|era|person|life|event|connection|anecdote|moment):.+$"
+          pattern: "^(region|era|person|life|event|connection|anecdote|bio|moment):.+$"
           maxLength: 300
+        person:
+          $ref: "#/components/schemas/Qid"
 
     RunKind:
       type: string
@@ -2885,8 +3026,9 @@ components:
         record of the data repository's `main` with no French yet, or whose English changed since, and proposes each as
         a `TRANSLATION` claim; its result says what it cost. `CONNECTION_IMPORT` adds every line of the data
         repository's `data/connections.jsonl` on `main` as an approved `CONNECTION` claim, once: lines whose claim exists
-        are left as they are; a person named by id in `people.jsonl` needs a Q-id there.
-      enum: [WIKIDATA_IMPORT, DATASET_MAPPING, DATASET_EXPORT, PERSON_FACTS_CLAIMS, OCCUPATION_CLAIMS, STORY_DRAFT, TRANSLATIONS, CONNECTION_IMPORT]
+        are left as they are; a person named by id in `people.jsonl` needs a Q-id there. `BIO_DRAFT` drafts a person's
+        bio with Claude and proposes it as their `BIO` claim; its result says what it cost.
+      enum: [WIKIDATA_IMPORT, DATASET_MAPPING, DATASET_EXPORT, PERSON_FACTS_CLAIMS, OCCUPATION_CLAIMS, STORY_DRAFT, TRANSLATIONS, CONNECTION_IMPORT, BIO_DRAFT]
 
     Run:
       type: object
@@ -2902,6 +3044,8 @@ components:
         record:
           type: string
           description: The record a `TRANSLATIONS` run translates, when only one.
+        person:
+          $ref: "#/components/schemas/Qid"
         status:
           type: string
           enum: [RUNNING, SUCCEEDED, FAILED]
@@ -3100,7 +3244,7 @@ components:
 
     Publication:
       type: object
-      required: [base, files, people, occupations, anecdotes, connections, moments, translations, withoutEffect, heldBack, maxAge]
+      required: [base, files, people, occupations, anecdotes, connections, bios, moments, translations, withoutEffect, heldBack, maxAge]
       properties:
         base:
           type: string
@@ -3131,6 +3275,11 @@ components:
           description: The connections added, changed or removed, by the names of their people, then by kind.
           items:
             $ref: "#/components/schemas/ConnectionChange"
+        bios:
+          type: array
+          description: The bios added, changed or removed, by the name of whom they are about.
+          items:
+            $ref: "#/components/schemas/BioChange"
         moments:
           type: array
           description: The moments whose header or story changes, by id.
@@ -3245,6 +3394,25 @@ components:
           $ref: "#/components/schemas/OccupationChoice"
         after:
           $ref: "#/components/schemas/OccupationChoice"
+
+    BioChange:
+      type: object
+      description: |
+        A bio whose line in `bios.jsonl` changes, about `person` (once published, else on `main`), its text before and
+        after. Removed, the site shows the person's Wikipedia intro again.
+      required: [person, name, change]
+      properties:
+        person:
+          $ref: "#/components/schemas/Qid"
+        name:
+          type: string
+          description: The person's name as written by hand in `people.jsonl`, else as the dataset gives it.
+        change:
+          $ref: "#/components/schemas/Change"
+        before:
+          type: string
+        after:
+          type: string
 
     AnecdoteChange:
       type: object

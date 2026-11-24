@@ -52,7 +52,7 @@
     "mapHint": "Les points dorés sont des récits. Touchez un point pour y entrer.",
     "stories": "Récits",
     "more": "D’autres moments à explorer",
-    "credits": "Les biographies et les portraits viennent de Wikipédia, et chaque lien entre deux personnes est un événement daté et sourcé. Les tableaux sont dans le domaine public, via Wikimedia Commons."
+    "credits": "Les portraits et la plupart des biographies viennent de Wikipédia, et chaque lien entre deux personnes est un événement daté et sourcé. Les tableaux sont dans le domaine public, via Wikimedia Commons."
   },
   "storyMap": {
     "storyLabel": "{title}, récit",

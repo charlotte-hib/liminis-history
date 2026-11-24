@@ -67,6 +67,20 @@ export async function addClaim(claim: NewClaim): Promise<Outcome<{ id: string }>
   return result.ok ? { ok: true, data: { id: result.data.id } } : result;
 }
 
+/**
+ * Proposes the bio the curator wrote, waiting, for the page to approve it with the person's facts at the version it
+ * answers. 409 when the person has a bio claim already.
+ */
+export async function writeBio(qid: string, text: string): Promise<Outcome<ClaimVersion>> {
+  return outcome(workbench.POST("/api/people/{qid}/bio", { params: { path: { qid } }, body: { text } }));
+}
+
+/** Starts drafting the person's bio with Claude: 409 while another run runs, 404 without an intro to draft from. */
+export async function draftBio(qid: string): Promise<Outcome<{ id: number }>> {
+  const result = await outcome(workbench.POST("/api/people/{qid}/bio/draft", { params: { path: { qid } } }));
+  return result.ok ? { ok: true, data: { id: result.data.id } } : result;
+}
+
 /** Proposes the person's facts for review, or refreshes their claim. */
 export async function proposeFacts(qid: string): Promise<Outcome<{ id: string }>> {
   const result = await outcome(workbench.POST("/api/people/{qid}/facts", { params: { path: { qid } } }));

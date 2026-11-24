@@ -56,6 +56,32 @@
       "required" : [ "credit", "source", "url" ],
       "additionalProperties" : false
     },
+    "BioFrenchRecord" : {
+      "type" : "object",
+      "properties" : {
+        "text" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "text" ],
+      "additionalProperties" : false
+    },
+    "BioRecord" : {
+      "type" : "object",
+      "properties" : {
+        "fr" : {
+          "$ref" : "#/$defs/BioFrenchRecord"
+        },
+        "person" : {
+          "type" : "string"
+        },
+        "text" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "person", "text" ],
+      "additionalProperties" : false
+    },
     "CardFrenchRecord" : {
       "type" : "object",
       "properties" : {
@@ -693,6 +719,12 @@
       "type" : "array",
       "items" : {
         "$ref" : "#/$defs/AnecdoteRecord"
+      }
+    },
+    "bios" : {
+      "type" : "array",
+      "items" : {
+        "$ref" : "#/$defs/BioRecord"
       }
     },
     "connections" : {

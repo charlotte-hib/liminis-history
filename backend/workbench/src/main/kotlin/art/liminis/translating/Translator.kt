@@ -59,6 +59,7 @@ private val SYSTEM_PROMPT = """
     - French typography: the typographic apostrophe ’, « » around quotes and titles in running text where the
       English uses quotes, a non-breaking space before : ; ? !, and French capitalisation (only the first word of a
       work's title, "le Second Empire").
+    - A bio (a record "bio:…") is at most 280 characters in French too: keep it as short as the English.
     - Kickers keep their " · " separator: "Setting the scene · Paris, 1870s" is "Le décor · Paris, années 1870".
     - A record with "rejected" had its last French turned down by the curator for that reason: avoid it.
     - A text under "update" changed in English since its French was written: you get the English and French as they

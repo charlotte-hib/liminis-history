@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.MapperFeature
 import tools.jackson.databind.json.JsonMapper
 import art.liminis.curation.Anecdote
+import art.liminis.curation.Bio
 import art.liminis.curation.ClaimRepository
 import art.liminis.curation.ClaimSources
 import art.liminis.curation.ClaimStatus
@@ -18,6 +19,7 @@ import art.liminis.curation.SourceRef
 import art.liminis.domain.Domain
 import art.liminis.domain.PlaceKind
 import art.liminis.release.AnecdoteRecord
+import art.liminis.release.BioRecord
 import art.liminis.release.CitedSourceRecord
 import art.liminis.release.ClearedField
 import art.liminis.release.CorrectionPlaceRecord
@@ -33,11 +35,12 @@ enum class DataFile(val path: String) {
     CORRECTIONS("data/corrections.jsonl"),
     ANECDOTES("data/anecdotes.jsonl"),
     CONNECTIONS("data/connections.jsonl"),
+    BIOS("data/bios.jsonl"),
 }
 
 /**
  * A file's records as lines of JSON, by id, sorted by id as the release format wants them: connections, which have
- * none, by [ConnectionLines.key], in [ConnectionLines.ORDER].
+ * none, by [ConnectionLines.key], in [ConnectionLines.ORDER]; bios by their person.
  */
 typealias Lines = Map<String, String>
 
@@ -52,7 +55,7 @@ data class ApprovedConnection(val id: String, val record: ConnectionRecord)
 
 /**
  * What the approved claims make of [DataFile]s: the domain of each occupation mapped, the curator's corrections to
- * people's facts, and the anecdotes and connections publishing does not hold back. A correction holds only the fields approved
+ * people's facts, and the anecdotes, connections and bios publishing does not hold back. A correction holds only the fields approved
  * otherwise than Wikidata proposed them; facts approved as proposed need none. Corrections for people written by hand
  * in `people.jsonl` are written too, though the release gives them no effect: they are the curator's decisions all the
  * same. A French name, an article or the death's precision removed in curate is cleared. The dates' precisions are
@@ -64,13 +67,14 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
     // Each record's fields in the order of its class, id first, as in the files written by hand.
     private val lineMapper = jsonMapper.rebuild().disable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY).build()
 
-    fun build(anecdotes: List<AnecdoteRecord>, connections: List<ConnectionRecord>): Map<DataFile, Lines> = mapOf(
+    fun build(anecdotes: List<AnecdoteRecord>, connections: List<ConnectionRecord>, bios: List<BioRecord>): Map<DataFile, Lines> = mapOf(
         DataFile.OCCUPATIONS to approved(ClaimType.OCCUPATION_DOMAIN).map { it.payload as OccupationDomain }
             .associate { it.occupation to occupation(it) },
         DataFile.CORRECTIONS to approved(ClaimType.PERSON_FACTS).mapNotNull { correction(it.payload as PersonFacts, it.proposal as PersonFacts) }
             .associate { it.id to lineMapper.writeValueAsString(it) },
         DataFile.ANECDOTES to anecdotes.associate { it.id to lineMapper.writeValueAsString(it) },
         DataFile.CONNECTIONS to connections.associate { ConnectionLines.key(it) to lineMapper.writeValueAsString(it) },
+        DataFile.BIOS to bios.associate { it.person to lineMapper.writeValueAsString(it) },
     ).mapValues { (file, lines) -> sorted(file, lines) }
 
     /**
@@ -94,11 +98,18 @@ class DataFiles(private val claims: ClaimRepository, private val sources: ClaimS
         ApprovedConnection(claim.id, ConnectionRecord(connection.people, connection.kind, connection.year, connection.text, citedSource(connection.source)))
     }
 
+    /** The approved bios, as their lines write them, their quotes left in the workbench. */
+    fun bios(): List<BioRecord> = approved(ClaimType.BIO).map { (it.payload as Bio).let { bio -> BioRecord(bio.person, bio.text) } }
+
     /** The lines of [text], [file] in the release format, by their records' ids. */
     fun read(file: DataFile, text: String?): Lines = sorted(file, records(text).associateBy { line ->
         if (file == DataFile.CONNECTIONS) return@associateBy ConnectionLines.key(readConnection(line))
-        lineMapper.readTree(line)["id"]?.asString() ?: throw UnavailableException("${file.path} holds a line without an id: $line")
+        val id = if (file == DataFile.BIOS) "person" else "id"
+        lineMapper.readTree(line)[id]?.asString() ?: throw UnavailableException("${file.path} holds a line without an $id: $line")
     })
+
+    /** A line of `bios.jsonl`. */
+    fun readBio(line: String): BioRecord = lineMapper.readValue(line, BioRecord::class.java)
 
     /** A line of `corrections.jsonl`. */
     fun readCorrection(line: String): CorrectionRecord = lineMapper.readValue(line, CorrectionRecord::class.java)

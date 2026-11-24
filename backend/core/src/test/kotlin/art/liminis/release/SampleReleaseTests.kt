@@ -27,6 +27,8 @@ class SampleReleaseTests {
         assertEquals("Building the twenty-novel Rougon-Macquart cycle through the 1870s and 80s.", zola.bioShort)
         assertEquals("https://en.wikipedia.org/wiki/%C3%89mile_Zola", zola.wikipediaUrl)
         assertEquals("FR", zola.places.first { it.kind == PlaceKind.BIRTH }.regionCode)
+        val hokusai = release.people.single { it.id == "katsushika-hokusai" }
+        assertEquals(hokusai.bioShort, hokusai.about, "a curated bio in bios.jsonl stands in for the intro")
         assert(release.people.size > 96) { "the dataset's other people are in the release" }
     }
 }

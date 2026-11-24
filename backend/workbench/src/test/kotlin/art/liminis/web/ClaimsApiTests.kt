@@ -240,6 +240,32 @@ class ClaimsApiTests(
     }
 
     @Test
+    fun `a bio written by hand waits, held by its writer, then is approved with the facts' decision`() {
+        mockMvc.post("/api/people/{qid}/bio", "Q535") { json("""{"text": "  A poet and novelist of Paris.  "}""") }.andExpect {
+            status { isCreated() }
+            jsonPath("$.claim") { value("bio:Q535") }
+        }
+        mockMvc.get("/api/claims/{id}", "bio:Q535") { signedIn() }.andExpect {
+            jsonPath("$.status") { value("CANDIDATE") }
+            jsonPath("$.origin") { value("MANUAL") }
+            jsonPath("$.heldBy") { value("curator") }
+            jsonPath("$.payload.text") { value("A poet and novelist of Paris.") }
+        }
+        // One per person: the next words are a decision on it.
+        mockMvc.post("/api/people/{qid}/bio", "Q535") { json("""{"text": "Another."}""") }.andExpect { status { isConflict() } }
+        mockMvc.post("/api/people/{qid}/bio", "Q535") { json("""{"text": "${"a".repeat(281)}"}""") }.andExpect { status { isBadRequest() } }
+
+        mockMvc.post("/api/decisions") {
+            json("""[{"claim": "bio:Q535", "version": ${version("bio:Q535")}, "decision": {"action": "APPROVE",
+                     "payload": {"type": "BIO", "person": "Q535", "text": "A poet of Paris, then of exile."}}}]""")
+        }.andExpect { status { isOk() } }
+        mockMvc.get("/api/claims/{id}", "bio:Q535") { signedIn() }.andExpect {
+            jsonPath("$.status") { value("APPROVED") }
+            jsonPath("$.payload.text") { value("A poet of Paris, then of exile.") }
+        }
+    }
+
+    @Test
     fun `lists a person's connections with the other person, and says whom the release holds`() {
         mockMvc.post("/api/claims") { json(connection) }
 
