@@ -26,7 +26,7 @@ object StoryDraftValidator {
                 val source = byId[citation.sourceId]
                 when {
                     source == null -> problems += "$where cites unknown source '${citation.sourceId}'"
-                    !normalise(source.text).contains(normalise(citation.quote)) ->
+                    !quotes(source.text, citation.quote) ->
                         problems += "$where quotes text not found in '${citation.sourceId}': \"${citation.quote}\""
                 }
             }
@@ -59,8 +59,10 @@ object StoryDraftValidator {
         if (id.isNullOrBlank()) problems += "$where names no $kind"
         else if ("$kind:$id" !in byId) problems += "$where names unknown $kind '$id'"
     }
-
-    /** Quotes are compared ignoring case, spacing and curly quotes, which models often normalise. */
-    private fun normalise(text: String) =
-        text.lowercase().replace('’', '\'').replace('“', '"').replace('”', '"').replace(WHITESPACE, " ").trim()
 }
+
+/** Whether [text] holds [quote], ignoring case, spacing and curly quotes, which models often normalise. */
+fun quotes(text: String, quote: String): Boolean = normalise(text).contains(normalise(quote))
+
+private fun normalise(text: String) =
+    text.lowercase().replace('’', '\'').replace('“', '"').replace('”', '"').replace(WHITESPACE, " ").trim()

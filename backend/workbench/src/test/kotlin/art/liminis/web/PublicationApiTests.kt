@@ -40,6 +40,8 @@ import org.wiremock.spring.ConfigureWireMock
 import org.wiremock.spring.EnableWireMock
 import org.wiremock.spring.InjectWireMock
 import art.liminis.curation.Anecdote
+import art.liminis.curation.Bio
+import art.liminis.curation.Citation
 import art.liminis.curation.Claim
 import art.liminis.curation.ClaimRepository
 import art.liminis.curation.ClaimRules
@@ -130,6 +132,7 @@ class PublicationApiTests(
         file("data/occupations.jsonl", null)
         file("data/corrections.jsonl", """{"id":"Q1","name":"Someone corrected before"}""" + "\n")
         file("data/anecdotes.jsonl", null)
+        file("data/bios.jsonl", null)
         file("data/people.jsonl", """{"id":"victor-hugo","qid":"Q535","name":"Victor Hugo"}""" + "\n")
     }
 
@@ -424,14 +427,14 @@ class PublicationApiTests(
 
         mockMvc.get("/api/publication") { signedIn() }.andExpect {
             status { isOk() }
-            jsonPath("$.files[4].path") { value("data/moments/edo-1830s.json") }
-            jsonPath("$.files[4].changes[0].after") { value(containsString(""""hook":"A new hook.""")) }
-            jsonPath("$.files[4].changes[0].after") { value(not(containsString("cards"))) }
-            jsonPath("$.files[5].path") { value("data/moments/paris-1870s.json") }
-            jsonPath("$.files[5].changes[0].id") { value("paris-1870s") }
-            jsonPath("$.files[5].changes[0].change") { value("CHANGED") }
-            jsonPath("$.files[5].changes[0].before") { value("""{"hook":"Old hook."}""") }
-            jsonPath("$.files[5].changes[0].after") { value(containsString(""""cards":[{"type":"PERSON","text":"Someone there.","year":1875,"person":"victor-hugo"}]""")) }
+            jsonPath("$.files[5].path") { value("data/moments/edo-1830s.json") }
+            jsonPath("$.files[5].changes[0].after") { value(containsString(""""hook":"A new hook.""")) }
+            jsonPath("$.files[5].changes[0].after") { value(not(containsString("cards"))) }
+            jsonPath("$.files[6].path") { value("data/moments/paris-1870s.json") }
+            jsonPath("$.files[6].changes[0].id") { value("paris-1870s") }
+            jsonPath("$.files[6].changes[0].change") { value("CHANGED") }
+            jsonPath("$.files[6].changes[0].before") { value("""{"hook":"Old hook."}""") }
+            jsonPath("$.files[6].changes[0].after") { value(containsString(""""cards":[{"type":"PERSON","text":"Someone there.","year":1875,"person":"victor-hugo"}]""")) }
             jsonPath("$.files.length()") { value(6) }
             jsonPath("$.moments[1].moment") { value("paris-1870s") }
             jsonPath("$.moments[1].hook.before") { value("Old hook.") }
@@ -612,6 +615,47 @@ class PublicationApiTests(
         )
     }
 
+    @Test
+    fun `writes the approved bios by person, without their quotes, and holds back one about a fetched person`() {
+        CurationFixtures.map(dataset)
+        file("data/corrections.jsonl", null)
+        file("data/people.jsonl", """{"id":"katsushika-hokusai","qid":"Q5586","name":"Katsushika Hokusai"}""" + "\n" + """{"id":"victor-hugo","qid":"Q535","name":"Victor Hugo"}""" + "\n")
+        file("data/bios.jsonl", """{"person":"Q5586","text":"A printmaker of Edo."}""" + "\n")
+        approve(Bio("Q535", "A poet of Paris.", listOf(Citation("wikipedia:en", "Victor Hugo", "Never published"))), Bio("Q535", "A poet and novelist of Paris."))
+        approve(Bio("Q504", "A novelist of Paris."))
+        // Waiting: never published.
+        claims.save(Claim.candidate(Bio("Q517", "An emperor."), Origin.CLAUDE, emptyList()))
+
+        mockMvc.get("/api/publication") { signedIn() }.andExpect {
+            status { isOk() }
+            jsonPath("$.files[4].path") { value("data/bios.jsonl") }
+            jsonPath("$.files[4].changes.length()") { value(2) }
+            jsonPath("$.files[4].changes[0].id") { value("Q535") }
+            jsonPath("$.files[4].changes[0].after") { value("""{"person":"Q535","text":"A poet and novelist of Paris."}""") }
+            jsonPath("$.files[4].changes[1].id") { value("Q5586") }
+            jsonPath("$.files[4].changes[1].change") { value("REMOVED") }
+            // In words, by the name of whom they are about.
+            jsonPath("$.bios.length()") { value(2) }
+            jsonPath("$.bios[0].name") { value("Katsushika Hokusai") }
+            jsonPath("$.bios[0].before") { value("A printmaker of Edo.") }
+            jsonPath("$.bios[1].change") { value("ADDED") }
+            jsonPath("$.bios[1].after") { value("A poet and novelist of Paris.") }
+            jsonPath("$.heldBack.length()") { value(1) }
+            jsonPath("$.heldBack[0].id") { value("bio:Q504") }
+            jsonPath("$.heldBack[0].reason") { value("It is about a fetched person, Émile Zola (Q504), whom the release holds once it carries the dataset") }
+        }
+
+        stubWrites()
+        publish().andExpect { status { isOk() } }
+        val tree = github.findAll(postRequestedFor(urlPathEqualTo("$repo/git/trees"))).single().bodyAsString
+        assertTrue("data/bios.jsonl" in tree && "Never published" !in tree && "An emperor" !in tree && "Q504" !in tree, tree)
+        github.verify(
+            postRequestedFor(urlPathEqualTo("$repo/pulls"))
+                .withRequestBody(matchingJsonPath("$.body", containing("- Victor Hugo (Q535): added")))
+                .withRequestBody(matchingJsonPath("$.body", containing("- Katsushika Hokusai (Q5586): removed, Wikipedia's intro instead"))),
+        )
+    }
+
     private val people = listOf(
         """{"id":"auguste-rodin","qid":"Q30755","name":"Auguste Rodin"}""",
         """{"id":"katsushika-hokusai","qid":"Q5586","name":"Katsushika Hokusai"}""",
@@ -785,17 +829,17 @@ class PublicationApiTests(
 
         mockMvc.get("/api/publication") { signedIn() }.andExpect {
             status { isOk() }
-            jsonPath("$.files[4].path") { value("data/eras.jsonl") }
-            jsonPath("$.files[4].changes.length()") { value(1) }
-            jsonPath("$.files[4].changes[0].id") { value("era:fr-third-republic") }
-            jsonPath("$.files[4].changes[0].after") {
+            jsonPath("$.files[5].path") { value("data/eras.jsonl") }
+            jsonPath("$.files[5].changes.length()") { value(1) }
+            jsonPath("$.files[5].changes[0].id") { value("era:fr-third-republic") }
+            jsonPath("$.files[5].changes[0].after") {
                 value("""{"id":"fr-third-republic","region":"FR","label":"Third Republic","start":1870,"end":1940,"fr":{"label":"Troisième République"}}""")
             }
-            jsonPath("$.files[5].path") { value("data/people.jsonl") }
-            jsonPath("$.files[5].changes[0].after") {
+            jsonPath("$.files[6].path") { value("data/people.jsonl") }
+            jsonPath("$.files[6].changes[0].after") {
                 value("""{"id":"victor-hugo","qid":"Q535","name":"Victor Hugo","occupation":"novelist","fr":{"name":"Victor Hugo","occupation":"romancier","wikipedia":"Victor_Hugo"}}""")
             }
-            jsonPath("$.files[6].path") { value("data/moments/paris-1870s.json") }
+            jsonPath("$.files[7].path") { value("data/moments/paris-1870s.json") }
             jsonPath("$.moments.length()") { value(0) }
             jsonPath("$.translations.length()") { value(3) }
             jsonPath("$.translations[0].record") { value("era:fr-third-republic") }
@@ -856,8 +900,8 @@ class PublicationApiTests(
             jsonPath("$.translations.length()") { value(0) }
             jsonPath("$.heldBack.length()") { value(0) }
             jsonPath("$.files[2].changes.length()") { value(0) }
-            jsonPath("$.files[4].path") { value("data/moments/paris-1870s.json") }
-            jsonPath("$.files[4].changes[0].after") { value(containsString(""""text":"Someone there.","year":1875,"person":"victor-hugo","fr":{"text":"Ancien texte."}""")) }
+            jsonPath("$.files[5].path") { value("data/moments/paris-1870s.json") }
+            jsonPath("$.files[5].changes[0].after") { value(containsString(""""text":"Someone there.","year":1875,"person":"victor-hugo","fr":{"text":"Ancien texte."}""")) }
         }
     }
 }

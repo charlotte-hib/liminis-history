@@ -7,6 +7,7 @@ import org.mapstruct.ReportingPolicy
 import org.mapstruct.SubclassExhaustiveStrategy
 import org.mapstruct.SubclassMapping
 import art.liminis.curation.Anecdote
+import art.liminis.curation.Bio
 import art.liminis.curation.Claim
 import art.liminis.curation.ClaimDecision
 import art.liminis.curation.ClaimDetail
@@ -29,6 +30,7 @@ import art.liminis.curation.Painting
 import art.liminis.curation.Story
 import art.liminis.curation.Translation
 import art.liminis.workbench.api.model.AnecdoteDto
+import art.liminis.workbench.api.model.BioDto
 import art.liminis.workbench.api.model.ClaimDecisionDto
 import art.liminis.workbench.api.model.ClaimDetailDto
 import art.liminis.workbench.api.model.ClaimDto
@@ -95,6 +97,7 @@ abstract class ClaimApiMapper {
     @SubclassMapping(source = Story::class, target = StoryDto::class)
     @SubclassMapping(source = MomentPage::class, target = MomentPageDto::class)
     @SubclassMapping(source = Translation::class, target = TranslationDto::class)
+    @SubclassMapping(source = Bio::class, target = BioDto::class)
     abstract fun toDto(payload: Payload): PayloadDto
 
     @Mapping(target = "type", constant = "PERSON_FACTS")
@@ -121,6 +124,9 @@ abstract class ClaimApiMapper {
     @Mapping(target = "type", constant = "TRANSLATION")
     abstract fun toDto(translation: Translation): TranslationDto
 
+    @Mapping(target = "type", constant = "BIO")
+    abstract fun toDto(bio: Bio): BioDto
+
     abstract fun toModel(claim: NewClaimDto): NewClaim
 
     @Mapping(target = "verdict", source = "action")
@@ -138,6 +144,7 @@ abstract class ClaimApiMapper {
     @SubclassMapping(source = StoryDto::class, target = Story::class)
     @SubclassMapping(source = MomentPageDto::class, target = MomentPage::class)
     @SubclassMapping(source = TranslationDto::class, target = Translation::class)
+    @SubclassMapping(source = BioDto::class, target = Bio::class)
     abstract fun toModel(payload: PayloadDto): Payload
 
     abstract fun toModel(painting: PaintingDto): Painting

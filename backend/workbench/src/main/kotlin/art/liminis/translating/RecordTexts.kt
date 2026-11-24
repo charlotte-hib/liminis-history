@@ -18,6 +18,7 @@ enum class RecordKind(val key: String, val path: String, val fields: List<String
     EVENT("event", "data/events.jsonl", listOf("title", "description", "participants[].role")),
     CONNECTION("connection", "data/connections.jsonl", listOf("kind", "text")),
     ANECDOTE("anecdote", "data/anecdotes.jsonl", listOf("text")),
+    BIO("bio", "data/bios.jsonl", listOf("text")),
     MOMENT(
         "moment", "data/moments/",
         listOf(
@@ -47,7 +48,7 @@ class DataRecord(val kind: RecordKind, val node: ObjectNode, id: String? = null)
         get() = when (kind) {
             RecordKind.CONNECTION -> "${node["people"].values().joinToString(" and ") { it.asString() }}, ${node.string("kind")}"
             RecordKind.MOMENT -> "${node.string("place")}, ${node.string("period")}"
-            RecordKind.ANECDOTE -> node.string("text")!!.let { if (it.length > LABEL) it.take(LABEL - 1) + "…" else it }
+            RecordKind.ANECDOTE, RecordKind.BIO -> node.string("text")!!.let { if (it.length > LABEL) it.take(LABEL - 1) + "…" else it }
             else -> node.string(kind.fields.first())!!
         }
 
@@ -57,6 +58,8 @@ class DataRecord(val kind: RecordKind, val node: ObjectNode, id: String? = null)
     private fun id(): String = when (kind) {
         // Connections have no id: by their two people and their kind, as the file sorts them.
         RecordKind.CONNECTION -> "${node["people"].values().joinToString("|") { it.asString() }}:${node.string("kind")}"
+        // A bio has none either: one per person, by their Q-id.
+        RecordKind.BIO -> node.string("person")!!
         else -> node.string("id")!!
     }
 
