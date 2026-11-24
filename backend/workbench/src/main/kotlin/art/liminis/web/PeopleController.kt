@@ -56,7 +56,8 @@ class PeopleController(
     override fun writePersonBio(qid: String, bioTextDto: BioTextDto): ClaimVersionDto {
         // Waiting for review, as the curator wrote it: approved with the person's facts, in one decision.
         val added = claims.add(NewClaim(Bio(qid, bioTextDto.text.trim()), emptyList()), currentActor().name)
-        return ClaimVersionDto(added.claim.id, added.claim.version!!)
+        // Its version is given once written: read again, the page decides on it at that version.
+        return ClaimVersionDto(added.claim.id, claims.detail(added.claim.id).claim.version!!)
     }
 
     override fun draftPersonBio(qid: String): RunDto {

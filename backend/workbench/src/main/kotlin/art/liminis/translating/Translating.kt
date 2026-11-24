@@ -20,6 +20,7 @@ import art.liminis.curation.TranslatedText
 import art.liminis.curation.Translation
 import art.liminis.dataset.DatasetStore
 import art.liminis.drafting.DraftingProperties
+import art.liminis.release.BIO_LENGTH
 import art.liminis.support.NotFoundException
 import java.math.BigDecimal
 import java.util.Locale
@@ -83,7 +84,10 @@ class Translating(
                     val translation = Translation(missing.record.key, missing.record.label, texts)
                     // Short labels translated now are the glossary of the longer records after them.
                     glossary += terms(translation)
-                    val problems = TranslationValidator.problems(texts, terms) + texts.filter { it.fr.isBlank() }.map { "${it.path}: not translated" }
+                    val problems = TranslationValidator.problems(texts, terms) + texts.filter { it.fr.isBlank() }.map { "${it.path}: not translated" } +
+                        // A bio's French stands in for French Wikipedia's paragraph: as short as the English must be.
+                        texts.filter { missing.record.kind == RecordKind.BIO && it.fr.trim().length > BIO_LENGTH }
+                            .map { "${it.path}: ${it.fr.trim().length} characters, more than a bio's $BIO_LENGTH: shorten it" }
                     Proposal(translation, Origin.CLAUDE, problems.map { FlagReason(Flag.ODD, it) }, emptyList())
                 }
                 counts += claims.propose(proposals)

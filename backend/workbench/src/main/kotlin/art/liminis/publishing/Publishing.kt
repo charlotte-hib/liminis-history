@@ -8,6 +8,7 @@ import art.liminis.curation.ClaimType
 import art.liminis.curation.Connection
 import art.liminis.curation.MomentPage
 import art.liminis.curation.Story
+import art.liminis.dataset.DatasetStore
 import art.liminis.release.AnecdoteRecord
 import art.liminis.release.BioRecord
 import art.liminis.support.StaleException
@@ -68,6 +69,7 @@ class Publishing(
     private val claims: ClaimRepository,
     private val github: GitHub,
     private val properties: PublishProperties,
+    private val dataset: DatasetStore,
 ) {
 
     /** What a publish would change now. */
@@ -260,11 +262,17 @@ class Publishing(
      * needs their Q-id in `people.jsonl` for theirs to go.
      */
     private fun holdBackBios(bios: List<BioRecord>, byHand: Map<String, String>): List<HeldBack> {
-        if (properties.fetchedPeople) return emptyList()
         val fetched = bios.filter { it.person !in byHand }
+        // Someone the dataset no longer holds is in no release: their bio would stop it from loading.
+        val held = dataset.summaries(fetched.map { it.person }, fetched.size).map { it.person }.toSet()
         val names = words.names(fetched.map { it.person }, byHand)
-        return fetched.map {
-            HeldBack(ClaimRules.bioId(it.person), "It is about a fetched person, ${names.getValue(it.person)} (${it.person}), whom the release holds once it carries the dataset")
+        return fetched.mapNotNull {
+            val who = "${names.getValue(it.person)} (${it.person})"
+            when {
+                it.person !in held -> HeldBack(ClaimRules.bioId(it.person), "It is about $who, whom the dataset no longer holds")
+                !properties.fetchedPeople -> HeldBack(ClaimRules.bioId(it.person), "It is about a fetched person, $who, whom the release holds once it carries the dataset")
+                else -> null
+            }
         }
     }
 

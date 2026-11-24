@@ -186,7 +186,9 @@ object ClaimRules {
      * too.
      */
     private fun redraft(refreshed: ClaimState, state: ClaimState, flags: List<FlagReason>): ClaimState {
-        val edited = state.payload != state.proposal && state.status != ClaimStatus.REJECTED
+        // A bio written by hand rests on no passage: it is the curator's, as an edited draft is.
+        val byHand = state.payload is Bio && state.payload.citations.isEmpty()
+        val edited = (state.payload != state.proposal || byHand) && state.status != ClaimStatus.REJECTED
         val conflict = when {
             edited -> CHANGED_SINCE_EDITED
             state.status == ClaimStatus.APPROVED -> CHANGED_SINCE_APPROVED
@@ -240,6 +242,9 @@ object ClaimRules {
             if (payload.art?.credit?.isBlank() == true) invalid("The moment's painting needs a credit")
         }
         if (payload is Translation && payload.texts.any { it.fr.isBlank() }) invalid("Write every text in French")
+        if (payload is Translation && payload.record.startsWith("bio:") && payload.texts.any { it.fr.trim().length > BIO_LENGTH }) {
+            invalid("A bio is at most $BIO_LENGTH characters, in French too")
+        }
         if (payload is Bio) {
             if (payload.text.isBlank()) invalid("Write the bio, or reject it")
             if (payload.text.length > BIO_LENGTH) invalid("A bio is at most $BIO_LENGTH characters: this one has ${payload.text.length}")

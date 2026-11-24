@@ -19,6 +19,7 @@ import com.nimbusds.jose.crypto.RSASSAVerifier
 import com.nimbusds.jwt.SignedJWT
 import org.hamcrest.Matchers.contains
 import org.hamcrest.Matchers.containsString
+import org.hamcrest.Matchers.hasItem
 import org.hamcrest.Matchers.not
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -435,7 +436,7 @@ class PublicationApiTests(
             jsonPath("$.files[6].changes[0].change") { value("CHANGED") }
             jsonPath("$.files[6].changes[0].before") { value("""{"hook":"Old hook."}""") }
             jsonPath("$.files[6].changes[0].after") { value(containsString(""""cards":[{"type":"PERSON","text":"Someone there.","year":1875,"person":"victor-hugo"}]""")) }
-            jsonPath("$.files.length()") { value(6) }
+            jsonPath("$.files.length()") { value(7) }
             jsonPath("$.moments[1].moment") { value("paris-1870s") }
             jsonPath("$.moments[1].hook.before") { value("Old hook.") }
             jsonPath("$.moments[1].hook.after") { value("A new hook.") }
@@ -616,13 +617,14 @@ class PublicationApiTests(
     }
 
     @Test
-    fun `writes the approved bios by person, without their quotes, and holds back one about a fetched person`() {
+    fun `writes the approved bios by person, without their quotes, and holds back those about fetched or unknown people`() {
         CurationFixtures.map(dataset)
         file("data/corrections.jsonl", null)
         file("data/people.jsonl", """{"id":"katsushika-hokusai","qid":"Q5586","name":"Katsushika Hokusai"}""" + "\n" + """{"id":"victor-hugo","qid":"Q535","name":"Victor Hugo"}""" + "\n")
         file("data/bios.jsonl", """{"person":"Q5586","text":"A printmaker of Edo."}""" + "\n")
         approve(Bio("Q535", "A poet of Paris.", listOf(Citation("wikipedia:en", "Victor Hugo", "Never published"))), Bio("Q535", "A poet and novelist of Paris."))
         approve(Bio("Q504", "A novelist of Paris."))
+        approve(Bio("Q99999999", "Someone the dataset never held."))
         // Waiting: never published.
         claims.save(Claim.candidate(Bio("Q517", "An emperor."), Origin.CLAUDE, emptyList()))
 
@@ -640,15 +642,15 @@ class PublicationApiTests(
             jsonPath("$.bios[0].before") { value("A printmaker of Edo.") }
             jsonPath("$.bios[1].change") { value("ADDED") }
             jsonPath("$.bios[1].after") { value("A poet and novelist of Paris.") }
-            jsonPath("$.heldBack.length()") { value(1) }
-            jsonPath("$.heldBack[0].id") { value("bio:Q504") }
-            jsonPath("$.heldBack[0].reason") { value("It is about a fetched person, Émile Zola (Q504), whom the release holds once it carries the dataset") }
+            jsonPath("$.heldBack.length()") { value(2) }
+            jsonPath("$.heldBack[*].reason") { value(hasItem("It is about a fetched person, Émile Zola (Q504), whom the release holds once it carries the dataset")) }
+            jsonPath("$.heldBack[*].reason") { value(hasItem("It is about Q99999999 (Q99999999), whom the dataset no longer holds")) }
         }
 
         stubWrites()
         publish().andExpect { status { isOk() } }
         val tree = github.findAll(postRequestedFor(urlPathEqualTo("$repo/git/trees"))).single().bodyAsString
-        assertTrue("data/bios.jsonl" in tree && "Never published" !in tree && "An emperor" !in tree && "Q504" !in tree, tree)
+        assertTrue("data/bios.jsonl" in tree && "Never published" !in tree && "An emperor" !in tree && "Q504" !in tree && "Q99999999" !in tree, tree)
         github.verify(
             postRequestedFor(urlPathEqualTo("$repo/pulls"))
                 .withRequestBody(matchingJsonPath("$.body", containing("- Victor Hugo (Q535): added")))

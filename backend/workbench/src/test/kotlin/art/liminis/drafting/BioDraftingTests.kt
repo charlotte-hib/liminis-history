@@ -111,7 +111,7 @@ class BioDraftingTests(
     @Test
     fun `someone with no intro has nothing to draft from`() {
         assertThrows<NotFoundException> { drafting.draft("Q504") }
-        mockMvc.post("/api/people/{qid}/bio", "Q504") { signedIn() }.andExpect { status { isNotFound() } }
+        mockMvc.post("/api/people/{qid}/bio/draft", "Q504") { signedIn() }.andExpect { status { isNotFound() } }
     }
 
     @Test
@@ -119,7 +119,7 @@ class BioDraftingTests(
         answer("A French writer.", Citation("wikipedia:en", "French Romantic writer"))
         mockMvc.get("/api/people/{qid}/bio", "Q535") { signedIn() }.andExpect { jsonPath("$.draft") { doesNotExist() } }
 
-        val run = mockMvc.post("/api/people/{qid}/bio", "Q535") { signedIn() }.andExpect {
+        val run = mockMvc.post("/api/people/{qid}/bio/draft", "Q535") { signedIn() }.andExpect {
             status { isAccepted() }
             jsonPath("$.kind") { value("BIO_DRAFT") }
             jsonPath("$.person") { value("Q535") }
@@ -130,6 +130,6 @@ class BioDraftingTests(
         assertEquals(RunDto.Status.SUCCEEDED, runs.find(id).status, runs.find(id).result)
 
         claimRepository.save(claimRepository.findById("bio:Q535").get().apply { heldBy = "historian" })
-        mockMvc.post("/api/people/{qid}/bio", "Q535") { signedIn(CURATOR_SCOPES, username = "someone") }.andExpect { status { isConflict() } }
+        mockMvc.post("/api/people/{qid}/bio/draft", "Q535") { signedIn(CURATOR_SCOPES, username = "someone") }.andExpect { status { isConflict() } }
     }
 }

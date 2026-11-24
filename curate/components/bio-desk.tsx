@@ -43,9 +43,10 @@ export function useBio(qid: string, bio: BioClaim | null, viewer: Viewer) {
 
   /**
    * What approving the page decides on the bio: a new one written first, then approved; one edited, approved as
-   * edited; one waiting, approved; one cleared, rejected.
+   * edited; one waiting, approved; one cleared, rejected. Nothing on one someone else holds: the facts go alone.
    */
   const decisions = async (note?: string): Promise<Outcome<ClaimDecision[]>> => {
+    if (locked) return { ok: true, data: [] };
     const written = text.trim();
     const why = note?.trim() || undefined;
     if (!bio) {
@@ -64,8 +65,8 @@ export function useBio(qid: string, bio: BioClaim | null, viewer: Viewer) {
 
   // What the site shows in the panel: the bio, else Wikipedia's paragraph.
   const about = (intro: string | undefined) => text.trim() || intro;
-  // A bio waits for a decision when it is new here, edited, or a draft not yet approved.
-  const waiting = changed || (!!bio && open(bio.claim.status) && !!kept);
+  // A bio waits for a decision when it is new here, edited, or a draft not yet approved, and the page may decide on it.
+  const waiting = !locked && (changed || (!!bio && open(bio.claim.status) && !!kept));
   return { text, setText, changed, waiting, locked, tooLong, decisions, about, discard: () => setText(kept) };
 }
 
@@ -99,19 +100,24 @@ export function BioDesk({ qid, bio, draft, desk, disabled }: DeskProps) {
     };
   }, [running, router]);
 
-  const start = () =>
+  const start = () => {
+    // A draft takes the text's place, and sends an approved bio back to review.
+    if (desk.changed && !window.confirm("Claude's draft replaces the text you are writing. Draft anyway?")) return;
+    if (bio?.claim.status === "APPROVED" && !window.confirm("Drafting again sends the approved bio back to review: publishing leaves it out until you approve it again. Draft anyway?")) return;
     startTransition(async () => {
       setProblem(undefined);
       const result = await draftBio(qid);
       if (!result.ok) return setProblem(result.detail);
       router.refresh();
     });
+  };
 
   const payload = bio && bio.claim.status !== "REJECTED" ? (bio.claim.payload as Bio) : null;
-  const claude = bio?.claim.origin === "CLAUDE";
-  // A draft that came after the curator's edits: theirs stays, Claude's waits beside it until they choose.
+  // Claude's drafts rest on passages of the intros; a bio written by hand on none.
+  const claude = !!payload?.citations?.length;
+  // A draft that came after the curator's text: theirs stays, Claude's waits beside it until they choose.
   const proposal = bio?.claim.proposal as Bio | undefined;
-  const newer = claude && proposal && payload && proposal.text !== payload.text ? proposal.text : null;
+  const newer = proposal?.citations?.length && payload && proposal.text !== payload.text ? proposal.text : null;
   const length = desk.text.trim().length;
   const shown = !!desk.text || writing || !!bio;
   const off = disabled || desk.locked || running;

@@ -184,12 +184,17 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
       const facts = { action, payload, note: why?.trim() || undefined };
       // Approving the page approves the bio and the connections changed or waiting on it with the facts, all at once:
       // a bio written here gets its claim first.
+      // A bio written here has its claim once decisions() answers: a failed approval reads the page again to decide on it.
+      const wrote = !bioClaim && !!bio.text.trim() && action === "APPROVE";
       const bioDecisions = action === "APPROVE" ? await bio.decisions(why) : { ok: true as const, data: [] };
       if (!bioDecisions.ok) return setProblem(bioDecisions);
       const others = action === "APPROVE" ? [...bioDecisions.data, ...links.decisions(why)] : [];
       if (others.length) {
         const result = await decideAll([{ claim: claim.id, version: Number(version.replaceAll('"', "")), decision: facts }, ...others]);
-        if (!result.ok) return setProblem(result);
+        if (!result.ok) {
+          if (wrote) router.refresh();
+          return setProblem(result);
+        }
         const [decided, ...rest] = result.data;
         setLast({ id: claim.id, title: edited.label, version: `"${decided.version}"`, verdict: VERDICTS[action], href: here, others: rest });
       } else {
@@ -578,7 +583,7 @@ export function PersonDesk({ review, preview: first, neighbours, scope, moment, 
           </form>
         ) : (
           <>
-            <KeyButton keyName="A" label={changed ? "Approve with my changes" : "Approve"} primary disabled={pending || locked || !!invalid} onClick={() => decideOn("APPROVE", note)} />
+            <KeyButton keyName="A" label={changed ? "Approve with my changes" : bio.waiting ? "Approve with the bio" : "Approve"} primary disabled={pending || locked || !!invalid} onClick={() => decideOn("APPROVE", note)} />
             <KeyButton keyName="Esc" label="Discard my changes" disabled={pending || !changed} onClick={discard} />
             <KeyButton keyName="N" label="Keep for later" disabled={pending || locked} onClick={() => setAsking("NEEDS_WORK")} />
             <KeyButton keyName="R" label="Reject" disabled={pending || locked} onClick={() => setAsking("REJECT")} />

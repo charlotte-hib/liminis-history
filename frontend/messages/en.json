@@ -52,7 +52,7 @@
     "mapHint": "Gold dots are stories. Tap any dot to step in.",
     "stories": "Stories",
     "more": "More moments to explore",
-    "credits": "Bios and portraits come from Wikipedia, and every connection between people is a dated, sourced event. Paintings are public domain, via Wikimedia Commons."
+    "credits": "Portraits and most bios come from Wikipedia, and every connection between people is a dated, sourced event. Paintings are public domain, via Wikimedia Commons."
   },
   "storyMap": {
     "storyLabel": "{title}, story",

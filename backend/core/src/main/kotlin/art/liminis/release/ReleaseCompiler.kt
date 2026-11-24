@@ -125,7 +125,7 @@ object ReleaseCompiler {
      * there is one; until then the French site keeps French Wikipedia's.
      */
     private fun bio(references: References, bio: BioRecord) {
-        if (bio.text.isBlank()) throw InvalidReleaseException("${references.where}: a bio has text")
+        if (bio.text.isBlank() || bio.fr?.text?.isBlank() == true) throw InvalidReleaseException("${references.where}: a bio has text")
         if (listOfNotNull(bio.text, bio.fr?.text).any { it.length > BIO_LENGTH }) {
             throw InvalidReleaseException("${references.where}: a bio is at most $BIO_LENGTH characters")
         }

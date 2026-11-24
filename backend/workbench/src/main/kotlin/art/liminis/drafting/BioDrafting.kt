@@ -117,9 +117,14 @@ class BioDrafting(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    /** The intros [qid]'s bio is drafted from, by language: 404 when they have none. */
+    /**
+     * The intros [qid]'s bio is drafted from, by language: 404 when they have none. Only the articles their facts keep:
+     * one the curator removed (a namesake's page) is not theirs.
+     */
     fun sources(qid: String): List<Source> {
-        val sources = dataset.articles(qid).filter { it.language in LANGUAGES }.mapNotNull { article ->
+        val facts = reviewed.findById(ClaimRules.factsId(qid)).orElse(null)?.payload as PersonFacts?
+        val kept = facts?.let { mapOf("en" to it.enwiki, "fr" to it.frwiki) }
+        val sources = dataset.articles(qid).filter { it.language in LANGUAGES && (kept == null || kept[it.language] == it.title) }.mapNotNull { article ->
             val text = dropHatnote(article.extract).trim().takeIf { it.isNotEmpty() } ?: return@mapNotNull null
             Source("wikipedia:${article.language}", article.title, text, article.url, article = article.title)
         }
