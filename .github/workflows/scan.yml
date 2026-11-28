@@ -61,7 +61,7 @@ jobs:
           exit 1
       - name: Scan for every known vulnerability
         id: scan
-        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        uses: anchore/scan-action@11983a512817154c80a9db660c1a184be7513ed6 # v7.4.3
         with:
           image: ${{ steps.image.outputs.ref }}
           fail-build: false
@@ -70,12 +70,12 @@ jobs:
       - name: Report them in the Security tab
         # Dependabot's pull requests get a read-only token: their scan still fails or passes below.
         if: github.actor != 'dependabot[bot]'
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         with:
           sarif_file: ${{ steps.scan.outputs.sarif }}
           category: grype-${{ matrix.service }}
       - name: Fail on a critical vulnerability with a fix
-        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        uses: anchore/scan-action@11983a512817154c80a9db660c1a184be7513ed6 # v7.4.3
         with:
           image: ${{ steps.image.outputs.ref }}
           only-fixed: true
